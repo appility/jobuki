@@ -1,0 +1,236 @@
+// ── Board ────────────────────────────────────────────────────────────
+export type BoardStatus = 'draft' | 'live' | 'suspended'
+export type HeaderStyle = 'minimal' | 'bold' | 'coloured'
+export type ButtonStyle = 'rounded' | 'pill' | 'sharp'
+export type JobBoardHeaderStyle = 'solid' | 'gradient' | 'image'
+export type JobBoardThemePreset = 'minimal' | 'startup' | 'editorial' | 'bold' | 'dark'
+export type JobBoardEmptyStateIcon = 'search' | 'briefcase' | 'sparkle' | 'inbox'
+
+export interface JobBoardThemeConfig {
+  boardName: string
+  tagline?: string
+  logoUrl?: string
+  headerImageUrl?: string
+  brandColor: string
+  accentColor?: string
+  backgroundColor?: string
+  headerStyle: JobBoardHeaderStyle
+  themePreset: JobBoardThemePreset
+  showSearch: boolean
+  showFilters: boolean
+  emptyState: {
+    icon?: JobBoardEmptyStateIcon
+    title: string
+    description: string
+    ctaLabel?: string
+    ctaUrl?: string
+  }
+  footer: {
+    showPoweredBy: boolean
+    companyWebsiteUrl?: string
+  }
+}
+
+export interface BoardTheme {
+  // Brand
+  colorPrimary: string
+  colorPrimaryFg: string
+  colorAccent: string
+  colorAccentFg: string
+  // Surface
+  colorBackground: string
+  colorSurface: string
+  colorSurfaceSubtle: string
+  // Text
+  colorTextPrimary: string
+  colorTextSecondary: string
+  colorTextMuted: string
+  // Border
+  colorBorder: string
+  colorBorderStrong: string
+  // Typography
+  fontDisplay: string
+  fontBody: string
+  // Shape
+  radiusSm: string
+  radiusMd: string
+  radiusLg: string
+  radiusXl: string
+  radius2xl: string
+  // Header
+  headerStyle: HeaderStyle
+  // Button
+  buttonStyle: ButtonStyle
+  // Layout
+  boardMaxWidth: string
+}
+
+export interface Board {
+  id: string
+  workspaceId: string
+  name: string
+  slug: string
+  description: string | null
+  logoUrl: string | null
+  heroImageUrl: string | null
+  customDomain: string | null
+  railwayDomainId: string | null
+  customDomainStatus: 'pending_dns' | 'active' | 'failed' | null
+  status: BoardStatus
+  theme: BoardTheme
+  boardConfig: JobBoardThemeConfig | null
+  introText: string | null
+  footerText: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+// ── Job ──────────────────────────────────────────────────────────────
+export type JobStatus = 'draft' | 'published' | 'closed'
+export type RemotePolicy = 'remote' | 'hybrid' | 'onsite'
+export type EmploymentType = 'full-time' | 'part-time' | 'contract' | 'freelance' | 'internship'
+
+export interface Job {
+  id: string
+  boardId: string
+  title: string
+  company: string | null
+  location: string | null
+  remotePolicy: RemotePolicy
+  employmentType: EmploymentType
+  salaryMin: number | null
+  salaryMax: number | null
+  salaryCurrency: string
+  salaryPeriod: 'annual' | 'monthly' | 'daily' | 'hourly'
+  description: string
+  requirements: string | null
+  benefits: string | null
+  applicationDeadline: Date | null
+  status: JobStatus
+  createdAt: Date
+  updatedAt: Date
+}
+
+// ── Application ──────────────────────────────────────────────────────
+export type ApplicationStatus = 'new' | 'reviewing' | 'shortlisted' | 'rejected' | 'hired'
+
+export interface Application {
+  id: string
+  jobId: string
+  boardId: string
+  candidateName: string
+  candidateEmail: string
+  candidatePhone: string | null
+  cvUrl: string | null
+  coverLetter: string | null
+  linkedinUrl: string | null
+  portfolioUrl: string | null
+  status: ApplicationStatus
+  createdAt: Date
+  updatedAt: Date
+}
+
+// ── Workspace ────────────────────────────────────────────────────────
+export interface Workspace {
+  id: string
+  name: string
+  slug: string
+  clerkOrgId: string | null
+  plan: 'free' | 'growth' | 'scale'
+  createdAt: Date
+}
+
+// ── Context (passed from Express → RR7 loaders) ──────────────────────
+export interface AppLoadContext {
+  boardSlug?: string
+  boardHostname?: string
+  boardType?: 'subdomain' | 'custom' | null
+}
+
+// ── Default theme ────────────────────────────────────────────────────
+export const DEFAULT_THEME: BoardTheme = {
+  colorPrimary: '#3730A3',
+  colorPrimaryFg: '#ffffff',
+  colorAccent: '#F97316',
+  colorAccentFg: '#ffffff',
+  colorBackground: '#FAFAF8',
+  colorSurface: '#ffffff',
+  colorSurfaceSubtle: '#F5F4F2',
+  colorTextPrimary: '#1C1917',
+  colorTextSecondary: '#78716C',
+  colorTextMuted: '#A8A29E',
+  colorBorder: '#E7E5E4',
+  colorBorderStrong: '#D6D3D1',
+  fontDisplay: "'Plus Jakarta Sans', sans-serif",
+  fontBody: "'DM Sans', sans-serif",
+  radiusSm: '6px',
+  radiusMd: '10px',
+  radiusLg: '14px',
+  radiusXl: '18px',
+  radius2xl: '24px',
+  headerStyle: 'minimal',
+  buttonStyle: 'rounded',
+  boardMaxWidth: '800px',
+}
+
+export const DEFAULT_JOB_BOARD_THEME_CONFIG: JobBoardThemeConfig = {
+  boardName: 'Jobs',
+  tagline: '',
+  logoUrl: '',
+  headerImageUrl: '',
+  brandColor: '#3730A3',
+  accentColor: '#F97316',
+  backgroundColor: '#FAFAF8',
+  headerStyle: 'solid',
+  themePreset: 'minimal',
+  showSearch: true,
+  showFilters: true,
+  emptyState: {
+    icon: 'search',
+    title: 'No open positions right now',
+    description: 'Check back soon — new roles are added regularly.',
+    ctaLabel: '',
+    ctaUrl: '',
+  },
+  footer: {
+    showPoweredBy: true,
+    companyWebsiteUrl: '',
+  },
+}
+
+export function resolveJobBoardThemeConfig(
+  partial: Partial<JobBoardThemeConfig> | null | undefined,
+  fallbacks: {
+    boardName?: string
+    tagline?: string
+    logoUrl?: string
+    headerImageUrl?: string
+    brandColor?: string
+    accentColor?: string
+    backgroundColor?: string
+  } = {}
+): JobBoardThemeConfig {
+  const merged = {
+    ...DEFAULT_JOB_BOARD_THEME_CONFIG,
+    ...(partial ?? {}),
+    emptyState: {
+      ...DEFAULT_JOB_BOARD_THEME_CONFIG.emptyState,
+      ...(partial?.emptyState ?? {}),
+    },
+    footer: {
+      ...DEFAULT_JOB_BOARD_THEME_CONFIG.footer,
+      ...(partial?.footer ?? {}),
+    },
+  }
+
+  return {
+    ...merged,
+    boardName: merged.boardName || fallbacks.boardName || DEFAULT_JOB_BOARD_THEME_CONFIG.boardName,
+    tagline: merged.tagline || fallbacks.tagline || '',
+    logoUrl: merged.logoUrl || fallbacks.logoUrl || '',
+    headerImageUrl: merged.headerImageUrl || fallbacks.headerImageUrl || '',
+    brandColor: merged.brandColor || fallbacks.brandColor || DEFAULT_JOB_BOARD_THEME_CONFIG.brandColor,
+    accentColor: merged.accentColor || fallbacks.accentColor || DEFAULT_JOB_BOARD_THEME_CONFIG.accentColor,
+    backgroundColor: merged.backgroundColor || fallbacks.backgroundColor || DEFAULT_JOB_BOARD_THEME_CONFIG.backgroundColor,
+  }
+}

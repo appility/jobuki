@@ -1,0 +1,12 @@
+{
+  "name": "jobuki",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @jobuki/web-app dev",
+    "build": "pnpm --filter @jobuki/web-app build",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

@@ -1,0 +1,10 @@
+node_modules
+.env
+build
+.react-router
+dist
+.DS_Store
+*.local
+_notes
+# local visual reference
+apps/web-app/app/public/demo.png

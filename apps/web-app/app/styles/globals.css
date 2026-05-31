@@ -1,0 +1,395 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Default token values ────────────────────────────────────────────
+   Fallback values used by the admin app and as defaults for boards.
+   Per-board themes override by injecting a <style> tag on public pages.
+──────────────────────────────────────────────────────────────────── */
+:root {
+  --color-primary:        #3730A3;
+  --color-primary-fg:     #ffffff;
+  --color-accent:         #F97316;
+  --color-accent-fg:      #ffffff;
+  --color-background:     #FAFAF8;
+  --color-surface:        #ffffff;
+  --color-surface-subtle: #F5F4F2;
+  --color-text-primary:   #1C1917;
+  --color-text-secondary: #78716C;
+  --color-text-muted:     #A8A29E;
+  --color-border:         #E7E5E4;
+  --color-border-strong:  #D6D3D1;
+  --color-success:        #16A34A;
+  --color-success-bg:     #F0FDF4;
+  --color-warning:        #D97706;
+  --color-warning-bg:     #FFFBEB;
+  --color-danger:         #DC2626;
+  --color-danger-bg:      #FEF2F2;
+
+  --font-display: 'Plus Jakarta Sans', sans-serif;
+  --font-body:    'DM Sans', sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
+
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  14px;
+  --radius-xl:  18px;
+  --radius-2xl: 24px;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.08), 0 4px 8px rgba(0,0,0,0.04);
+  --shadow-xl: 0 24px 64px rgba(0,0,0,0.10), 0 8px 16px rgba(0,0,0,0.05);
+
+  --btn-radius:            var(--radius-lg);
+  --card-radius:           var(--radius-xl);
+  --card-padding:          1.5rem;
+  --job-card-radius:       var(--radius-lg);
+  --job-card-hover-border: var(--color-primary);
+  --input-radius:          var(--radius-md);
+  --input-focus-border:    var(--color-primary);
+  --board-max-width:       800px;
+  --board-content-padding: 1.5rem;
+  --header-bg:             var(--color-surface);
+  --header-text:           var(--color-text-primary);
+  --header-muted:          var(--color-text-secondary);
+  --header-border:         var(--color-border);
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 font-semibold transition-all duration-150 cursor-pointer border-0;
+    background-color: var(--color-primary);
+    color: var(--color-primary-fg);
+    border-radius: var(--btn-radius);
+    padding: 0.625rem 1.25rem;
+    font-family: var(--font-body);
+  }
+  .btn-primary:hover { filter: brightness(1.08); }
+
+  .btn-accent {
+    @apply inline-flex items-center justify-center gap-2 font-semibold transition-all duration-150 cursor-pointer border-0;
+    background-color: var(--color-accent);
+    color: var(--color-accent-fg);
+    border-radius: var(--btn-radius);
+    padding: 0.625rem 1.25rem;
+    font-family: var(--font-body);
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 font-semibold transition-all duration-150 cursor-pointer bg-transparent;
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--btn-radius);
+    padding: 0.625rem 1.25rem;
+    font-family: var(--font-body);
+  }
+  .btn-outline:hover {
+    border-color: var(--color-border-strong);
+    background-color: var(--color-surface-subtle);
+  }
+
+  .card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--card-radius);
+    padding: var(--card-padding);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .job-card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--job-card-radius);
+    padding: 1.25rem 1.5rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    cursor: pointer;
+  }
+  .job-card:hover {
+    border-color: var(--job-card-hover-border);
+    box-shadow: var(--shadow-md);
+  }
+
+  .input {
+    @apply w-full outline-none transition-all duration-150;
+    background-color: var(--color-surface-subtle);
+    border: 1px solid var(--color-border);
+    border-radius: var(--input-radius);
+    color: var(--color-text-primary);
+    font-family: var(--font-body);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+  }
+  .input::placeholder { color: var(--color-text-muted); }
+  .input:focus {
+    border-color: var(--input-focus-border);
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 12%, transparent);
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 font-semibold;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    padding: 0.2rem 0.6rem;
+    letter-spacing: 0.03em;
+    font-family: var(--font-body);
+  }
+
+  .board-container {
+    max-width: var(--board-max-width);
+    margin: 0 auto;
+    padding: 0 var(--board-content-padding);
+  }
+
+  .board-header {
+    background-color: var(--header-bg);
+    color: var(--header-text);
+    border-bottom: 1px solid var(--header-border);
+  }
+
+  .auth-shell {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background:
+      radial-gradient(circle at 15% 20%, color-mix(in srgb, var(--color-primary) 12%, transparent) 0%, transparent 42%),
+      radial-gradient(circle at 90% 80%, color-mix(in srgb, var(--color-accent) 14%, transparent) 0%, transparent 44%),
+      var(--color-background);
+  }
+
+  .auth-shell-inner {
+    width: min(1024px, 100%);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-2xl);
+    background-color: var(--color-surface);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+  }
+
+  .auth-side-panel {
+    padding: 3rem;
+    border-right: 1px solid var(--color-border);
+    background:
+      linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--color-primary) 7%, var(--color-surface-subtle)) 0%,
+        var(--color-surface-subtle) 55%,
+        color-mix(in srgb, var(--color-accent) 8%, var(--color-surface-subtle)) 100%
+      );
+  }
+
+  .auth-kicker {
+    margin: 0 0 0.75rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .auth-side-title {
+    margin: 0;
+    font-size: clamp(1.8rem, 3vw, 2.35rem);
+    line-height: 1.1;
+    color: var(--color-text-primary);
+  }
+
+  .auth-side-copy {
+    margin: 1rem 0 0;
+    max-width: 28ch;
+    font-size: 0.98rem;
+    line-height: 1.6;
+    color: var(--color-text-secondary);
+  }
+
+  .auth-form-panel {
+    padding: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--color-surface);
+  }
+
+  .auth-clerk-slot {
+    width: 100%;
+    max-width: 420px;
+    min-height: 532px;
+    display: flex;
+    align-items: stretch;
+  }
+
+  .auth-clerk-root {
+    width: 100%;
+    max-width: 420px;
+    min-height: 532px;
+    display: flex;
+  }
+
+  .auth-clerk-card-box {
+    width: 100%;
+    min-height: 100%;
+  }
+
+  .auth-clerk-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-surface);
+    box-shadow: var(--shadow-sm);
+    padding: 1.5rem;
+    min-height: 100%;
+  }
+
+  .auth-clerk-title {
+    color: var(--color-text-primary);
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  .auth-clerk-subtitle,
+  .auth-clerk-footer-text,
+  .auth-clerk-identity-text {
+    color: var(--color-text-secondary);
+    font-size: 0.88rem;
+  }
+
+  .auth-clerk-label {
+    color: var(--color-text-primary);
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .auth-clerk-input {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background-color: var(--color-surface-subtle);
+    color: var(--color-text-primary);
+    box-shadow: none;
+    font-size: 0.9rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .auth-clerk-input:focus,
+  .auth-clerk-input:focus-visible {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 14%, transparent);
+    outline: none;
+  }
+
+  .auth-clerk-primary-btn {
+    border: 0;
+    border-radius: var(--radius-lg);
+    background-color: var(--color-primary);
+    color: var(--color-primary-fg);
+    font-family: var(--font-body);
+    font-size: 0.92rem;
+    font-weight: 700;
+    transition: filter 0.15s ease;
+  }
+
+  .auth-clerk-primary-btn:hover,
+  .auth-clerk-primary-btn:focus-visible {
+    filter: brightness(1.08);
+  }
+
+  .auth-clerk-social-btn {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background-color: var(--color-surface);
+    color: var(--color-text-primary);
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .auth-clerk-social-btn:hover,
+  .auth-clerk-social-btn:focus-visible {
+    border-color: var(--color-border-strong);
+    background-color: var(--color-surface-subtle);
+  }
+
+  .auth-clerk-social-btn-text {
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .auth-clerk-divider-line {
+    background-color: var(--color-border);
+  }
+
+  .auth-clerk-divider-text,
+  .auth-clerk-alert-text {
+    color: var(--color-text-muted);
+    font-size: 0.78rem;
+  }
+
+  .auth-clerk-alert {
+    border-radius: var(--radius-md);
+  }
+
+  .auth-clerk-footer-link {
+    color: var(--color-primary);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .auth-clerk-footer-link:hover,
+  .auth-clerk-footer-link:focus-visible {
+    text-decoration: underline;
+  }
+
+  @media (max-width: 900px) {
+    .auth-shell {
+      padding: 1rem;
+    }
+
+    .auth-shell-inner {
+      grid-template-columns: 1fr;
+      max-width: 520px;
+    }
+
+    .auth-side-panel {
+      border-right: 0;
+      border-bottom: 1px solid var(--color-border);
+      padding: 1.5rem;
+    }
+
+    .auth-side-copy {
+      max-width: none;
+    }
+
+    .auth-form-panel {
+      padding: 1.2rem;
+    }
+
+    .auth-clerk-card {
+      box-shadow: none;
+      border: 0;
+      background: transparent;
+      padding: 0.2rem;
+    }
+
+    .auth-clerk-slot {
+      min-height: 0;
+    }
+
+    .auth-clerk-root {
+      min-height: 0;
+    }
+  }
+}

@@ -1,0 +1,23 @@
+export const clerkAuthAppearance = {
+  theme: 'simple',
+  elements: {
+    rootBox: 'auth-clerk-root',
+    cardBox: 'auth-clerk-card-box',
+    card: 'auth-clerk-card',
+    headerTitle: 'auth-clerk-title',
+    headerSubtitle: 'auth-clerk-subtitle',
+    socialButtonsBlockButton: 'auth-clerk-social-btn',
+    socialButtonsBlockButtonText: 'auth-clerk-social-btn-text',
+    dividerLine: 'auth-clerk-divider-line',
+    dividerText: 'auth-clerk-divider-text',
+    formFieldLabel: 'auth-clerk-label',
+    formFieldInput: 'auth-clerk-input',
+    formButtonPrimary: 'auth-clerk-primary-btn',
+    footerActionText: 'auth-clerk-footer-text',
+    footerActionLink: 'auth-clerk-footer-link',
+    formResendCodeLink: 'auth-clerk-footer-link',
+    identityPreviewText: 'auth-clerk-identity-text',
+    alertText: 'auth-clerk-alert-text',
+    alert: 'auth-clerk-alert',
+  },
+} as const

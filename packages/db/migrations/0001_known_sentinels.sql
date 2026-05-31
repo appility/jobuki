@@ -1,0 +1,1 @@
+ALTER TABLE "boards" ADD COLUMN "hero_image_url" text;

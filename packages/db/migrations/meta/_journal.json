@@ -1,0 +1,27 @@
+{
+  "version": "6",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1780182143791,
+      "tag": "0000_lazy_crusher_hogan",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1780231759101,
+      "tag": "0001_known_sentinels",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788264000000,
+      "tag": "0002_red_board_config",
+      "breakpoints": true
+    }
+  ]
+}
