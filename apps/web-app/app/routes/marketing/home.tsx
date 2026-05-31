@@ -1,4 +1,4 @@
-import { Link, useLoaderData } from 'react-router'
+import { Form, Link, useLoaderData } from 'react-router'
 import type { LoaderFunctionArgs } from 'react-router'
 import { getDb, boards, jobs } from '@jobuki/db'
 import { eq, and, desc } from 'drizzle-orm'
@@ -32,8 +32,46 @@ export async function loader({ request }: LoaderFunctionArgs) {
     orderBy: [desc(jobs.createdAt)],
   })
 
+  const url = new URL(request.url)
+  const q = (url.searchParams.get('q') ?? '').trim().toLowerCase()
+  const location = (url.searchParams.get('location') ?? '').trim().toLowerCase()
+  const department = (url.searchParams.get('department') ?? '').trim().toLowerCase()
+
+  const filteredJobs = publishedJobs.filter((job) => {
+    const qMatch =
+      !q ||
+      job.title.toLowerCase().includes(q) ||
+      (job.company ?? '').toLowerCase().includes(q) ||
+      (job.location ?? '').toLowerCase().includes(q)
+
+    const locationMatch = !location || (job.location ?? '').toLowerCase() === location
+    const departmentMatch = !department || job.employmentType.toLowerCase() === department
+
+    return qMatch && locationMatch && departmentMatch
+  })
+
+  const locations = Array.from(
+    new Set(
+      publishedJobs
+        .map((job) => (job.location ?? '').trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b))
+
+  const departments = Array.from(
+    new Set(publishedJobs.map((job) => job.employmentType))
+  )
+
   const css = themeToCSS(resolveTheme(board.theme ?? {}))
-  return { mode: 'board' as const, board, jobs: publishedJobs, css }
+  return {
+    mode: 'board' as const,
+    board,
+    css,
+    jobs: filteredJobs,
+    totalOpen: publishedJobs.length,
+    filters: { q, location, department },
+    filterOptions: { locations, departments },
+  }
 }
 
 export default function Home() {
@@ -67,7 +105,7 @@ const TYPE_LABEL: Record<string, string> = {
 
 // ── Board home ────────────────────────────────────────────────────────
 function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>, { mode: 'board' }> }) {
-  const { board, jobs: publishedJobs, css } = data
+  const { board, jobs: publishedJobs, css, totalOpen, filters, filterOptions } = data
   const boardConfig = resolveJobBoardThemeConfig(board.boardConfig, {
     boardName: board.name,
     tagline: board.introText ?? undefined,
@@ -78,10 +116,57 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
     backgroundColor: (board.theme as any)?.colorBackground,
   })
   const headerHasImage = boardConfig.headerStyle === 'image' && !!boardConfig.headerImageUrl
+  const emptyCtaLabel = boardConfig.emptyState.ctaLabel || 'Get job alerts'
+  const emptyCtaUrl = boardConfig.emptyState.ctaUrl || '#'
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-background)', fontFamily: 'var(--font-body)' }}>
+    <div
+      className="min-h-screen"
+      style={{
+        backgroundColor: boardConfig.backgroundColor || 'var(--color-background)',
+        fontFamily: 'var(--font-body)',
+      }}
+    >
       <style dangerouslySetInnerHTML={{ __html: css }} />
+
+      {/* Top bar */}
+      <div style={{ backgroundColor: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)' }}>
+        <div className="board-container py-5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            {(boardConfig.logoUrl || board.logoUrl) && (
+              <img
+                src={boardConfig.logoUrl || board.logoUrl!}
+                alt={boardConfig.boardName}
+                className="w-12 h-12 rounded-lg object-cover"
+              />
+            )}
+            <div className="min-w-0">
+              <p className="text-2xl font-extrabold leading-tight truncate" style={{ color: 'var(--color-text-primary)' }}>
+                {boardConfig.boardName}
+              </p>
+              <p className="text-sm truncate" style={{ color: 'var(--color-text-secondary)' }}>
+                {boardConfig.tagline || board.introText || 'Find your next role'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {boardConfig.footer.companyWebsiteUrl && (
+              <a
+                href={boardConfig.footer.companyWebsiteUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-outline text-sm whitespace-nowrap"
+              >
+                View company site
+              </a>
+            )}
+            <a href={emptyCtaUrl} target="_blank" rel="noreferrer" className="btn-primary text-sm whitespace-nowrap">
+              {emptyCtaLabel}
+            </a>
+          </div>
+        </div>
+      </div>
 
       {/* Header */}
       <header
@@ -105,72 +190,94 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
             background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.3) 100%)',
           }} />
         )}
-        <div className="board-container py-12" style={{ position: 'relative' }}>
-          <div className="flex items-center gap-4 mb-5">
-            {(boardConfig.logoUrl || board.logoUrl) && (
-              <img src={boardConfig.logoUrl || board.logoUrl!} alt={boardConfig.boardName}
-                className="w-12 h-12 rounded-xl object-contain"
-                style={{
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  backgroundColor: 'rgba(255,255,255,0.1)',
-                  backdropFilter: 'blur(4px)',
-                }} />
-            )}
-            <div>
-              <h1 className="text-3xl font-extrabold leading-tight"
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  color: headerHasImage ? '#fff' : 'var(--header-text)',
-                }}>
-                {boardConfig.boardName}
-              </h1>
-              <p className="text-sm mt-0.5"
-                style={{ color: headerHasImage ? 'rgba(255,255,255,0.75)' : 'var(--header-muted)' }}>
-                {publishedJobs.length} open position{publishedJobs.length !== 1 ? 's' : ''}
-              </p>
-            </div>
-          </div>
+        <div className="board-container py-14" style={{ position: 'relative' }}>
+          <h1 className="text-6xl font-extrabold leading-tight"
+            style={{
+              fontFamily: 'var(--font-display)',
+              color: headerHasImage ? '#fff' : 'var(--header-text)',
+            }}>
+            {boardConfig.boardName}
+          </h1>
           {(boardConfig.tagline || board.introText) && (
-            <p className="text-base leading-relaxed max-w-lg"
+            <p className="text-5 leading-relaxed max-w-2xl mt-4"
               style={{ color: headerHasImage ? 'rgba(255,255,255,0.85)' : 'var(--header-muted)' }}>
               {boardConfig.tagline || board.introText}
             </p>
           )}
+          <p className="text-4xl font-semibold mt-8" style={{ color: 'var(--color-accent)' }}>
+            {totalOpen}
+            <span className="text-2xl font-normal ml-2" style={{ color: headerHasImage ? 'rgba(255,255,255,0.85)' : 'var(--header-muted)' }}>
+              open position{totalOpen !== 1 ? 's' : ''}
+            </span>
+          </p>
         </div>
       </header>
 
       {boardConfig.showSearch && (
-        <div className="board-container py-4">
-          <div className="input" style={{ color: 'var(--color-text-muted)' }}>
-            Search roles...
-          </div>
+        <div className="board-container relative -mt-10 z-10">
+          <Form method="get" className="p-4 rounded-2xl flex gap-3 items-center"
+            style={{
+              backgroundColor: 'var(--color-surface)',
+              border: '1px solid var(--color-border)',
+              boxShadow: 'var(--shadow-lg)',
+            }}>
+            <input
+              className="input flex-1"
+              name="q"
+              defaultValue={filters.q}
+              placeholder="Search jobs, companies, or keywords"
+            />
+            <select className="input w-56" name="location" defaultValue={filters.location}>
+              <option value="">Any location</option>
+              {filterOptions.locations.map((option) => (
+                <option key={option} value={option.toLowerCase()}>{option}</option>
+              ))}
+            </select>
+            {boardConfig.showFilters && (
+              <select className="input w-56" name="department" defaultValue={filters.department}>
+                <option value="">All departments</option>
+                {filterOptions.departments.map((option) => (
+                  <option key={option} value={option.toLowerCase()}>{TYPE_LABEL[option] ?? option}</option>
+                ))}
+              </select>
+            )}
+            <button type="submit" className="btn-primary text-sm whitespace-nowrap">Search jobs</button>
+          </Form>
         </div>
       )}
 
       {/* Jobs */}
       <main className="board-container py-10">
         {publishedJobs.length === 0 ? (
-          <div className="py-24 text-center">
+          <div
+            className="mx-auto text-center p-12 rounded-2xl"
+            style={{
+              maxWidth: 640,
+              backgroundColor: 'var(--color-surface)',
+              border: '1px solid var(--color-border)',
+              boxShadow: 'var(--shadow-sm)',
+            }}
+          >
             <div className="text-5xl mb-5">
               {boardConfig.emptyState.icon === 'briefcase' ? '💼' :
                 boardConfig.emptyState.icon === 'sparkle' ? '✨' :
                   boardConfig.emptyState.icon === 'inbox' ? '📥' : '🔎'}
             </div>
-            <p className="text-lg font-semibold mb-2"
+            <p className="text-4xl font-semibold mb-2"
               style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-display)' }}>
               {boardConfig.emptyState.title}
             </p>
-            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+            <p className="text-base max-w-lg mx-auto" style={{ color: 'var(--color-text-muted)' }}>
               {boardConfig.emptyState.description}
             </p>
-            {boardConfig.emptyState.ctaLabel && boardConfig.emptyState.ctaUrl && (
+            {(boardConfig.emptyState.ctaLabel || boardConfig.emptyState.ctaUrl) && (
               <a
-                href={boardConfig.emptyState.ctaUrl}
-                className="btn-primary inline-flex mt-4"
+                href={emptyCtaUrl}
+                className="btn-primary inline-flex mt-6"
                 target="_blank"
                 rel="noreferrer"
               >
-                {boardConfig.emptyState.ctaLabel}
+                {emptyCtaLabel}
               </a>
             )}
           </div>
@@ -228,6 +335,11 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
 
       <footer className="board-container py-8 mt-4"
         style={{ borderTop: '1px solid var(--color-border)' }}>
+        <div className="flex items-center justify-center gap-6 mb-4 text-xl" style={{ color: 'var(--color-text-muted)' }}>
+          <span>🐦</span>
+          <span>💼</span>
+          <span>🌐</span>
+        </div>
         <p className="text-xs text-center" style={{ color: 'var(--color-text-muted)' }}>
           {board.footerText || (
             boardConfig.footer.showPoweredBy
