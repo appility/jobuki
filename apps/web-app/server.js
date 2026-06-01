@@ -9,6 +9,10 @@ import { createRequestHandler } from '@react-router/express'
 import { RouterContextProvider } from 'react-router'
 
 const ROOT_DOMAIN = process.env.ROOT_DOMAIN || 'jobuki.co'
+const APP_PUBLIC_HOSTS = (process.env.APP_PUBLIC_HOSTS || '')
+  .split(',')
+  .map((host) => host.trim().toLowerCase())
+  .filter(Boolean)
 const PORT = process.env.PORT || 3000
 const IS_PROD = process.env.NODE_ENV === 'production'
 
@@ -20,13 +24,17 @@ app.use(express.static('build/client', { maxAge: IS_PROD ? '1y' : 0 }))
 
 // ── Subdomain / custom domain resolution ─────────────────────────────
 app.use((req, _res, next) => {
-  const host = req.hostname
+  const host = req.hostname.toLowerCase()
 
   // Local dev — no subdomain handling needed
   if (host === 'localhost' || host === '127.0.0.1') return next()
 
   // Root domain — marketing + admin app
   if (host === ROOT_DOMAIN || host === `www.${ROOT_DOMAIN}`) return next()
+
+  // Railway default domains and optional extra app hosts should behave like root app.
+  // This prevents default deploy URLs (e.g. *.up.railway.app) from being treated as board domains.
+  if (host.endsWith('.up.railway.app') || APP_PUBLIC_HOSTS.includes(host)) return next()
 
   // Jobuki subdomain: acme.jobuki.co
   if (host.endsWith(`.${ROOT_DOMAIN}`)) {
