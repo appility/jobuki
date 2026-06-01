@@ -1,6 +1,11 @@
 import { config } from 'dotenv'
-config({ path: '.env' })
-config({ path: '.env.local', override: true })
+import { dirname, join } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+const appRoot = dirname(fileURLToPath(import.meta.url))
+
+config({ path: join(appRoot, '.env') })
+config({ path: join(appRoot, '.env.local'), override: true })
 
 import express from 'express'
 import compression from 'compression'
@@ -20,7 +25,7 @@ const app = express()
 
 app.use(compression())
 app.use(morgan(IS_PROD ? 'combined' : 'dev'))
-app.use(express.static('build/client', { maxAge: IS_PROD ? '1y' : 0 }))
+app.use(express.static(join(appRoot, 'build/client'), { maxAge: IS_PROD ? '1y' : 0 }))
 
 // ── Subdomain / custom domain resolution ─────────────────────────────
 app.use((req, _res, next) => {
@@ -56,8 +61,8 @@ app.all(
   createRequestHandler({
     // In dev, vite serves this. In prod, import the built server bundle.
     build: IS_PROD
-      ? await import('./build/server/index.js')
-      : () => import('./build/server/index.js'),
+      ? await import(pathToFileURL(join(appRoot, 'build/server/index.js')).href)
+      : () => import(pathToFileURL(join(appRoot, 'build/server/index.js')).href),
 
     getLoadContext() {
       // v8_middleware requires a RouterContextProvider.
