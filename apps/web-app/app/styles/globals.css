@@ -148,9 +148,8 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   .board-container {
-    max-width: var(--board-max-width);
+    width: min(1120px, calc(100vw - 32px));
     margin: 0 auto;
-    padding: 0 var(--board-content-padding);
   }
 
   .board-header {
@@ -391,5 +390,11 @@ h1, h2, h3, h4, h5, h6 {
     .auth-clerk-root {
       min-height: 0;
     }
+  }
+}
+
+@media (min-width: 768px) {
+  .board-container {
+    width: min(1120px, calc(100vw - 64px));
   }
 }

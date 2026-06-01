@@ -47,17 +47,6 @@ export default function Apply() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--color-background)', fontFamily: 'var(--font-body)' }}>
 
-      {/* Top nav */}
-      <header style={{ backgroundColor: 'var(--header-bg)', borderBottom: '1px solid var(--header-border)' }}>
-        <div className="board-container py-4">
-          <Link to={`/jobs/${job.id}`} className="no-underline flex items-center gap-2 w-fit"
-            style={{ color: 'var(--header-muted)' }}>
-            <span className="text-sm">←</span>
-            <span className="text-sm font-medium">{job.title}</span>
-          </Link>
-        </div>
-      </header>
-
       <main className="board-container py-12">
         {actionData?.submitted ? (
           /* Success state */

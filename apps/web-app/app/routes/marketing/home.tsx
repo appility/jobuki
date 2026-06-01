@@ -1,5 +1,5 @@
 import { Form, Link, useLoaderData } from 'react-router'
-import type { LoaderFunctionArgs } from 'react-router'
+import type { LoaderFunctionArgs, MetaFunction } from 'react-router'
 import { getDb, boards, jobs } from '@jobuki/db'
 import { eq, and, desc } from 'drizzle-orm'
 import { resolveTheme, themeToCSS } from '../../lib/theme'
@@ -74,6 +74,23 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 }
 
+export const meta: MetaFunction<typeof loader> = ({ data }) => {
+  if (!data || data.mode === 'marketing') {
+    return [
+      { title: 'Jobuki | Modern Job Boards' },
+      { name: 'description', content: 'Create branded job boards and publish roles with Jobuki.' },
+    ]
+  }
+
+  return [
+    { title: `${data.board.name} Jobs` },
+    {
+      name: 'description',
+      content: data.board.introText?.trim() || `Explore open roles at ${data.board.name}.`,
+    },
+  ]
+}
+
 export default function Home() {
   const data = useLoaderData<typeof loader>()
   if (data.mode === 'board') return <BoardHome data={data} />
@@ -115,9 +132,14 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
     accentColor: (board.theme as any)?.colorAccent,
     backgroundColor: (board.theme as any)?.colorBackground,
   })
-  const headerHasImage = boardConfig.headerStyle === 'image' && !!boardConfig.headerImageUrl
+  const logoUrl = (boardConfig.logoUrl ?? '').trim()
+  const heroImageUrl = (boardConfig.headerImageUrl ?? '').trim()
+  const headerHasImage = !!heroImageUrl
+  const hasLogo = logoUrl.length > 0
   const emptyCtaLabel = boardConfig.emptyState.ctaLabel || 'Get job alerts'
   const emptyCtaUrl = boardConfig.emptyState.ctaUrl || '#'
+  const heroTextColor = headerHasImage ? '#fff' : 'var(--header-text)'
+  const heroMutedColor = headerHasImage ? 'rgba(255,255,255,0.84)' : 'var(--header-muted)'
 
   return (
     <div
@@ -131,37 +153,38 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
 
       {/* Top bar */}
       <div style={{ backgroundColor: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)' }}>
-        <div className="board-container py-5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            {(boardConfig.logoUrl || board.logoUrl) && (
+        <div className="board-container py-4 md:py-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            {hasLogo ? (
               <img
-                src={boardConfig.logoUrl || board.logoUrl!}
+                src={logoUrl}
                 alt={boardConfig.boardName}
-                className="w-12 h-12 rounded-lg object-cover"
+                className="h-16 md:h-20 lg:h-24 w-auto max-w-[220px] md:max-w-[280px] object-contain shrink-0"
               />
+            ) : (
+              <div className="min-w-0">
+                <p className="text-[16px] md:text-[18px] font-extrabold leading-tight truncate" style={{ color: 'var(--color-text-primary)' }}>
+                  {boardConfig.boardName}
+                </p>
+                <p className="text-[13px] md:text-[14px] truncate" style={{ color: 'var(--color-text-secondary)' }}>
+                  {boardConfig.tagline || board.introText || 'Find your next role'}
+                </p>
+              </div>
             )}
-            <div className="min-w-0">
-              <p className="text-2xl font-extrabold leading-tight truncate" style={{ color: 'var(--color-text-primary)' }}>
-                {boardConfig.boardName}
-              </p>
-              <p className="text-sm truncate" style={{ color: 'var(--color-text-secondary)' }}>
-                {boardConfig.tagline || board.introText || 'Find your next role'}
-              </p>
-            </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {boardConfig.footer.companyWebsiteUrl && (
               <a
                 href={boardConfig.footer.companyWebsiteUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="btn-outline text-sm whitespace-nowrap"
+                className="btn-outline text-[13px] whitespace-nowrap"
               >
                 View company site
               </a>
             )}
-            <a href={emptyCtaUrl} target="_blank" rel="noreferrer" className="btn-primary text-sm whitespace-nowrap">
+            <a href={emptyCtaUrl} target="_blank" rel="noreferrer" className="btn-primary text-[13px] whitespace-nowrap px-5 py-2.5">
               {emptyCtaLabel}
             </a>
           </div>
@@ -173,7 +196,7 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
         style={{
           background:
             headerHasImage
-              ? `url(${boardConfig.headerImageUrl}) center / cover no-repeat`
+              ? `url(${heroImageUrl}) center / cover no-repeat`
               : boardConfig.headerStyle === 'gradient'
                 ? `linear-gradient(120deg, ${boardConfig.brandColor} 0%, ${boardConfig.accentColor || boardConfig.brandColor} 100%)`
                 : 'var(--header-bg)',
@@ -187,26 +210,26 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
         {headerHasImage && (
           <div style={{
             position: 'absolute', inset: 0,
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.3) 100%)',
+            background: 'linear-gradient(180deg, rgba(10,14,22,0.56) 0%, rgba(10,14,22,0.36) 100%)',
           }} />
         )}
-        <div className="board-container py-14" style={{ position: 'relative' }}>
-          <h1 className="text-6xl font-extrabold leading-tight"
+        <div className="board-container py-12 md:py-16" style={{ position: 'relative', minHeight: 320 }}>
+          <h1 className="text-[42px] md:text-[56px] lg:text-[62px] font-extrabold leading-[0.95] tracking-[-0.02em] max-w-[14ch]"
             style={{
               fontFamily: 'var(--font-display)',
-              color: headerHasImage ? '#fff' : 'var(--header-text)',
+              color: heroTextColor,
             }}>
             {boardConfig.boardName}
           </h1>
           {(boardConfig.tagline || board.introText) && (
-            <p className="text-5 leading-relaxed max-w-2xl mt-4"
-              style={{ color: headerHasImage ? 'rgba(255,255,255,0.85)' : 'var(--header-muted)' }}>
+            <p className="text-[18px] md:text-[22px] leading-[1.4] max-w-3xl mt-4"
+              style={{ color: heroMutedColor }}>
               {boardConfig.tagline || board.introText}
             </p>
           )}
-          <p className="text-4xl font-semibold mt-8" style={{ color: 'var(--color-accent)' }}>
-            {totalOpen}
-            <span className="text-2xl font-normal ml-2" style={{ color: headerHasImage ? 'rgba(255,255,255,0.85)' : 'var(--header-muted)' }}>
+          <p className="text-[24px] md:text-[26px] font-semibold mt-7" style={{ color: 'var(--color-accent)' }}>
+            <span className="text-[40px] md:text-[44px] align-middle">{totalOpen}</span>
+            <span className="text-[22px] md:text-[24px] font-normal ml-3 align-middle" style={{ color: heroMutedColor }}>
               open position{totalOpen !== 1 ? 's' : ''}
             </span>
           </p>
@@ -214,66 +237,73 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
       </header>
 
       {boardConfig.showSearch && (
-        <div className="board-container relative -mt-10 z-10">
-          <Form method="get" className="p-4 rounded-2xl flex gap-3 items-center"
+        <div className="board-container relative -mt-9 md:-mt-10 z-10">
+          <Form method="get" className="p-3 md:p-4 rounded-[20px] grid grid-cols-1 md:grid-cols-4 gap-3 items-center"
             style={{
               backgroundColor: 'var(--color-surface)',
               border: '1px solid var(--color-border)',
-              boxShadow: 'var(--shadow-lg)',
+              boxShadow: '0 12px 30px rgba(15, 23, 42, 0.12)',
             }}>
             <input
-              className="input flex-1"
+              id="jobs-search"
+              aria-label="Search jobs"
+              className="input text-[15px]"
               name="q"
               defaultValue={filters.q}
               placeholder="Search jobs, companies, or keywords"
             />
-            <select className="input w-56" name="location" defaultValue={filters.location}>
+            <label htmlFor="jobs-location" className="sr-only">Location</label>
+            <select id="jobs-location" className="input text-[15px]" name="location" defaultValue={filters.location}>
               <option value="">Any location</option>
               {filterOptions.locations.map((option) => (
                 <option key={option} value={option.toLowerCase()}>{option}</option>
               ))}
             </select>
             {boardConfig.showFilters && (
-              <select className="input w-56" name="department" defaultValue={filters.department}>
-                <option value="">All departments</option>
-                {filterOptions.departments.map((option) => (
-                  <option key={option} value={option.toLowerCase()}>{TYPE_LABEL[option] ?? option}</option>
-                ))}
-              </select>
+              <>
+                <label htmlFor="jobs-department" className="sr-only">Department</label>
+                <select id="jobs-department" className="input text-[15px]" name="department" defaultValue={filters.department}>
+                  <option value="">All departments</option>
+                  {filterOptions.departments.map((option) => (
+                    <option key={option} value={option.toLowerCase()}>{TYPE_LABEL[option] ?? option}</option>
+                  ))}
+                </select>
+              </>
             )}
-            <button type="submit" className="btn-primary text-sm whitespace-nowrap">Search jobs</button>
+            <button type="submit" className="btn-primary text-[15px] whitespace-nowrap h-[44px]">Search jobs</button>
           </Form>
         </div>
       )}
 
       {/* Jobs */}
-      <main className="board-container py-10">
+      <main className="board-container pt-12 pb-14 md:pt-14">
         {publishedJobs.length === 0 ? (
           <div
-            className="mx-auto text-center p-12 rounded-2xl"
+            className="mx-auto text-center px-8 py-12 md:px-12 md:py-14 rounded-[22px]"
             style={{
-              maxWidth: 640,
+              maxWidth: 740,
               backgroundColor: 'var(--color-surface)',
               border: '1px solid var(--color-border)',
-              boxShadow: 'var(--shadow-sm)',
+              boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)',
             }}
           >
-            <div className="text-5xl mb-5">
+            <div className="w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center text-[28px]"
+              style={{ backgroundColor: 'var(--color-surface-subtle)' }}>
               {boardConfig.emptyState.icon === 'briefcase' ? '💼' :
                 boardConfig.emptyState.icon === 'sparkle' ? '✨' :
                   boardConfig.emptyState.icon === 'inbox' ? '📥' : '🔎'}
             </div>
-            <p className="text-4xl font-semibold mb-2"
+            <p className="text-[24px] md:text-[28px] font-semibold mb-3"
               style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-display)' }}>
               {boardConfig.emptyState.title}
             </p>
-            <p className="text-base max-w-lg mx-auto" style={{ color: 'var(--color-text-muted)' }}>
+            <p className="text-[15px] md:text-[16px] leading-7 max-w-xl mx-auto" style={{ color: 'var(--color-text-muted)' }}>
               {boardConfig.emptyState.description}
             </p>
             {(boardConfig.emptyState.ctaLabel || boardConfig.emptyState.ctaUrl) && (
               <a
                 href={emptyCtaUrl}
-                className="btn-primary inline-flex mt-6"
+                className="btn-primary inline-flex mt-7 text-[15px] px-7 py-3"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -333,14 +363,14 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
         )}
       </main>
 
-      <footer className="board-container py-8 mt-4"
+      <footer className="board-container py-10 mt-2"
         style={{ borderTop: '1px solid var(--color-border)' }}>
-        <div className="flex items-center justify-center gap-6 mb-4 text-xl" style={{ color: 'var(--color-text-muted)' }}>
-          <span>🐦</span>
-          <span>💼</span>
-          <span>🌐</span>
+        <div className="flex items-center justify-center gap-6 mb-4 text-sm" style={{ color: 'var(--color-text-muted)' }}>
+          <span>X</span>
+          <span>LinkedIn</span>
+          <span>Website</span>
         </div>
-        <p className="text-xs text-center" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="text-[13px] text-center" style={{ color: 'var(--color-text-muted)' }}>
           {board.footerText || (
             boardConfig.footer.showPoweredBy
               ? <><span>Powered by </span><span className="font-extrabold" style={{ color: 'var(--color-text-secondary)' }}>Jobuki</span></>

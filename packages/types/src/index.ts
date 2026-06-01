@@ -61,8 +61,6 @@ export interface BoardTheme {
   headerStyle: HeaderStyle
   // Button
   buttonStyle: ButtonStyle
-  // Layout
-  boardMaxWidth: string
 }
 
 export interface Board {
@@ -170,7 +168,6 @@ export const DEFAULT_THEME: BoardTheme = {
   radius2xl: '24px',
   headerStyle: 'minimal',
   buttonStyle: 'rounded',
-  boardMaxWidth: '800px',
 }
 
 export const DEFAULT_JOB_BOARD_THEME_CONFIG: JobBoardThemeConfig = {
@@ -223,12 +220,16 @@ export function resolveJobBoardThemeConfig(
     },
   }
 
+  const hasTagline = typeof partial?.tagline === 'string'
+  const hasLogoUrl = typeof partial?.logoUrl === 'string'
+  const hasHeaderImageUrl = typeof partial?.headerImageUrl === 'string'
+
   return {
     ...merged,
     boardName: merged.boardName || fallbacks.boardName || DEFAULT_JOB_BOARD_THEME_CONFIG.boardName,
-    tagline: merged.tagline || fallbacks.tagline || '',
-    logoUrl: merged.logoUrl || fallbacks.logoUrl || '',
-    headerImageUrl: merged.headerImageUrl || fallbacks.headerImageUrl || '',
+    tagline: hasTagline ? (partial?.tagline ?? '') : (fallbacks.tagline ?? merged.tagline ?? ''),
+    logoUrl: hasLogoUrl ? (partial?.logoUrl ?? '') : (fallbacks.logoUrl ?? merged.logoUrl ?? ''),
+    headerImageUrl: hasHeaderImageUrl ? (partial?.headerImageUrl ?? '') : (fallbacks.headerImageUrl ?? merged.headerImageUrl ?? ''),
     brandColor: merged.brandColor || fallbacks.brandColor || DEFAULT_JOB_BOARD_THEME_CONFIG.brandColor,
     accentColor: merged.accentColor || fallbacks.accentColor || DEFAULT_JOB_BOARD_THEME_CONFIG.accentColor,
     backgroundColor: merged.backgroundColor || fallbacks.backgroundColor || DEFAULT_JOB_BOARD_THEME_CONFIG.backgroundColor,

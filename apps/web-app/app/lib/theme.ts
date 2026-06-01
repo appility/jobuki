@@ -44,7 +44,6 @@ ${scope} {
   --btn-radius:            ${buttonRadius};
   --job-card-hover-border: ${theme.colorPrimary};
   --input-focus-border:    ${theme.colorPrimary};
-  --board-max-width:       ${theme.boardMaxWidth};
   --header-bg:     ${headerBg};
   --header-text:   ${headerText};
   --header-muted:  ${headerMuted};

@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLoaderData, useActionData, Form, useNavigation } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
 import { getDb, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
+import { requireWorkspaceAccess, requireBoardInWorkspace } from '../../lib/auth.server'
 import { resolveTheme, themeToCSS } from '../../lib/theme'
 import { suggestAccents, readableFg, isValidHex } from '../../lib/color'
+import { addCustomDomain, isValidDomain, removeCustomDomain } from '../../lib/railway'
+import { ALLOWED_IMAGE_MIME_TYPES, createBoardAssetUploadUrl, MAX_UPLOAD_BYTES } from '../../lib/r2.server'
 import {
   resolveJobBoardThemeConfig,
   type BoardTheme,
@@ -17,10 +20,12 @@ import {
 } from '@jobuki/types'
 
 // ── Loader ────────────────────────────────────────────────────────────
-export async function loader({ params }: LoaderFunctionArgs) {
+export async function loader(args: LoaderFunctionArgs) {
+  const { workspace } = await requireWorkspaceAccess(args)
+  const boardInWorkspace = await requireBoardInWorkspace(args.params.id!, workspace.id)
   const db = getDb()
   const board = await db.query.boards.findFirst({
-    where: eq(boards.id, params.id!),
+    where: eq(boards.id, boardInWorkspace.id),
   })
   if (!board) throw new Response('Board not found', { status: 404 })
   return {
@@ -39,15 +44,52 @@ export async function loader({ params }: LoaderFunctionArgs) {
 }
 
 // ── Action ────────────────────────────────────────────────────────────
-export async function action({ request, params }: ActionFunctionArgs) {
+export async function action(args: ActionFunctionArgs) {
+  const { workspace } = await requireWorkspaceAccess(args)
+  const board = await requireBoardInWorkspace(args.params.id!, workspace.id)
   const db = getDb()
-  const form = await request.formData()
+  const form = await args.request.formData()
   const intent = form.get('intent') as string
 
-  const board = await db.query.boards.findFirst({
-    where: eq(boards.id, params.id!),
-  })
-  if (!board) throw new Response('Board not found', { status: 404 })
+  if (intent === 'sign_upload') {
+    const kind = form.get('kind')
+    const contentType = String(form.get('contentType') ?? '').trim().toLowerCase()
+    const size = Number(form.get('size') ?? 0)
+
+    if (kind !== 'logo' && kind !== 'header') {
+      return Response.json({ ok: false, error: 'Invalid upload kind.' }, { status: 400 })
+    }
+
+    if (!ALLOWED_IMAGE_MIME_TYPES.includes(contentType as any)) {
+      return Response.json(
+        {
+          ok: false,
+          error: `Unsupported image type. Allowed: ${ALLOWED_IMAGE_MIME_TYPES.join(', ')}`,
+        },
+        { status: 400 }
+      )
+    }
+
+    if (!Number.isFinite(size) || size <= 0 || size > MAX_UPLOAD_BYTES[kind]) {
+      return Response.json(
+        {
+          ok: false,
+          error: `Image is too large. ${kind === 'logo' ? 'Logo' : 'Header'} max size is ${Math.floor(MAX_UPLOAD_BYTES[kind] / (1024 * 1024))}MB.`,
+        },
+        { status: 400 }
+      )
+    }
+
+    try {
+      const signed = await createBoardAssetUploadUrl({ boardId: board.id, kind, contentType })
+      return Response.json({ ok: true, ...signed })
+    } catch (error: any) {
+      return Response.json(
+        { ok: false, error: error?.message ?? 'Unable to create upload URL.' },
+        { status: 500 }
+      )
+    }
+  }
 
   // ── Save theme + content ────────────────────────────────────────────
   if (intent === 'save') {
@@ -76,7 +118,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
       radius2xl:          form.get('radius2xl') as string,
       headerStyle:        form.get('headerStyle') as HeaderStyle,
       buttonStyle:        form.get('buttonStyle') as ButtonStyle,
-      boardMaxWidth:      form.get('boardMaxWidth') as string,
     }
 
     const boardConfig: JobBoardThemeConfig = resolveJobBoardThemeConfig(
@@ -127,7 +168,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         boardConfig,
         updatedAt:    new Date(),
       })
-      .where(eq(boards.id, params.id!))
+      .where(eq(boards.id, args.params.id!))
 
     return { ok: true, message: 'Appearance saved.' }
   }
@@ -144,7 +185,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       await db
         .update(boards)
         .set({ customDomain: null, railwayDomainId: null, customDomainStatus: null, updatedAt: new Date() })
-        .where(eq(boards.id, params.id!))
+        .where(eq(boards.id, args.params.id!))
       return { ok: true, message: 'Custom domain removed.' }
     }
 
@@ -175,7 +216,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
           customDomainStatus: 'pending_dns',
           updatedAt:          new Date(),
         })
-        .where(eq(boards.id, params.id!))
+        .where(eq(boards.id, args.params.id!))
 
       return {
         ok: true,
@@ -191,19 +232,55 @@ export async function action({ request, params }: ActionFunctionArgs) {
 }
 
 // ── Component ─────────────────────────────────────────────────────────
-const FONT_OPTIONS = [
+const DISPLAY_FONT_OPTIONS = [
   { label: 'Plus Jakarta Sans', value: "'Plus Jakarta Sans', sans-serif" },
+  { label: 'Sora',              value: "'Sora', sans-serif" },
+  { label: 'Space Grotesk',     value: "'Space Grotesk', sans-serif" },
+  { label: 'Manrope',           value: "'Manrope', sans-serif" },
+  { label: 'Inter',             value: "'Inter', sans-serif" },
+]
+
+const BODY_FONT_OPTIONS = [
   { label: 'DM Sans',           value: "'DM Sans', sans-serif" },
   { label: 'Inter',             value: "'Inter', sans-serif" },
-  { label: 'Geist',             value: "'Geist', sans-serif" },
-  { label: 'Fraunces',          value: "'Fraunces', serif" },
-  { label: 'Lora',              value: "'Lora', serif" },
+  { label: 'Manrope',           value: "'Manrope', sans-serif" },
+  { label: 'Plus Jakarta Sans', value: "'Plus Jakarta Sans', sans-serif" },
+]
+
+const FONT_PAIR_PRESETS = [
+  {
+    label: 'Jakarta + DM Sans',
+    display: "'Plus Jakarta Sans', sans-serif",
+    body: "'DM Sans', sans-serif",
+  },
+  {
+    label: 'Sora + Inter',
+    display: "'Sora', sans-serif",
+    body: "'Inter', sans-serif",
+  },
+  {
+    label: 'Space Grotesk + Inter',
+    display: "'Space Grotesk', sans-serif",
+    body: "'Inter', sans-serif",
+  },
+  {
+    label: 'Manrope + Inter',
+    display: "'Manrope', sans-serif",
+    body: "'Inter', sans-serif",
+  },
+  {
+    label: 'Inter + Inter',
+    display: "'Inter', sans-serif",
+    body: "'Inter', sans-serif",
+  },
 ]
 
 const SWATCH_PRESETS = [
   '#3730A3', '#0D9488', '#D97706', '#DC2626', '#16A34A',
   '#7C3AED', '#DB2777', '#0284C7', '#1C1917', '#374151',
 ]
+
+const UPLOAD_ACCEPT = 'image/png,image/jpeg,image/webp,image/svg+xml'
 
 export default function AppearancePage() {
   const { board, theme, boardConfig } = useLoaderData<typeof loader>()
@@ -213,8 +290,8 @@ export default function AppearancePage() {
 
   // Local state for live preview
   const [t, setT] = useState(theme)
-  const [logoUrl, setLogoUrl]           = useState(board.logoUrl ?? '')
-  const [heroImageUrl, setHeroImageUrl] = useState(board.heroImageUrl ?? '')
+  const [logoUrl, setLogoUrl]           = useState(boardConfig.logoUrl ?? board.logoUrl ?? '')
+  const [heroImageUrl, setHeroImageUrl] = useState(boardConfig.headerImageUrl ?? board.heroImageUrl ?? '')
   const [introText, setIntroText]       = useState(board.introText ?? '')
   const [configBoardName, setConfigBoardName] = useState(boardConfig.boardName)
   const [configTagline, setConfigTagline] = useState(boardConfig.tagline ?? '')
@@ -234,9 +311,119 @@ export default function AppearancePage() {
   const [configEmptyStateCtaUrl, setConfigEmptyStateCtaUrl] = useState(boardConfig.emptyState.ctaUrl ?? '')
   const [configFooterShowPoweredBy, setConfigFooterShowPoweredBy] = useState(boardConfig.footer.showPoweredBy)
   const [configFooterCompanyWebsiteUrl, setConfigFooterCompanyWebsiteUrl] = useState(boardConfig.footer.companyWebsiteUrl ?? '')
+  const [uploadingKind, setUploadingKind] = useState<'logo' | 'header' | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'brand' | 'theme' | 'board' | 'content'>('brand')
+  const [toasts, setToasts] = useState<Array<{ id: number; type: 'success' | 'error'; message: string }>>([])
+  const [logoDimensions, setLogoDimensions] = useState<{ width: number; height: number } | null>(null)
+
+  const pushToast = (type: 'success' | 'error', message: string) => {
+    const id = Date.now() + Math.floor(Math.random() * 1000)
+    setToasts(prev => [...prev, { id, type, message }])
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id))
+    }, 4000)
+  }
 
   const updateToken = (key: keyof BoardTheme, value: string) =>
     setT(prev => ({ ...prev, [key]: value }))
+
+  useEffect(() => {
+    if (!actionData) return
+    const message = actionData.message ?? actionData.error ?? 'Done.'
+    pushToast(actionData.ok ? 'success' : 'error', message)
+  }, [actionData])
+
+  useEffect(() => {
+    if (!logoUrl) {
+      setLogoDimensions(null)
+      return
+    }
+
+    const img = new Image()
+    img.onload = () => {
+      setLogoDimensions({ width: img.naturalWidth, height: img.naturalHeight })
+    }
+    img.onerror = () => {
+      setLogoDimensions(null)
+    }
+    img.src = logoUrl
+  }, [logoUrl])
+
+  const readErrorMessage = async (response: Response) => {
+    const contentType = response.headers.get('content-type') ?? ''
+
+    if (contentType.includes('application/json')) {
+      const payload = await response.json().catch(() => null)
+      return payload?.error || payload?.message || 'Request failed.'
+    }
+
+    const text = await response.text().catch(() => '')
+    if (!text) return `Request failed with status ${response.status}.`
+    if (text.includes('<!DOCTYPE')) return 'The server returned an HTML error page instead of an upload response.'
+    return text.slice(0, 240)
+  }
+
+  const uploadAsset = async (kind: 'logo' | 'header', file: File) => {
+    setUploadError(null)
+    setUploadingKind(kind)
+
+    try {
+      const uploadData = new FormData()
+      uploadData.set('boardId', board.id)
+      uploadData.set('kind', kind)
+      uploadData.set('file', file)
+
+      const uploadRes = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: uploadData,
+        credentials: 'include',
+        headers: {
+          Accept: 'application/json',
+          'X-Requested-With': 'fetch',
+        },
+      })
+
+      if (!uploadRes.ok) {
+        throw new Error(await readErrorMessage(uploadRes))
+      }
+
+      const uploadContentType = uploadRes.headers.get('content-type') ?? ''
+      if (!uploadContentType.includes('application/json')) {
+        if (uploadRes.redirected && uploadRes.url.includes('/sign-in')) {
+          throw new Error('Your session has expired. Please sign in again and retry upload.')
+        }
+
+        const serverText = await uploadRes.text().catch(() => '')
+        if (serverText.includes('<!DOCTYPE')) {
+          throw new Error('Upload endpoint returned HTML instead of JSON.')
+        }
+
+        throw new Error('Upload endpoint returned an unexpected response format.')
+      }
+
+      const uploadJson = await uploadRes.json().catch(() => null)
+      if (!uploadJson?.ok || !uploadJson?.publicUrl) {
+        throw new Error(uploadJson?.error || 'Unable to upload image.')
+      }
+
+      if (kind === 'logo') {
+        setLogoUrl(uploadJson.publicUrl)
+        setConfigLogoUrl(uploadJson.publicUrl)
+        pushToast('success', 'Logo uploaded. Click Save appearance to publish it.')
+      } else {
+        setHeroImageUrl(uploadJson.publicUrl)
+        setConfigHeaderImageUrl(uploadJson.publicUrl)
+        pushToast('success', 'Header image uploaded. Click Save appearance to publish it.')
+      }
+    } catch (error: any) {
+      const message = error?.message ?? 'Upload failed.'
+      setUploadError(message)
+      pushToast('error', message)
+    } finally {
+      setUploadingKind(null)
+    }
+  }
 
   // Scoped to .board-preview so it never bleeds into the admin shell
   const previewCSS = themeToCSS(t, '.board-preview')
@@ -262,18 +449,29 @@ export default function AppearancePage() {
         {/* Scrollable settings */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
 
-          {/* ── Status feedback ── */}
-          {actionData && (
-            <div className={`mb-5 px-4 py-3 rounded-lg text-xs font-medium border`}
-              style={{
-                backgroundColor: actionData.ok ? 'var(--color-success-bg)' : 'var(--color-danger-bg)',
-                color: actionData.ok ? 'var(--color-success)' : 'var(--color-danger)',
-                borderColor: actionData.ok ? 'var(--color-success)' : 'var(--color-danger)',
-              }}>
-              {actionData.ok ? '✓ ' : '✗ '}
-              {actionData.message ?? actionData.error}
-            </div>
-          )}
+          <div className="mb-5 grid grid-cols-4 gap-1.5 rounded-xl p-1"
+            style={{ backgroundColor: 'var(--color-surface-subtle)' }}>
+            {([
+              { key: 'brand', label: 'Brand' },
+              { key: 'theme', label: 'Theme' },
+              { key: 'board', label: 'Board' },
+              { key: 'content', label: 'Content' },
+            ] as const).map(tab => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className="py-1.5 rounded-lg text-[11px] font-semibold cursor-pointer border transition-all"
+                style={{
+                  backgroundColor: activeTab === tab.key ? 'var(--color-surface)' : 'transparent',
+                  color: activeTab === tab.key ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                  borderColor: activeTab === tab.key ? 'var(--color-border)' : 'transparent',
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
           {/* ── Theme form ── */}
           <Form method="post">
@@ -307,6 +505,7 @@ export default function AppearancePage() {
             ))}
 
             {/* Primary colour */}
+            {activeTab === 'brand' && (
             <Section label="PRIMARY COLOUR">
               <div className="flex gap-1.5 flex-wrap mb-2">
                 {SWATCH_PRESETS.map(c => (
@@ -344,8 +543,10 @@ export default function AppearancePage() {
                 />
               </div>
             </Section>
+            )}
 
             {/* Accent colour + smart suggestions */}
+            {activeTab === 'brand' && (
             <Section label="ACCENT COLOUR">
               {/* Suggestions based on primary */}
               {(() => {
@@ -404,8 +605,10 @@ export default function AppearancePage() {
                 />
               </div>
             </Section>
+            )}
 
             {/* Background */}
+            {activeTab === 'brand' && (
             <Section label="BACKGROUND">
               <div className="flex items-center gap-2">
                 <input type="color" value={t.colorBackground}
@@ -420,8 +623,10 @@ export default function AppearancePage() {
                 />
               </div>
             </Section>
+            )}
 
             {/* Header style */}
+            {activeTab === 'theme' && (
             <Section label="HEADER STYLE">
               <div className="flex gap-2">
                 {(['minimal', 'bold', 'coloured'] as HeaderStyle[]).map(s => (
@@ -437,8 +642,10 @@ export default function AppearancePage() {
                 ))}
               </div>
             </Section>
+            )}
 
             {/* Button style */}
+            {activeTab === 'theme' && (
             <Section label="BUTTON STYLE">
               <div className="flex gap-2">
                 {(['rounded', 'pill', 'sharp'] as ButtonStyle[]).map(s => (
@@ -454,84 +661,199 @@ export default function AppearancePage() {
                 ))}
               </div>
             </Section>
+            )}
 
             {/* Font */}
+            {activeTab === 'brand' && (
             <Section label="FONT">
-              <select
-                value={t.fontBody}
-                onChange={e => {
-                  updateToken('fontBody', e.target.value)
-                  updateToken('fontDisplay', e.target.value)
-                }}
-                className="w-full px-2.5 py-2 rounded-lg text-xs border"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-              >
-                {FONT_OPTIONS.map(f => (
-                  <option key={f.value} value={f.value}>{f.label}</option>
-                ))}
-              </select>
-            </Section>
+              <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                Choose a display/body pair, then fine-tune if needed.
+              </p>
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {FONT_PAIR_PRESETS.map(pair => {
+                  const isActive = t.fontDisplay === pair.display && t.fontBody === pair.body
+                  return (
+                    <button
+                      key={pair.label}
+                      type="button"
+                      onClick={() => {
+                        updateToken('fontDisplay', pair.display)
+                        updateToken('fontBody', pair.body)
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-all"
+                      style={{
+                        backgroundColor: isActive ? t.colorPrimary + '18' : 'var(--color-surface-subtle)',
+                        borderColor: isActive ? t.colorPrimary : 'var(--color-border)',
+                        color: isActive ? t.colorPrimary : 'var(--color-text-secondary)',
+                      }}
+                    >
+                      {pair.label}
+                    </button>
+                  )
+                })}
+              </div>
 
-            {/* Board max width */}
-            <Section label="BOARD WIDTH">
-              <div className="flex gap-2">
-                {['680px', '800px', '960px', '1100px'].map(w => (
-                  <button key={w} type="button"
-                    onClick={() => updateToken('boardMaxWidth', w)}
-                    className="flex-1 py-2 rounded-lg text-xs font-semibold cursor-pointer border transition-all"
-                    style={{
-                      backgroundColor: t.boardMaxWidth === w ? t.colorPrimary + '18' : 'var(--color-surface-subtle)',
-                      borderColor: t.boardMaxWidth === w ? t.colorPrimary : 'var(--color-border)',
-                      color: t.boardMaxWidth === w ? t.colorPrimary : 'var(--color-text-muted)',
-                    }}
-                  >{w.replace('px', '')}</button>
-                ))}
+              <div className="grid grid-cols-1 gap-2">
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                    Display font
+                  </label>
+                  <select
+                    value={t.fontDisplay}
+                    onChange={e => updateToken('fontDisplay', e.target.value)}
+                    className="w-full px-2.5 py-2 rounded-lg text-xs border"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                  >
+                    {DISPLAY_FONT_OPTIONS.map(f => (
+                      <option key={f.value} value={f.value}>{f.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                    Body font
+                  </label>
+                  <select
+                    value={t.fontBody}
+                    onChange={e => updateToken('fontBody', e.target.value)}
+                    className="w-full px-2.5 py-2 rounded-lg text-xs border"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                  >
+                    {BODY_FONT_OPTIONS.map(f => (
+                      <option key={f.value} value={f.value}>{f.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </Section>
+            )}
 
             {/* Logo */}
-            <Section label="LOGO URL">
+            {activeTab === 'brand' && (
+            <Section label="LOGO IMAGE">
               <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                Paste an image URL. Best size: 400×400px, PNG/SVG.
+                Current logo for the board header.
               </p>
-              <div className="flex items-center gap-2">
-                {logoUrl && (
-                  <img src={logoUrl} alt="Logo preview"
-                    className="w-9 h-9 rounded-lg object-contain shrink-0"
-                    style={{ border: '1px solid var(--color-border)' }}
-                    onError={e => (e.currentTarget.style.display = 'none')}
+              <div className="rounded-xl border p-3 mb-2 flex items-center justify-center"
+                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', minHeight: 96 }}>
+                {logoUrl ? (
+                  <img
+                    src={logoUrl}
+                    alt="Logo preview"
+                    className="w-16 h-16 rounded-lg object-contain"
+                    style={{ border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}
                   />
+                ) : (
+                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>No logo uploaded</span>
                 )}
-                <input
-                  value={logoUrl}
-                  onChange={e => setLogoUrl(e.target.value)}
-                  className="flex-1 px-2.5 py-1.5 rounded-lg text-xs border"
-                  placeholder="https://…"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-                />
               </div>
-            </Section>
-
-            {/* Hero image */}
-            <Section label="HERO BACKGROUND">
-              <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                Paste an image URL. Best size: 1600×480px, JPEG/WebP, under 400KB.
-              </p>
-              <input
-                value={heroImageUrl}
-                onChange={e => setHeroImageUrl(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
-                placeholder="https://…"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-              />
-              {heroImageUrl && (
-                <div className="mt-2 rounded-lg overflow-hidden"
-                  style={{ height: 60, backgroundImage: `url(${heroImageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', border: '1px solid var(--color-border)' }}
-                />
+              <div className="flex items-center gap-2">
+                <label
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-secondary)',
+                    backgroundColor: 'var(--color-surface-subtle)',
+                    opacity: uploadingKind === 'logo' ? 0.65 : 1,
+                  }}
+                >
+                  {uploadingKind === 'logo' ? 'Uploading…' : logoUrl ? 'Replace logo' : 'Upload logo'}
+                  <input
+                    type="file"
+                    accept={UPLOAD_ACCEPT}
+                    disabled={uploadingKind !== null}
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.currentTarget.files?.[0]
+                      e.currentTarget.value = ''
+                      if (file) void uploadAsset('logo', file)
+                    }}
+                  />
+                </label>
+                {logoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLogoUrl('')
+                      setConfigLogoUrl('')
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border"
+                    style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)', backgroundColor: 'var(--color-surface)' }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              {logoDimensions && (
+                <p className="text-[11px] mt-2" style={{ color: 'var(--color-text-muted)' }}>
+                  Source: {logoDimensions.width} x {logoDimensions.height}px · Recommended display (@2x): {Math.max(1, Math.round(logoDimensions.width / 2))} x {Math.max(1, Math.round(logoDimensions.height / 2))}px
+                </p>
               )}
             </Section>
+            )}
+
+            {/* Hero image */}
+            {activeTab === 'brand' && (
+            <Section label="HERO BACKGROUND IMAGE">
+              <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                Header background image used on the public board.
+              </p>
+              <div className="rounded-xl border p-2 mb-2 overflow-hidden"
+                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}>
+                {heroImageUrl ? (
+                  <div
+                    className="rounded-lg"
+                    style={{ height: 90, backgroundImage: `url(${heroImageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                  />
+                ) : (
+                  <div className="rounded-lg flex items-center justify-center"
+                    style={{ height: 90, color: 'var(--color-text-muted)', backgroundColor: 'var(--color-surface)' }}>
+                    <span className="text-xs">No header image uploaded</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <label
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-secondary)',
+                    backgroundColor: 'var(--color-surface-subtle)',
+                    opacity: uploadingKind === 'header' ? 0.65 : 1,
+                  }}
+                >
+                  {uploadingKind === 'header' ? 'Uploading…' : heroImageUrl ? 'Replace header image' : 'Upload header image'}
+                  <input
+                    type="file"
+                    accept={UPLOAD_ACCEPT}
+                    disabled={uploadingKind !== null}
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.currentTarget.files?.[0]
+                      e.currentTarget.value = ''
+                      if (file) void uploadAsset('header', file)
+                    }}
+                  />
+                </label>
+                {heroImageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHeroImageUrl('')
+                      setConfigHeaderImageUrl('')
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border"
+                    style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)', backgroundColor: 'var(--color-surface)' }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </Section>
+            )}
 
             {/* Intro text */}
+            {activeTab === 'brand' && (
             <Section label="INTRO TEXT">
               <textarea
                 value={introText}
@@ -541,7 +863,9 @@ export default function AppearancePage() {
                 style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)', boxSizing: 'border-box' }}
               />
             </Section>
+            )}
 
+            {activeTab === 'board' && (
             <Section label="BOARD CONFIG NAME & TAGLINE">
               <input
                 value={configBoardName}
@@ -558,7 +882,9 @@ export default function AppearancePage() {
                 style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
               />
             </Section>
+            )}
 
+            {activeTab === 'board' && (
             <Section label="CONFIG BRAND COLOURS">
               <div className="grid grid-cols-1 gap-2">
                 <input
@@ -584,7 +910,9 @@ export default function AppearancePage() {
                 />
               </div>
             </Section>
+            )}
 
+            {activeTab === 'board' && (
             <Section label="CONFIG HEADER & PRESET">
               <select
                 value={configHeaderStyle}
@@ -609,24 +937,9 @@ export default function AppearancePage() {
                 <option value="dark">Dark</option>
               </select>
             </Section>
+            )}
 
-            <Section label="CONFIG LOGO & HEADER IMAGE URL">
-              <input
-                value={configLogoUrl}
-                onChange={e => setConfigLogoUrl(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded-lg text-xs border mb-2"
-                placeholder="https://logo-url"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-              />
-              <input
-                value={configHeaderImageUrl}
-                onChange={e => setConfigHeaderImageUrl(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
-                placeholder="https://header-image-url"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-              />
-            </Section>
-
+            {activeTab === 'board' && (
             <Section label="CONFIG TOGGLES">
               <label className="flex items-center gap-2 text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
                 <input type="checkbox" checked={configShowSearch} onChange={e => setConfigShowSearch(e.target.checked)} />
@@ -637,7 +950,9 @@ export default function AppearancePage() {
                 Show filters
               </label>
             </Section>
+            )}
 
+            {activeTab === 'content' && (
             <Section label="EMPTY STATE">
               <select
                 value={configEmptyStateIcon}
@@ -679,7 +994,9 @@ export default function AppearancePage() {
                 style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
               />
             </Section>
+            )}
 
+            {activeTab === 'content' && (
             <Section label="FOOTER CONFIG">
               <label className="flex items-center gap-2 text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
                 <input
@@ -697,6 +1014,7 @@ export default function AppearancePage() {
                 style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
               />
             </Section>
+            )}
 
             <button
               type="submit"
@@ -851,6 +1169,30 @@ export default function AppearancePage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Toasts */}
+      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 w-[320px] max-w-[calc(100vw-2rem)] pointer-events-none">
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            className="px-3 py-2.5 rounded-xl border text-xs font-medium shadow-lg"
+            style={toast.type === 'success'
+              ? {
+                backgroundColor: 'var(--color-success-bg)',
+                color: 'var(--color-success)',
+                borderColor: 'var(--color-success)',
+              }
+              : {
+                backgroundColor: 'var(--color-danger-bg)',
+                color: 'var(--color-danger)',
+                borderColor: 'var(--color-danger)',
+              }}
+          >
+            {toast.type === 'success' ? '✓ ' : '✗ '}
+            {toast.message}
+          </div>
+        ))}
       </div>
     </div>
   )

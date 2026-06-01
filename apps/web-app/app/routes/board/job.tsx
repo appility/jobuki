@@ -1,5 +1,5 @@
 import { useLoaderData, useOutletContext, Link } from 'react-router'
-import type { LoaderFunctionArgs } from 'react-router'
+import type { LoaderFunctionArgs, MetaFunction } from 'react-router'
 import { getDb, jobs, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import type { Board } from '@jobuki/types'
@@ -11,6 +11,21 @@ export async function loader({ params }: LoaderFunctionArgs) {
   const board = await db.query.boards.findFirst({ where: eq(boards.id, job.boardId) })
   if (!board) throw new Response('Not found', { status: 404 })
   return { job, board }
+}
+
+export const meta: MetaFunction<typeof loader> = ({ data }) => {
+  if (!data) {
+    return [
+      { title: 'Job | Jobuki' },
+      { name: 'description', content: 'View the role details and apply online.' },
+    ]
+  }
+
+  const locationPart = data.job.location ? ` in ${data.job.location}` : ''
+  return [
+    { title: `${data.job.title} | ${data.board.name}` },
+    { name: 'description', content: `Apply for ${data.job.title}${locationPart} at ${data.board.name}.` },
+  ]
 }
 
 const REMOTE_LABEL: Record<string, string> = {
@@ -34,20 +49,6 @@ export default function JobDetail() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--color-background)', fontFamily: 'var(--font-body)' }}>
-
-      {/* Top nav */}
-      <header style={{ backgroundColor: 'var(--header-bg)', borderBottom: '1px solid var(--header-border)' }}>
-        <div className="board-container py-4 flex items-center justify-between">
-          <Link to="/" className="no-underline flex items-center gap-2"
-            style={{ color: 'var(--header-muted)' }}>
-            <span className="text-sm">←</span>
-            <span className="text-sm font-medium">{layoutBoard.name}</span>
-          </Link>
-          <Link to={`/apply/${job.id}`} className="btn-primary text-sm">
-            Apply now
-          </Link>
-        </div>
-      </header>
 
       <main className="board-container py-12">
         <div className="max-w-2xl">

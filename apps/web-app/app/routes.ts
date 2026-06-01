@@ -9,6 +9,10 @@ export default [
   route('sign-up',       'routes/sign-up.tsx'),
   route('sso-callback',  'routes/sso-callback.tsx'),
 
+  // ── API ───────────────────────────────────────────────────────────
+  route('api/upload-sign', 'routes/api/upload-sign.ts'),
+  route('api/upload-image', 'routes/api/upload-image.ts'),
+
   // ── Onboarding (auth required, no workspace needed) ────────────────
   route('dashboard/onboarding', 'routes/admin/onboarding.tsx'),
 

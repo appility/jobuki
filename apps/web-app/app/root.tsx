@@ -1,7 +1,7 @@
 import {
   Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData,
 } from 'react-router'
-import type { LinksFunction, LoaderFunctionArgs } from 'react-router'
+import type { LinksFunction, LoaderFunctionArgs, MetaFunction } from 'react-router'
 import { ClerkProvider } from '@clerk/react-router'
 import { rootAuthLoader, clerkMiddleware } from '@clerk/react-router/server'
 import stylesheet from './styles/globals.css?url'
@@ -11,7 +11,7 @@ export const links: LinksFunction = () => [
   { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' },
   {
     rel: 'stylesheet',
-    href: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap',
+    href: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap',
   },
   { rel: 'stylesheet', href: stylesheet },
 ]
@@ -21,6 +21,11 @@ export const middleware = [clerkMiddleware()]
 export async function loader(args: LoaderFunctionArgs) {
   return rootAuthLoader(args)
 }
+
+export const meta: MetaFunction = () => [
+  { title: 'Jobuki' },
+  { name: 'description', content: 'Create and manage branded job boards.' },
+]
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
