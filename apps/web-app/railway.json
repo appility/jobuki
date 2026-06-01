@@ -5,8 +5,8 @@
     "buildCommand": "pnpm build"
   },
   "deploy": {
-    "startCommand": "cd apps/web-app && node server.js",
-    "healthcheckPath": "/",
+    "startCommand": "sh -c 'node apps/web-app/server.js || node server.js'",
+    "healthcheckPath": "/health",
     "restartPolicyType": "ON_FAILURE"
   }
 }
