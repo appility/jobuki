@@ -53,7 +53,10 @@ export async function getWorkspaceForUser(userId: string) {
 export async function requireWorkspaceAccess(args: Args) {
   const user = await requireUser(args)
   const result = await getWorkspaceForUser(user.id)
-  if (!result) throw redirect('/dashboard/onboarding')
+  if (!result) {
+    if (user.accountType === 'job_seeker') throw redirect('/candidate')
+    throw redirect('/dashboard/onboarding')
+  }
   return { user, workspace: result.workspace, role: result.role }
 }
 

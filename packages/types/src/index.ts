@@ -83,6 +83,17 @@ export interface Board {
   updatedAt: Date
 }
 
+export interface User {
+  id: string
+  clerkUserId: string
+  accountType: AccountType
+  email: string
+  name: string | null
+  imageUrl: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
 // ── Job ──────────────────────────────────────────────────────────────
 export type JobStatus = 'draft' | 'published' | 'closed'
 export type RemotePolicy = 'remote' | 'hybrid' | 'onsite'
@@ -136,6 +147,19 @@ export interface Workspace {
   clerkOrgId: string | null
   plan: 'free' | 'growth' | 'scale'
   createdAt: Date
+}
+
+export type AccountType = 'board_creator' | 'job_seeker'
+export type CreatorPlan = Workspace['plan']
+
+export const CREATOR_PLAN_BOARD_LIMITS: Record<CreatorPlan, number> = {
+  free: 1,
+  growth: 5,
+  scale: 50,
+}
+
+export function getCreatorBoardLimit(plan: CreatorPlan) {
+  return CREATOR_PLAN_BOARD_LIMITS[plan]
 }
 
 // ── Context (passed from Express → RR7 loaders) ──────────────────────

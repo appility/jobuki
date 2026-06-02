@@ -1,10 +1,11 @@
-import { redirect, Form, useActionData, useNavigation } from 'react-router'
+import { redirect, Form, useActionData, useLoaderData, useNavigation } from 'react-router'
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
 import { useState } from 'react'
 import { requireWorkspaceAccess } from '../../../lib/auth.server'
 import { getDb, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { DEFAULT_THEME, DEFAULT_JOB_BOARD_THEME_CONFIG } from '@jobuki/types'
+import { canCreateBoard, getBoardCreationLimit } from '../../../lib/creator-tier'
 
 // ── Shared slug/name helpers (used client + server) ───────────────────
 
@@ -30,8 +31,18 @@ export function isValidSlug(slug: string): boolean {
 
 // ── Loader ────────────────────────────────────────────────────────────
 export async function loader(args: LoaderFunctionArgs) {
-  await requireWorkspaceAccess(args)
-  return {}
+  const { workspace } = await requireWorkspaceAccess(args)
+  const db = getDb()
+  const existingBoards = await db.query.boards.findMany({
+    where: eq(boards.workspaceId, workspace.id),
+    columns: { id: true },
+  })
+
+  return {
+    plan: workspace.plan,
+    boardCount: existingBoards.length,
+    boardLimit: getBoardCreationLimit(workspace.plan),
+  }
 }
 
 // ── Action ────────────────────────────────────────────────────────────
@@ -53,6 +64,17 @@ export async function action(args: ActionFunctionArgs) {
   }
 
   const db = getDb()
+  const existingBoards = await db.query.boards.findMany({
+    where: eq(boards.workspaceId, workspace.id),
+    columns: { id: true },
+  })
+  const access = canCreateBoard(workspace.plan, existingBoards.length)
+  if (!access.allowed) {
+    return {
+      error: `Your ${workspace.plan} creator tier allows up to ${access.limit} board${access.limit === 1 ? '' : 's'}. Upgrade to create more boards.`,
+    }
+  }
+
   const existing = await db.query.boards.findFirst({ where: eq(boards.slug, slug) })
   if (existing) return { error: `The slug "${slug}" is already taken. Try another name.` }
 
@@ -73,6 +95,7 @@ export async function action(args: ActionFunctionArgs) {
 
 // ── Component ─────────────────────────────────────────────────────────
 export default function NewBoard() {
+  const { plan, boardCount, boardLimit } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const submitting = navigation.state === 'submitting'
@@ -112,6 +135,11 @@ export default function NewBoard() {
       <p className="text-sm mb-8" style={{ color: 'var(--color-text-secondary)' }}>
         You can customise the appearance and domain later.
       </p>
+
+      <div className="mb-6 px-4 py-3 rounded-lg text-sm"
+        style={{ backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-secondary)' }}>
+        Tier: <strong>{plan}</strong> · Boards used: <strong>{boardCount}</strong> / <strong>{boardLimit}</strong>
+      </div>
 
       {actionData?.error && (
         <div className="mb-6 px-4 py-3 rounded-lg text-sm"

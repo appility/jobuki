@@ -1,6 +1,45 @@
 import type { ActionFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess, requireBoardInWorkspace } from '../../lib/auth.server'
 import { ALLOWED_IMAGE_MIME_TYPES, MAX_UPLOAD_BYTES, uploadBoardAsset } from '../../lib/r2.server'
+import sharp from 'sharp'
+
+const WEBP_QUALITY = 82
+
+async function optimizeUploadImage(params: {
+  kind: 'logo' | 'header'
+  contentType: string
+  bytes: Uint8Array
+}) {
+  const { kind, contentType, bytes } = params
+
+  // Keep SVG as-is to avoid rasterizing vector assets unexpectedly.
+  if (contentType === 'image/svg+xml') {
+    return { body: bytes, contentType }
+  }
+
+  if (contentType === 'image/png' || contentType === 'image/jpeg' || contentType === 'image/webp') {
+    const maxWidth = kind === 'logo' ? 1200 : 2400
+    const maxHeight = kind === 'logo' ? 1200 : 1600
+
+    const transformed = await sharp(Buffer.from(bytes))
+      .rotate()
+      .resize({
+        width: maxWidth,
+        height: maxHeight,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .webp({ quality: WEBP_QUALITY })
+      .toBuffer()
+
+    return {
+      body: new Uint8Array(transformed),
+      contentType: 'image/webp',
+    }
+  }
+
+  return { body: bytes, contentType }
+}
 
 export async function action(args: ActionFunctionArgs) {
   try {
@@ -48,11 +87,16 @@ export async function action(args: ActionFunctionArgs) {
     }
 
     const buffer = new Uint8Array(await file.arrayBuffer())
+    const optimized = await optimizeUploadImage({
+      kind,
+      contentType,
+      bytes: buffer,
+    })
     const uploaded = await uploadBoardAsset({
       boardId,
       kind,
-      contentType,
-      body: buffer,
+      contentType: optimized.contentType,
+      body: optimized.body,
     })
 
     return Response.json({ ok: true, ...uploaded })

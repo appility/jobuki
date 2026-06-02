@@ -16,6 +16,8 @@ export default [
 
   // ── Onboarding (auth required, no workspace needed) ────────────────
   route('dashboard/onboarding', 'routes/admin/onboarding.tsx'),
+  route('candidate',            'routes/candidate/index.tsx'),
+  route('candidate/start',      'routes/candidate/start.tsx'),
 
   // ── Admin (auth + workspace required) ─────────────────────────────
   layout('routes/admin/layout.tsx', [

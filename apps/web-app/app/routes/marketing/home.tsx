@@ -25,7 +25,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
     throw new Response(`DB error: ${err}`, { status: 500 })
   }
 
-  if (!board) throw new Response('Board not found', { status: 404 })
+  if (!board || board.status !== 'live') {
+    throw new Response('Board not found', { status: 404 })
+  }
 
   const publishedJobs = await db.query.jobs.findMany({
     where: and(eq(jobs.boardId, board.id), eq(jobs.status, 'published')),
@@ -159,6 +161,11 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
               <img
                 src={logoUrl}
                 alt={boardConfig.boardName}
+                width={280}
+                height={96}
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
                 className="h-16 md:h-20 lg:h-24 w-auto max-w-[220px] md:max-w-[280px] object-contain shrink-0"
               />
             ) : (

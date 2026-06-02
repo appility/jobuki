@@ -732,7 +732,7 @@ export default function AppearancePage() {
             {activeTab === 'brand' && (
             <Section label="LOGO IMAGE">
               <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                Current logo for the board header.
+                Current logo for the board header. Any ratio is supported (square, wide, or tall).
               </p>
               <div className="rounded-xl border p-3 mb-2 flex items-center justify-center"
                 style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', minHeight: 96 }}>
@@ -797,6 +797,9 @@ export default function AppearancePage() {
             <Section label="HERO BACKGROUND IMAGE">
               <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
                 Header background image used on the public board.
+              </p>
+              <p className="text-[11px] mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                Recommended: 2400 x 1200px (or same aspect ratio) for best quality across desktop and mobile.
               </p>
               <div className="rounded-xl border p-2 mb-2 overflow-hidden"
                 style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}>

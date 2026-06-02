@@ -23,7 +23,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     })
   }
 
-  if (!board) throw new Response('Board not found', { status: 404 })
+  if (!board || board.status !== 'live') throw new Response('Board not found', { status: 404 })
 
   const theme = resolveTheme(board.theme ?? {})
   const css = themeToCSS(theme)
@@ -57,6 +57,10 @@ export default function BoardLayout() {
               <img
                 src={logoUrl}
                 alt={boardConfig.boardName}
+                width={180}
+                height={56}
+                loading="eager"
+                decoding="async"
                 className="h-12 md:h-14 w-auto max-w-[180px] object-contain shrink-0"
               />
             ) : (

@@ -19,7 +19,14 @@ export const links: LinksFunction = () => [
 export const middleware = [clerkMiddleware()]
 
 export async function loader(args: LoaderFunctionArgs) {
-  return rootAuthLoader(args)
+  const authData = await rootAuthLoader(args)
+  const boardSlug = args.request.headers.get('x-board-slug')
+  const boardHostname = args.request.headers.get('x-board-hostname')
+
+  return {
+    ...authData,
+    isPublicBoardRequest: Boolean(boardSlug || boardHostname),
+  }
 }
 
 export const meta: MetaFunction = () => [
@@ -47,6 +54,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const loaderData = useLoaderData<typeof loader>()
+
+  if (loaderData.isPublicBoardRequest) {
+    return <Outlet />
+  }
+
   return (
     <ClerkProvider
       loaderData={loaderData}
