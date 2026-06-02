@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLoaderData, useActionData, Link, Form, useNavigation, redirect } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess, requireBoardInWorkspace } from '../../../lib/auth.server'
@@ -6,6 +6,8 @@ import { getDb, boards, jobs } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { boardUrl } from '../../../lib/board-url'
 import { removeCustomDomain } from '../../../lib/railway'
+import { resolveTheme } from '../../../lib/theme'
+import { contrastRatio } from '../../../lib/color'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,8 +41,47 @@ export async function action(args: ActionFunctionArgs) {
 
   if (intent === 'toggle_status') {
     const next = board.status === 'live' ? 'draft' : 'live'
+
+    if (next === 'live') {
+      const theme = resolveTheme((board.theme ?? {}) as any)
+      const checks = [
+        {
+          label: 'Primary button text',
+          ratio: contrastRatio(theme.colorPrimaryFg, theme.colorPrimary),
+          min: 4.5,
+        },
+        {
+          label: 'Accent button text',
+          ratio: contrastRatio(theme.colorAccentFg, theme.colorAccent),
+          min: 4.5,
+        },
+        {
+          label: 'Body text on board background',
+          ratio: contrastRatio(theme.colorTextSecondary, theme.colorBackground),
+          min: 4.5,
+        },
+        {
+          label: 'Muted text on board background',
+          ratio: contrastRatio(theme.colorTextMuted, theme.colorBackground),
+          min: 3,
+        },
+      ]
+
+      const warnings = checks
+        .filter(c => c.ratio < c.min)
+        .map(c => `${c.label} is too low contrast (${c.ratio.toFixed(2)}:1, target ${c.min}:1).`)
+
+      if (warnings.length > 0) {
+        return {
+          ok: false,
+          error: 'Cannot publish yet: fix color contrast issues first.',
+          warnings,
+        }
+      }
+    }
+
     await db.update(boards).set({ status: next, updatedAt: new Date() }).where(eq(boards.id, board.id))
-    return { ok: true }
+    return { ok: true, message: next === 'live' ? 'Board published.' : 'Board unpublished.' }
   }
 
   if (intent === 'delete_board') {
@@ -74,6 +115,26 @@ export default function BoardShow() {
   const [confirmSlug, setConfirmSlug] = useState('')
   const submitting = navigation.state === 'submitting'
   const deleting = submitting && navigation.formData?.get('intent') === 'delete_board'
+  const [toasts, setToasts] = useState<Array<{ id: number; type: 'success' | 'error'; message: string }>>([])
+
+  const pushToast = (type: 'success' | 'error', message: string) => {
+    const id = Date.now() + Math.floor(Math.random() * 1000)
+    setToasts(prev => [...prev, { id, type, message }])
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id))
+    }, 4000)
+  }
+
+  useEffect(() => {
+    if (!actionData) return
+    if (actionData.ok && actionData.message) {
+      pushToast('success', actionData.message)
+      return
+    }
+    if (!actionData.ok && actionData.error) {
+      pushToast('error', actionData.error)
+    }
+  }, [actionData])
 
   return (
     <div className="p-10 max-w-4xl">
@@ -127,6 +188,23 @@ export default function BoardShow() {
           </span>
         )}
       </div>
+
+      {!actionData?.ok && actionData?.warnings?.length ? (
+        <div className="mb-6 rounded-xl border px-4 py-3"
+          style={{ borderColor: 'var(--color-warning)', backgroundColor: 'var(--color-warning-bg)' }}>
+          <p className="text-sm font-semibold mb-1" style={{ color: 'var(--color-warning)' }}>
+            Fix these before publishing
+          </p>
+          <ul className="text-sm m-0 pl-5" style={{ color: 'var(--color-text-secondary)' }}>
+            {actionData.warnings.map((warning, idx) => (
+              <li key={`${idx}-${warning}`}>{warning}</li>
+            ))}
+          </ul>
+          <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+            Tip: adjust colors in Appearance and try Publish again.
+          </p>
+        </div>
+      ) : null}
 
       {/* Jobs */}
       <div className="flex justify-between items-center mb-4">
@@ -262,6 +340,29 @@ export default function BoardShow() {
             </AlertDialogContent>
           </AlertDialog>
         </section>
+      </div>
+
+      {/* Toasts */}
+      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 w-[320px] max-w-[calc(100vw-2rem)] pointer-events-none">
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            className="px-3 py-2.5 rounded-xl border text-xs font-medium shadow-lg"
+            style={toast.type === 'success'
+              ? {
+                backgroundColor: 'var(--color-success-bg)',
+                color: 'var(--color-success)',
+                borderColor: 'var(--color-success)',
+              }
+              : {
+                backgroundColor: 'var(--color-danger-bg)',
+                color: 'var(--color-danger)',
+                borderColor: 'var(--color-danger)',
+              }}
+          >
+            {toast.message}
+          </div>
+        ))}
       </div>
     </div>
   )

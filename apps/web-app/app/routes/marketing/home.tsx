@@ -138,8 +138,9 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
   const heroImageUrl = (boardConfig.headerImageUrl ?? '').trim()
   const headerHasImage = !!heroImageUrl
   const hasLogo = logoUrl.length > 0
-  const emptyCtaLabel = boardConfig.emptyState.ctaLabel || 'Get job alerts'
+  const emptyCtaLabel = (boardConfig.emptyState.ctaLabel ?? '').trim()
   const emptyCtaUrl = boardConfig.emptyState.ctaUrl || '#'
+  const fallbackTagline = totalOpen === 0 ? 'No open positions right now' : 'Explore open roles'
   const heroTextColor = headerHasImage ? '#fff' : 'var(--header-text)'
   const heroMutedColor = headerHasImage ? 'rgba(255,255,255,0.84)' : 'var(--header-muted)'
 
@@ -174,7 +175,7 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
                   {boardConfig.boardName}
                 </p>
                 <p className="text-[13px] md:text-[14px] truncate" style={{ color: 'var(--color-text-secondary)' }}>
-                  {boardConfig.tagline || board.introText || 'Find your next role'}
+                  {boardConfig.tagline || board.introText || fallbackTagline}
                 </p>
               </div>
             )}
@@ -191,9 +192,11 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
                 View company site
               </a>
             )}
-            <a href={emptyCtaUrl} target="_blank" rel="noreferrer" className="btn-primary text-[13px] whitespace-nowrap px-5 py-2.5">
-              {emptyCtaLabel}
-            </a>
+            {emptyCtaLabel && (
+              <a href={emptyCtaUrl} target="_blank" rel="noreferrer" className="btn-primary text-[13px] whitespace-nowrap px-5 py-2.5">
+                {emptyCtaLabel}
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -234,12 +237,18 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
               {boardConfig.tagline || board.introText}
             </p>
           )}
-          <p className="text-[24px] md:text-[26px] font-semibold mt-7" style={{ color: 'var(--color-accent)' }}>
-            <span className="text-[40px] md:text-[44px] align-middle">{totalOpen}</span>
-            <span className="text-[22px] md:text-[24px] font-normal ml-3 align-middle" style={{ color: heroMutedColor }}>
-              open position{totalOpen !== 1 ? 's' : ''}
-            </span>
-          </p>
+          {totalOpen > 0 ? (
+            <p className="text-[24px] md:text-[26px] font-semibold mt-7" style={{ color: 'var(--color-accent)' }}>
+              <span className="text-[40px] md:text-[44px] align-middle">{totalOpen}</span>
+              <span className="text-[22px] md:text-[24px] font-normal ml-3 align-middle" style={{ color: heroMutedColor }}>
+                open position{totalOpen !== 1 ? 's' : ''}
+              </span>
+            </p>
+          ) : (
+            <p className="text-[20px] md:text-[22px] font-semibold mt-7" style={{ color: heroMutedColor }}>
+              No open positions right now
+            </p>
+          )}
         </div>
       </header>
 
@@ -304,7 +313,7 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
               style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-display)' }}>
               {boardConfig.emptyState.title}
             </p>
-            <p className="text-[15px] md:text-[16px] leading-7 max-w-xl mx-auto" style={{ color: 'var(--color-text-muted)' }}>
+            <p className="text-[15px] md:text-[16px] leading-7 max-w-xl mx-auto" style={{ color: 'var(--color-text-secondary)' }}>
               {boardConfig.emptyState.description}
             </p>
             {(boardConfig.emptyState.ctaLabel || boardConfig.emptyState.ctaUrl) && (
@@ -372,12 +381,12 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
 
       <footer className="board-container py-10 mt-2"
         style={{ borderTop: '1px solid var(--color-border)' }}>
-        <div className="flex items-center justify-center gap-6 mb-4 text-sm" style={{ color: 'var(--color-text-muted)' }}>
+        <div className="flex items-center justify-center gap-6 mb-4 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           <span>X</span>
           <span>LinkedIn</span>
           <span>Website</span>
         </div>
-        <p className="text-[13px] text-center" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="text-[13px] text-center" style={{ color: 'var(--color-text-secondary)' }}>
           {board.footerText || (
             boardConfig.footer.showPoweredBy
               ? <><span>Powered by </span><span className="font-extrabold" style={{ color: 'var(--color-text-secondary)' }}>Jobuki</span></>

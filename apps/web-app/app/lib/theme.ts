@@ -1,5 +1,6 @@
 import type { BoardTheme } from '@jobuki/types'
 import { DEFAULT_THEME } from '@jobuki/types'
+import { readableFg, isValidHex } from './color'
 
 /**
  * Converts a BoardTheme into a CSS custom properties string.
@@ -52,5 +53,15 @@ ${scope} {
 }
 
 export function resolveTheme(partial: Partial<BoardTheme>): BoardTheme {
-  return { ...DEFAULT_THEME, ...partial }
+  const merged = { ...DEFAULT_THEME, ...partial }
+
+  // Guardrail: always keep button foregrounds readable even if manual values are poor.
+  const safePrimaryFg = isValidHex(merged.colorPrimary) ? readableFg(merged.colorPrimary) : merged.colorPrimaryFg
+  const safeAccentFg = isValidHex(merged.colorAccent) ? readableFg(merged.colorAccent) : merged.colorAccentFg
+
+  return {
+    ...merged,
+    colorPrimaryFg: safePrimaryFg,
+    colorAccentFg: safeAccentFg,
+  }
 }

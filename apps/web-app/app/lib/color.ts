@@ -38,6 +38,15 @@ function luminance(hex: string) {
   return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
 }
 
+export function contrastRatio(fg: string, bg: string): number {
+  if (!isValidHex(fg) || !isValidHex(bg)) return 0
+  const l1 = luminance(fg)
+  const l2 = luminance(bg)
+  const lighter = Math.max(l1, l2)
+  const darker = Math.min(l1, l2)
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
 // Returns #ffffff or #1C1917 depending on which has better contrast
 export function readableFg(bg: string): string {
   const l = luminance(bg)

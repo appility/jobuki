@@ -5,12 +5,22 @@ import { getDb, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { addCustomDomain, removeCustomDomain, getCustomDomainStatus, isValidDomain } from '../../../lib/railway'
 import { boardUrl } from '../../../lib/board-url'
+import type { CreatorPlan } from '@jobuki/types'
+
+const SELF_SERVE_CUSTOM_DOMAIN_PLANS: CreatorPlan[] = ['scale']
+
+function canSelfServeCustomDomain(plan: CreatorPlan) {
+  return SELF_SERVE_CUSTOM_DOMAIN_PLANS.includes(plan)
+}
 
 export async function loader(args: LoaderFunctionArgs) {
   const { workspace } = await requireWorkspaceAccess(args)
   const board = await requireBoardInWorkspace(args.params.id!, workspace.id)
+  const canSelfServe = canSelfServeCustomDomain(workspace.plan)
   return {
     board,
+    workspacePlan: workspace.plan,
+    canSelfServe,
     subdomainUrl: boardUrl(board.slug, null),
     railwayPublicUrl: process.env.RAILWAY_PUBLIC_URL ?? null,
   }
@@ -22,8 +32,34 @@ export async function action(args: ActionFunctionArgs) {
   const form = await args.request.formData()
   const intent = form.get('intent') as string
   const db = getDb()
+  const canSelfServe = canSelfServeCustomDomain(workspace.plan)
+
+  if (intent === 'request_custom_domain') {
+    const raw = String(form.get('domain') || '').trim().toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/\/$/, '')
+
+    if (raw && !isValidDomain(raw)) {
+      return { ok: false, error: 'Invalid domain format. Use e.g. jobs.yourcompany.com — no https:// or trailing slash.' }
+    }
+
+    return {
+      ok: true,
+      intent: 'request_custom_domain',
+      message: raw
+        ? `Request received for ${raw}. We will contact you for manual setup.`
+        : 'Request received. We will contact you for manual setup.',
+    }
+  }
 
   if (intent === 'add') {
+    if (!canSelfServe) {
+      return {
+        ok: false,
+        error: 'Self-serve custom domains are available on Scale. Use the request form below for manual setup.',
+      }
+    }
+
     const raw = (form.get('domain') as string).trim().toLowerCase()
       .replace(/^https?:\/\//, '')  // strip protocol if pasted
       .replace(/\/$/, '')            // strip trailing slash
@@ -58,6 +94,13 @@ export async function action(args: ActionFunctionArgs) {
   }
 
   if (intent === 'remove') {
+    if (!canSelfServe) {
+      return {
+        ok: false,
+        error: 'Self-serve domain management is available on Scale. Contact support to change managed domains.',
+      }
+    }
+
     if (board.railwayDomainId) {
       await removeCustomDomain(board.railwayDomainId).catch(() => null)
     }
@@ -71,6 +114,13 @@ export async function action(args: ActionFunctionArgs) {
   }
 
   if (intent === 'check') {
+    if (!canSelfServe) {
+      return {
+        ok: false,
+        error: 'Self-serve DNS checks are available on Scale. Contact support for status updates.',
+      }
+    }
+
     if (!board.railwayDomainId) return { ok: false, error: 'No domain provisioned.' }
     try {
       const status = await getCustomDomainStatus(board.railwayDomainId)
@@ -89,7 +139,7 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 export default function DomainPage() {
-  const { board, subdomainUrl, railwayPublicUrl } = useLoaderData<typeof loader>()
+  const { board, subdomainUrl, railwayPublicUrl, workspacePlan, canSelfServe } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const busy = navigation.state === 'submitting'
@@ -109,7 +159,7 @@ export default function DomainPage() {
         Domains
       </h1>
       <p className="text-sm mb-10" style={{ color: 'var(--color-text-secondary)' }}>
-        Your board is always available on its subdomain. Optionally add your own domain.
+        Your board is always available on its subdomain. Custom domains are available as a managed add-on.
       </p>
 
       {/* ── Subdomain ── */}
@@ -146,6 +196,13 @@ export default function DomainPage() {
           Use your own domain like <span className="font-mono text-xs">jobs.yourcompany.com</span>.
         </p>
 
+        {!canSelfServe && (
+          <div className="mb-5 px-4 py-3 rounded-xl text-sm"
+            style={{ backgroundColor: 'var(--color-warning-bg)', color: 'var(--color-warning)' }}>
+            Your current plan is <strong className="uppercase">{workspacePlan}</strong>. Self-serve custom domains are available on <strong>Scale</strong>. You can still request manual setup below.
+          </div>
+        )}
+
         {/* Error / success feedback */}
         {actionData && !actionData.ok && actionData.error && (
           <div className="mb-4 px-4 py-3 rounded-xl text-sm"
@@ -165,20 +222,36 @@ export default function DomainPage() {
         )}
 
         {!host ? (
-          /* No domain yet — add form */
-          <Form method="post" className="flex gap-2">
-            <input type="hidden" name="intent" value="add" />
-            <input
-              name="domain"
-              className="input flex-1"
-              placeholder="jobs.yourcompany.com"
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <button type="submit" disabled={busy} className="btn-primary shrink-0">
-              {busy ? 'Adding…' : 'Add domain'}
-            </button>
-          </Form>
+          canSelfServe ? (
+            /* No domain yet — add form */
+            <Form method="post" className="flex gap-2">
+              <input type="hidden" name="intent" value="add" />
+              <input
+                name="domain"
+                className="input flex-1"
+                placeholder="jobs.yourcompany.com"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <button type="submit" disabled={busy} className="btn-primary shrink-0">
+                {busy ? 'Adding…' : 'Add domain'}
+              </button>
+            </Form>
+          ) : (
+            <Form method="post" className="flex gap-2">
+              <input type="hidden" name="intent" value="request_custom_domain" />
+              <input
+                name="domain"
+                className="input flex-1"
+                placeholder="jobs.yourcompany.com"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <button type="submit" disabled={busy} className="btn-primary shrink-0">
+                {busy ? 'Sending…' : 'Request setup'}
+              </button>
+            </Form>
+          )
         ) : (
           <div className="flex flex-col gap-5">
             {/* Current domain row */}
@@ -194,28 +267,34 @@ export default function DomainPage() {
                   </p>
                 )}
               </div>
-              <div className="flex gap-2 shrink-0">
-                {status !== 'active' && (
-                  <Form method="post">
-                    <input type="hidden" name="intent" value="check" />
-                    <button type="submit" disabled={busy} className="btn-outline text-sm">
-                      {busy ? 'Checking…' : 'Check DNS'}
+              {canSelfServe ? (
+                <div className="flex gap-2 shrink-0">
+                  {status !== 'active' && (
+                    <Form method="post">
+                      <input type="hidden" name="intent" value="check" />
+                      <button type="submit" disabled={busy} className="btn-outline text-sm">
+                        {busy ? 'Checking…' : 'Check DNS'}
+                      </button>
+                    </Form>
+                  )}
+                  <Form method="post"
+                    onSubmit={e => { if (!confirm('Remove this custom domain?')) e.preventDefault() }}>
+                    <input type="hidden" name="intent" value="remove" />
+                    <button type="submit" disabled={busy} className="btn-outline text-sm"
+                      style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}>
+                      Remove
                     </button>
                   </Form>
-                )}
-                <Form method="post"
-                  onSubmit={e => { if (!confirm('Remove this custom domain?')) e.preventDefault() }}>
-                  <input type="hidden" name="intent" value="remove" />
-                  <button type="submit" disabled={busy} className="btn-outline text-sm"
-                    style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}>
-                    Remove
-                  </button>
-                </Form>
-              </div>
+                </div>
+              ) : (
+                <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  Managed by support
+                </span>
+              )}
             </div>
 
             {/* DNS instructions — shown until active */}
-            {status !== 'active' && (
+            {canSelfServe && status !== 'active' && (
               <div className="rounded-xl p-5"
                 style={{ backgroundColor: 'var(--color-surface-subtle)', border: '1px solid var(--color-border)' }}>
                 <p className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
@@ -245,6 +324,19 @@ export default function DomainPage() {
                 </ul>
               </div>
             )}
+
+            {!canSelfServe && (
+              <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                We will share DNS instructions during onboarding and verify go-live with you.
+              </p>
+            )}
+          </div>
+        )}
+
+        {actionData?.ok && actionData.intent === 'request_custom_domain' && actionData.message && (
+          <div className="mt-4 px-4 py-3 rounded-xl text-sm"
+            style={{ backgroundColor: 'var(--color-success-bg)', color: 'var(--color-success)' }}>
+            {actionData.message}
           </div>
         )}
       </section>
