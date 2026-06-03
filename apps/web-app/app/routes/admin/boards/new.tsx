@@ -1,7 +1,7 @@
 import { redirect, Form, useActionData, useLoaderData, useNavigation } from 'react-router'
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
 import { useState } from 'react'
-import { requireWorkspaceAccess } from '../../../lib/auth.server'
+import { requireWorkspaceAccess, userHasWorkspaceFeature } from '../../../lib/auth.server'
 import { getDb, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { DEFAULT_THEME, DEFAULT_JOB_BOARD_THEME_CONFIG } from '@jobuki/types'
@@ -31,15 +31,17 @@ export function isValidSlug(slug: string): boolean {
 
 // ── Loader ────────────────────────────────────────────────────────────
 export async function loader(args: LoaderFunctionArgs) {
-  const { workspace } = await requireWorkspaceAccess(args)
+  const { workspace, user } = await requireWorkspaceAccess(args)
   const db = getDb()
   const existingBoards = await db.query.boards.findMany({
     where: eq(boards.workspaceId, workspace.id),
     columns: { id: true },
   })
+  const canCreate = await userHasWorkspaceFeature(user.id, workspace.id, 'board.create')
 
   return {
     plan: workspace.plan,
+    canCreate,
     boardCount: existingBoards.length,
     boardLimit: getBoardCreationLimit(workspace.plan),
   }
@@ -47,8 +49,13 @@ export async function loader(args: LoaderFunctionArgs) {
 
 // ── Action ────────────────────────────────────────────────────────────
 export async function action(args: ActionFunctionArgs) {
-  const { workspace } = await requireWorkspaceAccess(args)
+  const { workspace, user } = await requireWorkspaceAccess(args)
   const form = await args.request.formData()
+
+  const canCreate = await userHasWorkspaceFeature(user.id, workspace.id, 'board.create')
+  if (!canCreate) {
+    return { error: 'You do not have permission to create boards in this workspace.' }
+  }
 
   const name        = sanitizeName((form.get('name') as string).trim())
   const description = (form.get('description') as string).trim()
@@ -95,7 +102,7 @@ export async function action(args: ActionFunctionArgs) {
 
 // ── Component ─────────────────────────────────────────────────────────
 export default function NewBoard() {
-  const { plan, boardCount, boardLimit } = useLoaderData<typeof loader>()
+  const { plan, canCreate, boardCount, boardLimit } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const submitting = navigation.state === 'submitting'
@@ -140,6 +147,13 @@ export default function NewBoard() {
         style={{ backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-secondary)' }}>
         Tier: <strong>{plan}</strong> · Boards used: <strong>{boardCount}</strong> / <strong>{boardLimit}</strong>
       </div>
+
+      {!canCreate && (
+        <div className="mb-6 px-4 py-3 rounded-lg text-sm"
+          style={{ backgroundColor: 'var(--color-warning-bg)', color: 'var(--color-warning)' }}>
+          Your current role does not include permission to create boards in this workspace.
+        </div>
+      )}
 
       {actionData?.error && (
         <div className="mb-6 px-4 py-3 rounded-lg text-sm"

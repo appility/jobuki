@@ -76,7 +76,7 @@ export default function AdminLayout() {
 }
 
 function UserMenu({ user, workspace }: {
-  user: { name: string | null; email: string; imageUrl: string | null }
+  user: { name: string | null; email: string; imageUrl: string | null; isPlatformAdmin?: boolean }
   workspace: { name: string; plan: string }
 }) {
   const [open, setOpen] = useState(false)
@@ -158,6 +158,11 @@ function UserMenu({ user, workspace }: {
             <MenuItem icon="⚙" onClick={() => { openUserProfile(); setOpen(false) }}>
               Account settings
             </MenuItem>
+            {user.isPlatformAdmin && (
+              <MenuItem icon="♢" as="link" href="/admin" onClick={() => setOpen(false)}>
+                Platform admin
+              </MenuItem>
+            )}
             <MenuItem icon="⊞" as="link" href="/dashboard/boards" onClick={() => setOpen(false)}>
               My boards
             </MenuItem>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLoaderData, useActionData, Link, Form, useNavigation, redirect } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
-import { requireWorkspaceAccess, requireBoardInWorkspace } from '../../../lib/auth.server'
+import { requireWorkspaceAccess, requireBoardInWorkspace, userHasWorkspaceFeature } from '../../../lib/auth.server'
 import { getDb, boards, jobs } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { boardUrl } from '../../../lib/board-url'
@@ -20,26 +20,32 @@ import {
 } from '../../../components/ui/alert-dialog'
 
 export async function loader(args: LoaderFunctionArgs) {
-  const { workspace } = await requireWorkspaceAccess(args)
+  const { workspace, user } = await requireWorkspaceAccess(args)
   const board = await requireBoardInWorkspace(args.params.id!, workspace.id)
   const db = getDb()
+  const canPublish = await userHasWorkspaceFeature(user.id, workspace.id, 'board.publish')
 
   const boardJobs = await db.query.jobs.findMany({
     where: eq(jobs.boardId, board.id),
     orderBy: (j, { desc }) => [desc(j.createdAt)],
   })
 
-  return { board, jobs: boardJobs, publicUrl: boardUrl(board.slug, board.customDomain) }
+  return { board, jobs: boardJobs, publicUrl: boardUrl(board.slug, board.customDomain), canPublish }
 }
 
 export async function action(args: ActionFunctionArgs) {
-  const { workspace } = await requireWorkspaceAccess(args)
+  const { workspace, user } = await requireWorkspaceAccess(args)
   const board = await requireBoardInWorkspace(args.params.id!, workspace.id)
   const form = await args.request.formData()
   const intent = form.get('intent') as string
   const db = getDb()
 
   if (intent === 'toggle_status') {
+    const canPublish = await userHasWorkspaceFeature(user.id, workspace.id, 'board.publish')
+    if (!canPublish) {
+      return { ok: false, error: 'You do not have permission to publish boards in this workspace.' }
+    }
+
     const next = board.status === 'live' ? 'draft' : 'live'
 
     if (next === 'live') {
@@ -109,7 +115,7 @@ const JOB_STATUS_COLOR: Record<string, string> = {
 }
 
 export default function BoardShow() {
-  const { board, jobs: boardJobs, publicUrl } = useLoaderData<typeof loader>()
+  const { board, jobs: boardJobs, publicUrl, canPublish } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const [confirmSlug, setConfirmSlug] = useState('')
@@ -160,16 +166,22 @@ export default function BoardShow() {
           <Link to={`/dashboard/appearance/${board.id}`} className="btn-outline text-sm">
             Appearance
           </Link>
-          <Form method="post">
-            <input type="hidden" name="intent" value="toggle_status" />
-            <button
-              type="submit"
-              disabled={submitting}
-              className={board.status === 'live' ? 'btn-outline text-sm' : 'btn-primary text-sm'}
-            >
-              {board.status === 'live' ? 'Unpublish' : 'Publish'}
+          {canPublish ? (
+            <Form method="post">
+              <input type="hidden" name="intent" value="toggle_status" />
+              <button
+                type="submit"
+                disabled={submitting}
+                className={board.status === 'live' ? 'btn-outline text-sm' : 'btn-primary text-sm'}
+              >
+                {board.status === 'live' ? 'Unpublish' : 'Publish'}
+              </button>
+            </Form>
+          ) : (
+            <button type="button" disabled className="btn-outline text-sm" aria-disabled="true">
+              Publish restricted
             </button>
-          </Form>
+          )}
         </div>
       </div>
 
@@ -205,6 +217,18 @@ export default function BoardShow() {
           </p>
         </div>
       ) : null}
+
+      {!canPublish && (
+        <div className="mb-6 rounded-xl border px-4 py-3"
+          style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}>
+          <p className="text-sm font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>
+            Publishing disabled for your role
+          </p>
+          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+            Ask a workspace owner or admin with publish access to change this board status.
+          </p>
+        </div>
+      )}
 
       {/* Jobs */}
       <div className="flex justify-between items-center mb-4">

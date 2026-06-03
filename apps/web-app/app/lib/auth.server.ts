@@ -1,13 +1,22 @@
 import { getAuth } from '@clerk/react-router/server'
 import { createClerkClient } from '@clerk/react-router/api.server'
 import { redirect } from 'react-router'
-import { getDb, users, workspaceMembers, workspaces, boards } from '@jobuki/db'
-import { eq } from 'drizzle-orm'
+import { features, getDb, roles, users, workspaceMembers, workspaces, boards } from '@jobuki/db'
+import { and, eq } from 'drizzle-orm'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
 
 type Args = LoaderFunctionArgs | ActionFunctionArgs
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! })
+
+export function isSuperUserEmail(email: string | null | undefined) {
+  if (!email) return false
+  const allowlist = (process.env.SUPER_USER_EMAILS ?? '')
+    .split(',')
+    .map(v => v.trim().toLowerCase())
+    .filter(Boolean)
+  return allowlist.includes(email.trim().toLowerCase())
+}
 
 // Gets Clerk userId; returns null if unauthenticated
 export async function getAuthUser(args: Args) {
@@ -36,7 +45,73 @@ export async function requireUser(args: Args) {
     user = created
   }
 
+  if (!user.isPlatformAdmin && isSuperUserEmail(user.email)) {
+    const [updated] = await db
+      .update(users)
+      .set({ isPlatformAdmin: true, updatedAt: new Date() })
+      .where(eq(users.id, user.id))
+      .returning()
+    user = updated ?? user
+  }
+
   return user
+}
+
+export async function requirePlatformAdmin(args: Args) {
+  const user = await requireUser(args)
+
+  if (!user.isPlatformAdmin && !isSuperUserEmail(user.email)) {
+    throw new Response('Forbidden', { status: 403 })
+  }
+
+  return { user }
+}
+
+export async function userHasWorkspaceFeature(userId: string, workspaceId: string, featureKey: string) {
+  const db = getDb()
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+    columns: { email: true, isPlatformAdmin: true },
+  })
+
+  if (!user) return false
+  if (user.isPlatformAdmin || isSuperUserEmail(user.email)) return true
+
+  const membership = await db.query.workspaceMembers.findFirst({
+    where: and(
+      eq(workspaceMembers.userId, userId),
+      eq(workspaceMembers.workspaceId, workspaceId)
+    ),
+    columns: { role: true },
+  })
+
+  if (!membership) return false
+
+  const role = await db.query.roles.findFirst({
+    where: eq(roles.key, membership.role),
+    with: {
+      roleFeatures: {
+        with: {
+          feature: {
+            columns: { key: true },
+          },
+        },
+      },
+    },
+  })
+
+  return role?.roleFeatures.some((entry) => entry.feature.key === featureKey) ?? false
+}
+
+export async function requireWorkspaceFeature(args: Args, workspaceId: string, featureKey: string) {
+  const user = await requireUser(args)
+  const allowed = await userHasWorkspaceFeature(user.id, workspaceId, featureKey)
+
+  if (!allowed) {
+    throw new Response('Forbidden', { status: 403 })
+  }
+
+  return { user }
 }
 
 // Finds the first workspace the user is a member of
@@ -52,7 +127,37 @@ export async function getWorkspaceForUser(userId: string) {
 // requireUser + getWorkspace in one call; redirects to onboarding if no workspace
 export async function requireWorkspaceAccess(args: Args) {
   const user = await requireUser(args)
-  const result = await getWorkspaceForUser(user.id)
+  const db = getDb()
+  let result = await getWorkspaceForUser(user.id)
+  const isSuperUser = user.isPlatformAdmin || isSuperUserEmail(user.email)
+
+  if (isSuperUser) {
+    if (!result) {
+      const fallbackWorkspace = await db.query.workspaces.findFirst()
+      if (fallbackWorkspace) {
+        await db
+          .insert(workspaceMembers)
+          .values({ workspaceId: fallbackWorkspace.id, userId: user.id, role: 'admin' })
+          .onConflictDoUpdate({
+            target: [workspaceMembers.workspaceId, workspaceMembers.userId],
+            set: { role: 'admin' },
+          })
+        result = { workspace: fallbackWorkspace, role: 'admin' as const }
+      }
+    } else if (result.role === 'member') {
+      await db
+        .update(workspaceMembers)
+        .set({ role: 'admin' })
+        .where(
+          and(
+            eq(workspaceMembers.workspaceId, result.workspace.id),
+            eq(workspaceMembers.userId, user.id)
+          )
+        )
+      result = { ...result, role: 'admin' as const }
+    }
+  }
+
   if (!result) {
     if (user.accountType === 'job_seeker') throw redirect('/candidate')
     throw redirect('/dashboard/onboarding')

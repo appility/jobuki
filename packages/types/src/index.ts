@@ -86,6 +86,7 @@ export interface Board {
 export interface User {
   id: string
   clerkUserId: string
+  isPlatformAdmin: boolean
   accountType: AccountType
   email: string
   name: string | null

@@ -33,8 +33,29 @@
     {
       "idx": 4,
       "version": "6",
-      "when": 1780390036287,
+      "when": 1788432000000,
       "tag": "0004_worried_vulture",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1788518400000,
+      "tag": "0005_nervous_talon",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1788604800000,
+      "tag": "0006_rare_callisto",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1788691200000,
+      "tag": "0007_amused_preak",
       "breakpoints": true
     }
   ]

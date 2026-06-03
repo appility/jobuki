@@ -13,10 +13,15 @@ function getConfig() {
   const token = process.env.RAILWAY_TOKEN
   const serviceId = process.env.RAILWAY_SERVICE_ID
   const environmentId = process.env.RAILWAY_ENVIRONMENT_ID
+  const looksPlaceholder = (value: string | undefined) => {
+    if (!value) return true
+    const v = value.trim().toLowerCase()
+    return !v || v.startsWith('your_') || v.includes('replace_me')
+  }
 
-  if (!token || !serviceId || !environmentId) {
+  if (!token || !serviceId || !environmentId || looksPlaceholder(token) || looksPlaceholder(serviceId) || looksPlaceholder(environmentId)) {
     throw new Error(
-      'Missing Railway env vars. Required: RAILWAY_TOKEN, RAILWAY_SERVICE_ID, RAILWAY_ENVIRONMENT_ID'
+      'Railway config incomplete. Set real values for RAILWAY_TOKEN, RAILWAY_SERVICE_ID, and RAILWAY_ENVIRONMENT_ID.'
     )
   }
 

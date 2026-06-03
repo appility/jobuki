@@ -1,6 +1,6 @@
 import { useLoaderData, useActionData, Form, useNavigation, Link } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
-import { requireWorkspaceAccess, requireBoardInWorkspace } from '../../../lib/auth.server'
+import { requireWorkspaceAccess, requireBoardInWorkspace, userHasWorkspaceFeature } from '../../../lib/auth.server'
 import { getDb, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { addCustomDomain, removeCustomDomain, getCustomDomainStatus, isValidDomain } from '../../../lib/railway'
@@ -13,10 +13,23 @@ function canSelfServeCustomDomain(plan: CreatorPlan) {
   return SELF_SERVE_CUSTOM_DOMAIN_PLANS.includes(plan)
 }
 
+function isSuperUserEmail(email: string | null | undefined) {
+  if (!email) return false
+  const allowlist = (process.env.SUPER_USER_EMAILS ?? '')
+    .split(',')
+    .map(v => v.trim().toLowerCase())
+    .filter(Boolean)
+  return allowlist.includes(email.trim().toLowerCase())
+}
+
 export async function loader(args: LoaderFunctionArgs) {
-  const { workspace } = await requireWorkspaceAccess(args)
+  const { workspace, user } = await requireWorkspaceAccess(args)
+  const canManageDomains = await userHasWorkspaceFeature(user.id, workspace.id, 'board.domain.manage')
+  if (!canManageDomains) {
+    throw new Response('Forbidden', { status: 403 })
+  }
   const board = await requireBoardInWorkspace(args.params.id!, workspace.id)
-  const canSelfServe = canSelfServeCustomDomain(workspace.plan)
+  const canSelfServe = canSelfServeCustomDomain(workspace.plan) || isSuperUserEmail(user.email)
   return {
     board,
     workspacePlan: workspace.plan,
@@ -27,12 +40,16 @@ export async function loader(args: LoaderFunctionArgs) {
 }
 
 export async function action(args: ActionFunctionArgs) {
-  const { workspace } = await requireWorkspaceAccess(args)
+  const { workspace, user } = await requireWorkspaceAccess(args)
+  const canManageDomains = await userHasWorkspaceFeature(user.id, workspace.id, 'board.domain.manage')
+  if (!canManageDomains) {
+    return { ok: false, error: 'You do not have permission to manage domains in this workspace.' }
+  }
   const board = await requireBoardInWorkspace(args.params.id!, workspace.id)
   const form = await args.request.formData()
   const intent = form.get('intent') as string
   const db = getDb()
-  const canSelfServe = canSelfServeCustomDomain(workspace.plan)
+  const canSelfServe = canSelfServeCustomDomain(workspace.plan) || isSuperUserEmail(user.email)
 
   if (intent === 'request_custom_domain') {
     const raw = String(form.get('domain') || '').trim().toLowerCase()

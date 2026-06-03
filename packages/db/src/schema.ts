@@ -1,5 +1,5 @@
 import {
-  pgTable, text, timestamp, jsonb, integer, pgEnum, uniqueIndex,
+  pgTable, text, timestamp, jsonb, integer, pgEnum, uniqueIndex, boolean,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import { createId } from '@paralleldrive/cuid2'
@@ -19,6 +19,7 @@ export const accountTypeEnum     = pgEnum('account_type',      ['board_creator',
 export const users = pgTable('users', {
   id:          text('id').primaryKey().$defaultFn(() => createId()),
   clerkUserId: text('clerk_user_id').notNull().unique(),
+  isPlatformAdmin: boolean('is_platform_admin').notNull().default(false),
   accountType: accountTypeEnum('account_type').notNull().default('board_creator'),
   email:       text('email').notNull(),
   name:        text('name'),
@@ -52,6 +53,45 @@ export const workspaceMembers = pgTable('workspace_members', {
 }, (t) => ({
   uniq: uniqueIndex('workspace_members_workspace_user_idx').on(t.workspaceId, t.userId),
 }))
+
+// ── Roles / Features ────────────────────────────────────────────────
+export const roles = pgTable('roles', {
+  id:          text('id').primaryKey().$defaultFn(() => createId()),
+  key:         text('key').notNull().unique(),
+  name:        text('name').notNull(),
+  description: text('description'),
+  isSystem:    boolean('is_system').notNull().default(true),
+  createdAt:   timestamp('created_at').notNull().defaultNow(),
+  updatedAt:   timestamp('updated_at').notNull().defaultNow(),
+})
+
+export const features = pgTable('features', {
+  id:          text('id').primaryKey().$defaultFn(() => createId()),
+  key:         text('key').notNull().unique(),
+  name:        text('name').notNull(),
+  description: text('description'),
+  createdAt:   timestamp('created_at').notNull().defaultNow(),
+  updatedAt:   timestamp('updated_at').notNull().defaultNow(),
+})
+
+export const roleFeatures = pgTable('role_features', {
+  id:         text('id').primaryKey().$defaultFn(() => createId()),
+  roleId:     text('role_id').notNull().references(() => roles.id, { onDelete: 'cascade' }),
+  featureId:  text('feature_id').notNull().references(() => features.id, { onDelete: 'cascade' }),
+  createdAt:  timestamp('created_at').notNull().defaultNow(),
+}, (t) => ({
+  uniq: uniqueIndex('role_features_role_feature_idx').on(t.roleId, t.featureId),
+}))
+
+export const adminAuditLogs = pgTable('admin_audit_logs', {
+  id:          text('id').primaryKey().$defaultFn(() => createId()),
+  actorUserId: text('actor_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  action:      text('action').notNull(),
+  targetType:  text('target_type').notNull(),
+  targetId:    text('target_id').notNull(),
+  metadata:    jsonb('metadata').notNull().default({}),
+  createdAt:   timestamp('created_at').notNull().defaultNow(),
+})
 
 // ── Boards ───────────────────────────────────────────────────────────
 export const boards = pgTable('boards', {
@@ -116,6 +156,7 @@ export const applications = pgTable('applications', {
 // ── Relations ────────────────────────────────────────────────────────
 export const usersRelations = relations(users, ({ many }) => ({
   workspaceMembers: many(workspaceMembers),
+  adminAuditLogs: many(adminAuditLogs),
 }))
 
 export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
@@ -127,6 +168,23 @@ export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
 export const workspaceMembersRelations = relations(workspaceMembers, ({ one }) => ({
   workspace: one(workspaces, { fields: [workspaceMembers.workspaceId], references: [workspaces.id] }),
   user:      one(users,      { fields: [workspaceMembers.userId],      references: [users.id] }),
+}))
+
+export const rolesRelations = relations(roles, ({ many }) => ({
+  roleFeatures: many(roleFeatures),
+}))
+
+export const featuresRelations = relations(features, ({ many }) => ({
+  roleFeatures: many(roleFeatures),
+}))
+
+export const roleFeaturesRelations = relations(roleFeatures, ({ one }) => ({
+  role: one(roles, { fields: [roleFeatures.roleId], references: [roles.id] }),
+  feature: one(features, { fields: [roleFeatures.featureId], references: [features.id] }),
+}))
+
+export const adminAuditLogsRelations = relations(adminAuditLogs, ({ one }) => ({
+  actorUser: one(users, { fields: [adminAuditLogs.actorUserId], references: [users.id] }),
 }))
 
 export const boardsRelations = relations(boards, ({ one, many }) => ({

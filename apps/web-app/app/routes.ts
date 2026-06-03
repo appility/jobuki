@@ -13,6 +13,7 @@ export default [
   route('api/upload-sign', 'routes/api/upload-sign.ts'),
   route('api/upload-image', 'routes/api/upload-image.ts'),
   route('health', 'routes/health.ts'),
+  route('admin', 'routes/platform-admin/index.tsx'),
 
   // ── Onboarding (auth required, no workspace needed) ────────────────
   route('dashboard/onboarding', 'routes/admin/onboarding.tsx'),
