@@ -76,7 +76,7 @@ export default function BoardsIndex() {
               <div className="flex items-center gap-2 shrink-0 ml-4">
                 <Link
                   to={`/dashboard/boards/${board.id}`}
-                  className="btn-primary text-sm"
+                  className="btn-outline text-sm"
                 >
                   Manage board
                 </Link>
