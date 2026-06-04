@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useLoaderData, useActionData, Link, Form, useNavigation, redirect } from 'react-router'
+import { useLoaderData, useActionData, Link, Form, useNavigation, useSearchParams, redirect } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess, requireBoardInWorkspace, userHasWorkspaceFeature } from '../../../lib/auth.server'
 import { getDb, boards, jobs } from '@jobuki/db'
@@ -205,10 +205,13 @@ export default function BoardShow() {
   } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
+  const [searchParams] = useSearchParams()
   const [confirmSlug, setConfirmSlug] = useState('')
   const submitting = navigation.state === 'submitting'
   const deleting = submitting && navigation.formData?.get('intent') === 'delete_board'
   const [toasts, setToasts] = useState<Array<{ id: number; type: 'success' | 'error'; message: string }>>([])
+  const tabParam = searchParams.get('tab')
+  const activeTab = tabParam === 'jobs' || tabParam === 'settings' ? tabParam : 'overview'
 
   const pushToast = (type: 'success' | 'error', message: string) => {
     const id = Date.now() + Math.floor(Math.random() * 1000)
@@ -232,7 +235,7 @@ export default function BoardShow() {
   return (
     <div className="p-10 max-w-4xl">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="mb-8">
         <div>
           <Link to="/dashboard/boards" className="text-sm no-underline block mb-2"
             style={{ color: 'var(--color-text-muted)' }}>
@@ -245,30 +248,6 @@ export default function BoardShow() {
             className="text-xs no-underline" style={{ color: 'var(--color-primary)' }}>
             {publicUrl} ↗
           </a>
-        </div>
-        <div className="flex gap-2">
-          <Link to={`/dashboard/boards/${board.id}/domain`} className="btn-outline text-sm">
-            Domain
-          </Link>
-          <Link to={`/dashboard/appearance/${board.id}`} className="btn-outline text-sm">
-            Appearance
-          </Link>
-          {canPublish ? (
-            <Form method="post">
-              <input type="hidden" name="intent" value="toggle_status" />
-              <button
-                type="submit"
-                disabled={submitting}
-                className={board.status === 'live' ? 'btn-outline text-sm' : 'btn-primary text-sm'}
-              >
-                {board.status === 'live' ? 'Unpublish' : 'Publish'}
-              </button>
-            </Form>
-          ) : (
-            <button type="button" disabled className="btn-outline text-sm" aria-disabled="true">
-              Publish restricted
-            </button>
-          )}
         </div>
       </div>
 
@@ -288,82 +267,110 @@ export default function BoardShow() {
         )}
       </div>
 
-      {!actionData?.ok && actionData?.warnings?.length ? (
-        <div className="mb-6 rounded-xl border px-4 py-3"
-          style={{ borderColor: 'var(--color-warning)', backgroundColor: 'var(--color-warning-bg)' }}>
-          <p className="text-sm font-semibold mb-1" style={{ color: 'var(--color-warning)' }}>
-            Fix these before publishing
-          </p>
-          <ul className="text-sm m-0 pl-5" style={{ color: 'var(--color-text-secondary)' }}>
-            {actionData.warnings.map((warning, idx) => (
-              <li key={`${idx}-${warning}`}>{warning}</li>
-            ))}
-          </ul>
-          <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
-            Tip: adjust colors in Appearance and try Publish again.
-          </p>
-        </div>
-      ) : null}
-
-      {!canPublish && (
-        <div className="mb-6 rounded-xl border px-4 py-3"
-          style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}>
-          <p className="text-sm font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>
-            Publishing disabled for your role
-          </p>
-          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            Ask a workspace owner or admin with publish access to change this board status.
-          </p>
-        </div>
-      )}
-
-      {/* Jobs */}
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>
-          Jobs ({boardJobs.length})
-        </h2>
-        <Link to={`/dashboard/jobs/new?boardId=${board.id}`} className="btn-primary text-sm">
-          + Post a job
+      {/* Tabs */}
+      <div className="mb-6 flex items-center gap-2 border-b pb-2" style={{ borderColor: 'var(--color-border)' }}>
+        <Link
+          to="?tab=overview"
+          className="px-3 py-1.5 rounded-lg text-sm no-underline"
+          style={activeTab === 'overview'
+            ? { backgroundColor: 'color-mix(in srgb, var(--color-primary) 12%, transparent)', color: 'var(--color-primary)' }
+            : { color: 'var(--color-text-secondary)' }}
+        >
+          Overview
+        </Link>
+        <Link
+          to="?tab=jobs"
+          className="px-3 py-1.5 rounded-lg text-sm no-underline"
+          style={activeTab === 'jobs'
+            ? { backgroundColor: 'color-mix(in srgb, var(--color-primary) 12%, transparent)', color: 'var(--color-primary)' }
+            : { color: 'var(--color-text-secondary)' }}
+        >
+          Jobs
+        </Link>
+        <Link
+          to="?tab=settings"
+          className="px-3 py-1.5 rounded-lg text-sm no-underline"
+          style={activeTab === 'settings'
+            ? { backgroundColor: 'color-mix(in srgb, var(--color-primary) 12%, transparent)', color: 'var(--color-primary)' }
+            : { color: 'var(--color-text-secondary)' }}
+        >
+          Settings
         </Link>
       </div>
 
-      {boardJobs.length === 0 ? (
-        <div className="card p-8 text-center">
-          <p className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-            No jobs yet. Post your first role.
-          </p>
-          <Link to={`/dashboard/jobs/new?boardId=${board.id}`} className="btn-primary text-sm">
-            Post a job
-          </Link>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {boardJobs.map(job => (
-            <div key={job.id} className="card p-4 flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                    {job.title}
-                  </span>
-                  <span className="text-xs capitalize"
-                    style={{ color: JOB_STATUS_COLOR[job.status] ?? 'var(--color-text-muted)' }}>
-                    {job.status}
-                  </span>
-                </div>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                  {[job.location, job.remotePolicy, job.employmentType].filter(Boolean).join(' · ')}
-                </p>
-              </div>
-              <Link to={`/dashboard/jobs/${job.id}`} className="btn-outline text-sm">
-                Edit
-              </Link>
-            </div>
-          ))}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="card p-5">
+            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Board status</p>
+            <p className="text-sm font-semibold mt-1" style={{ color: 'var(--color-text-primary)' }}>
+              {board.status === 'live' ? 'Live' : 'Draft'}
+            </p>
+          </div>
+          <div className="card p-5">
+            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Total jobs</p>
+            <p className="text-sm font-semibold mt-1" style={{ color: 'var(--color-text-primary)' }}>{boardJobs.length}</p>
+          </div>
+          <div className="card p-5">
+            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Public URL</p>
+            <p className="text-sm font-semibold mt-1 truncate" style={{ color: 'var(--color-text-primary)' }}>
+              {publicUrl.replace(/^https?:\/\//, '')}
+            </p>
+          </div>
         </div>
       )}
 
-      {/* Settings */}
-      <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-4">
+      {activeTab === 'jobs' && (
+        <>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>
+              Jobs ({boardJobs.length})
+            </h2>
+            {boardJobs.length > 0 && (
+              <Link to={`/dashboard/jobs/new?boardId=${board.id}`} className="btn-primary text-sm">
+                + Post a job
+              </Link>
+            )}
+          </div>
+
+          {boardJobs.length === 0 ? (
+            <div className="card p-8 text-center">
+              <p className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
+                No jobs yet. Post your first role.
+              </p>
+              <Link to={`/dashboard/jobs/new?boardId=${board.id}`} className="btn-primary text-sm">
+                Post a job
+              </Link>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {boardJobs.map(job => (
+                <div key={job.id} className="card p-4 flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                        {job.title}
+                      </span>
+                      <span className="text-xs capitalize"
+                        style={{ color: JOB_STATUS_COLOR[job.status] ?? 'var(--color-text-muted)' }}>
+                        {job.status}
+                      </span>
+                    </div>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                      {[job.location, job.remotePolicy, job.employmentType].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                  <Link to={`/dashboard/jobs/${job.id}`} className="btn-outline text-sm">
+                    Edit
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === 'settings' && (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <section className="card p-5">
           <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
             Board settings
@@ -373,13 +380,58 @@ export default function BoardShow() {
             <p><strong>Status:</strong> {board.status}</p>
             <p><strong>Public URL:</strong> {publicUrl.replace(/^https?:\/\//, '')}</p>
           </div>
-          <div className="mt-4 flex gap-2">
+          {!actionData?.ok && actionData?.warnings?.length ? (
+            <div className="mt-4 rounded-xl border px-4 py-3"
+              style={{ borderColor: 'var(--color-warning)', backgroundColor: 'var(--color-warning-bg)' }}>
+              <p className="text-sm font-semibold mb-1" style={{ color: 'var(--color-warning)' }}>
+                Fix these before publishing
+              </p>
+              <ul className="text-sm m-0 pl-5" style={{ color: 'var(--color-text-secondary)' }}>
+                {actionData.warnings.map((warning, idx) => (
+                  <li key={`${idx}-${warning}`}>{warning}</li>
+                ))}
+              </ul>
+              <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+                Tip: adjust colors in Appearance and try Publish again.
+              </p>
+            </div>
+          ) : null}
+
+          {!canPublish && (
+            <div className="mt-4 rounded-xl border px-4 py-3"
+              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}>
+              <p className="text-sm font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                Publishing disabled for your role
+              </p>
+              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                Ask a workspace owner or admin with publish access to change this board status.
+              </p>
+            </div>
+          )}
+
+          <div className="mt-4 flex flex-wrap gap-2">
             <Link to={`/dashboard/appearance/${board.id}`} className="btn-outline text-sm">
               Appearance
             </Link>
             <Link to={`/dashboard/boards/${board.id}/domain`} className="btn-outline text-sm">
               Domains
             </Link>
+            {canPublish ? (
+              <Form method="post">
+                <input type="hidden" name="intent" value="toggle_status" />
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className={board.status === 'live' ? 'btn-outline text-sm' : 'btn-primary text-sm'}
+                >
+                  {board.status === 'live' ? 'Unpublish' : 'Publish'}
+                </button>
+              </Form>
+            ) : (
+              <button type="button" disabled className="btn-outline text-sm" aria-disabled="true">
+                Publish restricted
+              </button>
+            )}
           </div>
         </section>
 
@@ -545,6 +597,7 @@ export default function BoardShow() {
           </AlertDialog>
         </section>
       </div>
+      )}
 
       {/* Toasts */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 w-[320px] max-w-[calc(100vw-2rem)] pointer-events-none">
