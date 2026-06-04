@@ -143,7 +143,7 @@ h1, h2, h3, h4, h5, h6 {
 .marketing-symbol-node {
   position: absolute;
   left: 50%;
-  top: 50%;
+  top: 62%;
   animation: marketing-symbol-burst var(--burst-duration) ease-out infinite;
   animation-delay: var(--delay);
 }

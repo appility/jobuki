@@ -423,14 +423,14 @@ function Tag({ children, color }: { children: React.ReactNode; color: 'primary' 
 // ── Marketing home ────────────────────────────────────────────────────
 function MarketingHome() {
   const marketingSymbols = [
-    { tx: '-220px', ty: '-120px', delay: '-0.2s', burst: '8.4s', drift: '4.8s', color: '#4F46E5' },
-    { tx: '-170px', ty: '84px', delay: '-1.8s', burst: '7.8s', drift: '5.4s', color: '#F97316' },
-    { tx: '-60px', ty: '-170px', delay: '-0.9s', burst: '8.9s', drift: '4.3s', color: '#0F766E' },
-    { tx: '72px', ty: '-176px', delay: '-2.4s', burst: '7.6s', drift: '4.9s', color: '#D97706' },
-    { tx: '190px', ty: '-92px', delay: '-1.1s', burst: '8.2s', drift: '5.1s', color: '#DB2777' },
-    { tx: '220px', ty: '70px', delay: '-2.1s', burst: '8.6s', drift: '4.5s', color: '#2563EB' },
-    { tx: '105px', ty: '168px', delay: '-0.4s', burst: '7.4s', drift: '5.2s', color: '#7C3AED' },
-    { tx: '-116px', ty: '166px', delay: '-2.9s', burst: '8.1s', drift: '4.7s', color: '#0891B2' },
+    { tx: '-240px', ty: '86px', delay: '-0.2s', burst: '8.4s', drift: '4.8s', color: '#4F46E5' },
+    { tx: '-182px', ty: '124px', delay: '-1.8s', burst: '7.8s', drift: '5.4s', color: '#F97316' },
+    { tx: '-118px', ty: '188px', delay: '-0.9s', burst: '8.9s', drift: '4.3s', color: '#0F766E' },
+    { tx: '-36px', ty: '236px', delay: '-2.4s', burst: '7.6s', drift: '4.9s', color: '#D97706' },
+    { tx: '42px', ty: '232px', delay: '-1.1s', burst: '8.2s', drift: '5.1s', color: '#DB2777' },
+    { tx: '126px', ty: '184px', delay: '-2.1s', burst: '8.6s', drift: '4.5s', color: '#2563EB' },
+    { tx: '196px', ty: '128px', delay: '-0.4s', burst: '7.4s', drift: '5.2s', color: '#7C3AED' },
+    { tx: '244px', ty: '88px', delay: '-2.9s', burst: '8.1s', drift: '4.7s', color: '#0891B2' },
   ]
 
   const marketCards = [
