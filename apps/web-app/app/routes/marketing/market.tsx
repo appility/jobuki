@@ -1,9 +1,9 @@
 import { Link, useLoaderData } from 'react-router'
 import type { LoaderFunctionArgs, MetaFunction } from 'react-router'
 
-type Market = 'recruiters' | 'companies' | 'communities'
+type TypePath = 'recruiters' | 'companies' | 'communities'
 
-type MarketContent = {
+type TypeContent = {
   title: string
   subtitle: string
   body: string
@@ -12,14 +12,14 @@ type MarketContent = {
   onboardingTo: string
 }
 
-const MARKET_CONTENT: Record<Market, MarketContent> = {
+const TYPE_CONTENT: Record<TypePath, TypeContent> = {
   recruiters: {
     title: 'For Recruiters',
     subtitle: 'Turn your audience into a recurring listing channel',
     body: 'Run a branded jobs board your client companies trust, then monetize with paid slots and featured visibility.',
     bullets: ['Branded board with your own domain', 'Paid listings and promoted spots', 'Fast posting workflow for client teams'],
     cta: 'Start recruiter onboarding',
-    onboardingTo: '/dashboard/onboarding?market=recruiter',
+    onboardingTo: '/dashboard/onboarding?type=recruiter',
   },
   companies: {
     title: 'For Companies',
@@ -27,7 +27,7 @@ const MARKET_CONTENT: Record<Market, MarketContent> = {
     body: 'Launch a careers board that reflects your company and gives your team a clean workflow for publishing roles.',
     bullets: ['Branded careers experience', 'Simple team publishing flow', 'Designed for candidate conversion'],
     cta: 'Start company onboarding',
-    onboardingTo: '/dashboard/onboarding?market=company',
+    onboardingTo: '/dashboard/onboarding?type=company',
   },
   communities: {
     title: 'For Communities & Charities',
@@ -35,19 +35,19 @@ const MARKET_CONTENT: Record<Market, MarketContent> = {
     body: 'Create a focused jobs destination for your members and fund operations with sponsored opportunities.',
     bullets: ['Mission-led board design', 'Sponsored listing model', 'Built for trusted community curation'],
     cta: 'Start community onboarding',
-    onboardingTo: '/dashboard/onboarding?market=community',
+    onboardingTo: '/dashboard/onboarding?type=community',
   },
 }
 
-function parseMarket(value: string | undefined): Market | null {
+function parseTypePath(value: string | undefined): TypePath | null {
   if (value === 'recruiters' || value === 'companies' || value === 'communities') return value
   return null
 }
 
 export async function loader({ params }: LoaderFunctionArgs) {
-  const market = parseMarket(params.market)
-  if (!market) throw new Response('Not found', { status: 404 })
-  return { market, content: MARKET_CONTENT[market] }
+  const type = parseTypePath(params.type)
+  if (!type) throw new Response('Not found', { status: 404 })
+  return { type, content: TYPE_CONTENT[type] }
 }
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
@@ -86,7 +86,7 @@ export default function MarketLanding() {
           }}
         >
           <p className="text-xs font-bold tracking-[0.14em] uppercase mb-3" style={{ color: 'var(--color-text-muted)' }}>
-            Jobuki market
+            Jobuki type
           </p>
           <h1 className="text-4xl md:text-5xl font-extrabold leading-[1.05]" style={{ color: 'var(--color-text-primary)' }}>
             {content.title}

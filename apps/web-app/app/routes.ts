@@ -3,7 +3,7 @@ import { type RouteConfig, route, index, layout } from '@react-router/dev/routes
 export default [
   // ── Marketing ──────────────────────────────────────────────────────
   index('routes/marketing/home.tsx'),
-  route('for/:market', 'routes/marketing/market.tsx'),
+  route('for/:type', 'routes/marketing/market.tsx'),
 
   // ── Auth ──────────────────────────────────────────────────────────
   route('sign-in',       'routes/sign-in.tsx'),
@@ -20,6 +20,13 @@ export default [
   route('dashboard/onboarding', 'routes/admin/onboarding.tsx'),
   route('candidate',            'routes/candidate/index.tsx'),
   route('candidate/start',      'routes/candidate/start.tsx'),
+  route('posters/start',        'routes/posters/start.tsx'),
+  layout('routes/posters/layout.tsx', [
+    route('posters',          'routes/posters/index.tsx'),
+    route('posters/listings', 'routes/posters/listings.tsx'),
+    route('posters/billing',  'routes/posters/billing.tsx'),
+    route('posters/status',   'routes/posters/status.tsx'),
+  ]),
 
   // ── Admin (auth + workspace required) ─────────────────────────────
   layout('routes/admin/layout.tsx', [
@@ -32,6 +39,7 @@ export default [
     route('dashboard/jobs',           'routes/admin/jobs/index.tsx'),
     route('dashboard/jobs/new',       'routes/admin/jobs/new.tsx'),
     route('dashboard/jobs/:id',       'routes/admin/jobs/edit.tsx'),
+    route('dashboard/monetization',   'routes/admin/monetization.tsx'),
     route('dashboard/applications',   'routes/admin/applications/index.tsx'),
   ]),
 

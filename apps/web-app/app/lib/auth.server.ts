@@ -9,6 +9,11 @@ type Args = LoaderFunctionArgs | ActionFunctionArgs
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! })
 
+function parseAccountType(input: unknown): 'board_creator' | 'job_seeker' | 'job_poster' | null {
+  if (input === 'board_creator' || input === 'job_seeker' || input === 'job_poster') return input
+  return null
+}
+
 export function isSuperUserEmail(email: string | null | undefined) {
   if (!email) return false
   const allowlist = (process.env.SUPER_USER_EMAILS ?? '')
@@ -38,9 +43,13 @@ export async function requireUser(args: Args) {
     const clerkUser = await clerk.users.getUser(clerkUserId)
     const email = clerkUser.emailAddresses[0]?.emailAddress ?? ''
     const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || null
+    const accountType =
+      parseAccountType((clerkUser.unsafeMetadata as any)?.accountType)
+      ?? parseAccountType((clerkUser.publicMetadata as any)?.accountType)
+      ?? 'board_creator'
     const [created] = await db
       .insert(users)
-      .values({ clerkUserId, email, name, imageUrl: clerkUser.imageUrl ?? null })
+      .values({ clerkUserId, email, name, imageUrl: clerkUser.imageUrl ?? null, accountType })
       .returning()
     user = created
   }
@@ -160,9 +169,24 @@ export async function requireWorkspaceAccess(args: Args) {
 
   if (!result) {
     if (user.accountType === 'job_seeker') throw redirect('/candidate')
+    if (user.accountType === 'job_poster') throw redirect('/posters/start')
     throw redirect('/dashboard/onboarding')
   }
   return { user, workspace: result.workspace, role: result.role }
+}
+
+export async function requirePosterAccess(args: Args) {
+  const user = await requireUser(args)
+
+  if (user.accountType === 'job_seeker') {
+    throw redirect('/candidate')
+  }
+
+  if (user.accountType !== 'job_poster') {
+    throw redirect('/sign-in?type=job-poster')
+  }
+
+  return { user }
 }
 
 // Verifies a board belongs to the given workspace

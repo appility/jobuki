@@ -433,20 +433,20 @@ function MarketingHome() {
     { tx: '244px', ty: '88px', delay: '-2.9s', burst: '8.1s', drift: '4.7s', color: '#0891B2' },
   ]
 
-  const marketCards = [
+  const typeCards = [
     {
-      title: 'For Recruiters',
-      cta: 'Explore recruiter plans',
+      title: 'Recruiter type',
+      cta: 'Explore recruiter type',
       to: '/for/recruiters',
     },
     {
-      title: 'For Companies',
-      cta: 'Explore company plans',
+      title: 'Company type',
+      cta: 'Explore company type',
       to: '/for/companies',
     },
     {
-      title: 'For Communities & Charities',
-      cta: 'Explore community plans',
+      title: 'Community and charity type',
+      cta: 'Explore community type',
       to: '/for/communities',
     },
   ]
@@ -507,13 +507,13 @@ function MarketingHome() {
               Hiring platform
             </p>
             <h1 className="text-4xl md:text-5xl font-extrabold leading-[1.05]" style={{ color: 'var(--color-text-primary)' }}>
-              Build a job board. Grow an audience. Monetize listings.
+              Build a branded job board for your type.
               <span className="marketing-minutes-slot">
                 <span className="marketing-minutes-cycle">in minutes</span>
               </span>
             </h1>
             <p className="text-base md:text-lg max-w-2xl mx-auto mt-5" style={{ color: 'var(--color-text-secondary)' }}>
-              Jobuki helps recruiters, companies, and mission-led communities launch branded boards and create new value from hiring demand.
+              Jobuki helps recruiters, companies, and communities launch branded boards and run hiring with a workflow built for their type.
             </p>
             <div className="mt-7 flex justify-center">
               <Link to="/dashboard" className="btn-primary text-base px-8 py-3">
@@ -523,8 +523,13 @@ function MarketingHome() {
           </div>
         </div>
 
-        <div className="mt-7 md:mt-9 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
-          {marketCards.map((card) => (
+        <div className="mt-7 md:mt-9">
+          <p className="text-xs font-bold tracking-[0.14em] uppercase mb-3 px-1" style={{ color: 'var(--color-text-muted)' }}>
+            Choose your type
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
+          {typeCards.map((card) => (
             <article
               key={card.title}
               className="rounded-[20px] p-5 md:p-6 h-full"
@@ -543,6 +548,7 @@ function MarketingHome() {
               </div>
             </article>
           ))}
+          </div>
         </div>
       </section>
     </div>

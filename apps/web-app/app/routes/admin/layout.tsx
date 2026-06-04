@@ -13,6 +13,7 @@ const navItems = [
   { to: '/dashboard',              label: 'Overview',     icon: '▦' },
   { to: '/dashboard/boards',       label: 'Job Boards',   icon: '⊞' },
   { to: '/dashboard/jobs',         label: 'Jobs',         icon: '✦' },
+  { to: '/dashboard/monetization', label: 'Monetization', icon: '¤' },
   { to: '/dashboard/applications', label: 'Applications', icon: '◎' },
 ]
 

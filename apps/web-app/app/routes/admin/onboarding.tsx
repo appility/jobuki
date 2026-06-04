@@ -5,9 +5,9 @@ import { getDb, workspaces, workspaceMembers } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { toSlug } from './boards/new'
 
-type MarketSegment = 'recruiter' | 'company' | 'community'
+type UserType = 'recruiter' | 'company' | 'community'
 
-const MARKET_CONFIG: Record<MarketSegment, {
+const TYPE_CONFIG: Record<UserType, {
   heading: string
   description: string
   suggestedName: string
@@ -29,7 +29,7 @@ const MARKET_CONFIG: Record<MarketSegment, {
   },
 }
 
-function parseMarketSegment(value: string | null): MarketSegment | null {
+function parseUserType(value: string | null): UserType | null {
   if (value === 'recruiter' || value === 'company' || value === 'community') return value
   return null
 }
@@ -39,8 +39,8 @@ export async function loader(args: LoaderFunctionArgs) {
   const existing = await getWorkspaceForUser(user.id)
   if (existing) throw redirect('/dashboard')
   const url = new URL(args.request.url)
-  const market = parseMarketSegment(url.searchParams.get('market'))
-  return { market }
+  const type = parseUserType(url.searchParams.get('type')) ?? parseUserType(url.searchParams.get('market'))
+  return { type }
 }
 
 export async function action(args: ActionFunctionArgs) {
@@ -73,11 +73,11 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 export default function Onboarding() {
-  const { market } = useLoaderData<typeof loader>()
+  const { type } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const submitting = navigation.state === 'submitting'
-  const marketConfig = market ? MARKET_CONFIG[market] : null
+  const typeConfig = type ? TYPE_CONFIG[type] : null
 
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-background)' }}>
@@ -94,10 +94,10 @@ export default function Onboarding() {
 
         <div className="card p-8">
           <h1 className="text-xl font-extrabold mb-1" style={{ color: 'var(--color-text-primary)' }}>
-            {marketConfig?.heading ?? 'Create your workspace'}
+            {typeConfig?.heading ?? 'Create your workspace'}
           </h1>
           <p className="text-sm mb-6" style={{ color: 'var(--color-text-secondary)' }}>
-            {marketConfig?.description ?? 'A workspace holds all your job boards, jobs, and applications.'}
+            {typeConfig?.description ?? 'A workspace holds all your job boards, jobs, and applications.'}
           </p>
 
           {actionData?.error && (
@@ -115,7 +115,7 @@ export default function Onboarding() {
               <input
                 name="name"
                 className="input w-full"
-                defaultValue={marketConfig?.suggestedName ?? ''}
+                defaultValue={typeConfig?.suggestedName ?? ''}
                 placeholder="Acme Corp"
                 autoFocus
                 required

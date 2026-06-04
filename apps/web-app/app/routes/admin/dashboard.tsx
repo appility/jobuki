@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import { requireWorkspaceAccess } from '../../lib/auth.server'
 import { getDb, boards, jobs, applications } from '@jobuki/db'
 import { eq, count } from 'drizzle-orm'
+import { canMonetize } from '../../lib/creator-tier'
 
 export async function loader(args: LoaderFunctionArgs) {
   const { user, workspace } = await requireWorkspaceAccess(args)
@@ -29,6 +30,7 @@ export async function loader(args: LoaderFunctionArgs) {
   return {
     user,
     workspace,
+    canMonetize: canMonetize(workspace.plan),
     stats: {
       boards: boardCount.count,
       jobs: jobCount.count,
@@ -44,7 +46,7 @@ const PLAN_LABEL: Record<string, string> = {
 }
 
 export default function Dashboard() {
-  const { user, workspace, stats } = useLoaderData<typeof loader>()
+  const { user, workspace, stats, canMonetize: monetizationEnabled } = useLoaderData<typeof loader>()
 
   return (
     <div className="p-10 max-w-4xl">
@@ -65,13 +67,25 @@ export default function Dashboard() {
       </div>
 
       {/* Quick actions */}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <Link to="/dashboard/boards/new" className="btn-primary">
           + Create job board
         </Link>
         <Link to="/dashboard/jobs/new" className="btn-outline">
           + Post a job
         </Link>
+        <Link to="/dashboard/monetization" className="btn-outline">
+          Monetization {monetizationEnabled ? 'enabled' : 'locked'}
+        </Link>
+      </div>
+
+      <div className="mt-6 rounded-xl px-4 py-3 text-sm"
+        style={monetizationEnabled
+          ? { backgroundColor: 'var(--color-success-bg)', color: 'var(--color-success)' }
+          : { backgroundColor: 'var(--color-warning-bg)', color: 'var(--color-warning)' }}>
+        {monetizationEnabled
+          ? 'Your tier includes monetization access for paid listing workflows.'
+          : 'Monetization is not available on Free. Upgrade to Growth or Scale to unlock paid listings.'}
       </div>
     </div>
   )

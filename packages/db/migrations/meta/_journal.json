@@ -57,6 +57,13 @@
       "when": 1788691200000,
       "tag": "0007_amused_preak",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1788777600000,
+      "tag": "0008_mellow_job_poster",
+      "breakpoints": true
     }
   ]
 }

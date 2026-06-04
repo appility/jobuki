@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { requireWorkspaceAccess, userHasWorkspaceFeature } from '../../../lib/auth.server'
 import { getDb, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
-import { DEFAULT_THEME, DEFAULT_JOB_BOARD_THEME_CONFIG } from '@jobuki/types'
-import { canCreateBoard, getBoardCreationLimit } from '../../../lib/creator-tier'
+import { DEFAULT_THEME, DEFAULT_JOB_BOARD_THEME_CONFIG, type BoardOwnerType } from '@jobuki/types'
+import { canCreateBoard, canMonetize, getBoardCreationLimit } from '../../../lib/creator-tier'
 
 // ── Shared slug/name helpers (used client + server) ───────────────────
 
@@ -42,6 +42,7 @@ export async function loader(args: LoaderFunctionArgs) {
   return {
     plan: workspace.plan,
     canCreate,
+    canMonetize: canMonetize(workspace.plan),
     boardCount: existingBoards.length,
     boardLimit: getBoardCreationLimit(workspace.plan),
   }
@@ -60,6 +61,9 @@ export async function action(args: ActionFunctionArgs) {
   const name        = sanitizeName((form.get('name') as string).trim())
   const description = (form.get('description') as string).trim()
   const rawSlug     = (form.get('slug') as string).trim()
+  const ownerType = String(form.get('ownerType') ?? 'company') as BoardOwnerType
+  const enableMonetization = form.get('enableMonetization') === 'on'
+  const approvalMode = String(form.get('paidApprovalMode') ?? 'manual')
 
   if (!name) return { error: 'Board name is required.' }
   if (name.length > 80) return { error: 'Board name must be 80 characters or fewer.' }
@@ -68,6 +72,32 @@ export async function action(args: ActionFunctionArgs) {
 
   if (!isValidSlug(slug)) {
     return { error: 'Slug must be 3–60 characters, lowercase letters and numbers only, hyphens allowed between words (e.g. acme-jobs).' }
+  }
+
+  if (!['recruiter', 'company', 'community'].includes(ownerType)) {
+    return { error: 'Invalid board type selected.' }
+  }
+
+  const monetizationAllowed = canMonetize(workspace.plan)
+  if (enableMonetization && !monetizationAllowed) {
+    return { error: 'Monetization is available on Growth and Scale tiers only.' }
+  }
+
+  const listingPriceRaw = String(form.get('listingPrice') ?? '').trim()
+  const featuredPriceRaw = String(form.get('featuredPrice') ?? '').trim()
+  const listingPrice = listingPriceRaw ? Number(listingPriceRaw) : null
+  const featuredPrice = featuredPriceRaw ? Number(featuredPriceRaw) : null
+
+  if (enableMonetization) {
+    if (listingPrice == null || Number.isNaN(listingPrice) || listingPrice <= 0) {
+      return { error: 'Enter a valid default listing price greater than 0.' }
+    }
+    if (featuredPrice != null && (Number.isNaN(featuredPrice) || featuredPrice <= 0)) {
+      return { error: 'Featured listing price must be greater than 0 when provided.' }
+    }
+    if (!['auto', 'manual'].includes(approvalMode)) {
+      return { error: 'Invalid paid listing approval mode.' }
+    }
   }
 
   const db = getDb()
@@ -93,7 +123,19 @@ export async function action(args: ActionFunctionArgs) {
       slug,
       description: description || null,
       theme: DEFAULT_THEME,
-      boardConfig: { ...DEFAULT_JOB_BOARD_THEME_CONFIG, boardName: name },
+      boardConfig: {
+        ...DEFAULT_JOB_BOARD_THEME_CONFIG,
+        boardName: name,
+        ownerType,
+        monetization: {
+          ...(DEFAULT_JOB_BOARD_THEME_CONFIG.monetization ?? {}),
+          enabled: monetizationAllowed && enableMonetization,
+          defaultListingPrice: monetizationAllowed && enableMonetization ? listingPrice : null,
+          featuredListingPrice: monetizationAllowed && enableMonetization ? featuredPrice : null,
+          requiresApprovalForPaidListings:
+            monetizationAllowed && enableMonetization ? approvalMode !== 'auto' : true,
+        },
+      },
     })
     .returning()
 
@@ -102,13 +144,14 @@ export async function action(args: ActionFunctionArgs) {
 
 // ── Component ─────────────────────────────────────────────────────────
 export default function NewBoard() {
-  const { plan, canCreate, boardCount, boardLimit } = useLoaderData<typeof loader>()
+  const { plan, canCreate, canMonetize: monetizationAllowed, boardCount, boardLimit } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const submitting = navigation.state === 'submitting'
 
   const [slug, setSlug]             = useState('')
   const [slugTouched, setSlugTouched] = useState(false)
+  const [enableMonetization, setEnableMonetization] = useState(false)
 
   function handleNameChange(e: React.ChangeEvent<HTMLInputElement>) {
     // Strip invalid characters as they type
@@ -231,6 +274,75 @@ export default function NewBoard() {
             rows={3}
             placeholder="We're building the future of work…"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--color-text-primary)' }}>
+            Board type <span style={{ color: 'var(--color-danger)' }}>*</span>
+          </label>
+          <select name="ownerType" className="input w-full" defaultValue="company" required>
+            <option value="recruiter">Recruiter</option>
+            <option value="company">Company</option>
+            <option value="community">Community / Charity</option>
+          </select>
+          <p className="text-xs mt-1.5" style={{ color: 'var(--color-text-muted)' }}>
+            This sets your default workflow language and setup defaults.
+          </p>
+        </div>
+
+        <div className="rounded-xl border p-4"
+          style={{
+            borderColor: monetizationAllowed ? 'var(--color-border)' : 'var(--color-warning)',
+            backgroundColor: monetizationAllowed ? 'var(--color-surface-subtle)' : 'var(--color-warning-bg)',
+          }}>
+          <div className="flex items-start gap-3">
+            <input
+              id="enableMonetization"
+              name="enableMonetization"
+              type="checkbox"
+              disabled={!monetizationAllowed}
+              checked={monetizationAllowed ? enableMonetization : false}
+              onChange={(e) => setEnableMonetization(e.currentTarget.checked)}
+              className="mt-1"
+            />
+            <div className="min-w-0">
+              <label htmlFor="enableMonetization" className="block text-sm font-semibold"
+                style={{ color: 'var(--color-text-primary)' }}>
+                Enable paid listings during setup
+              </label>
+              <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                {monetizationAllowed
+                  ? 'Configure paid posting while creating this board.'
+                  : 'Monetization is only available on Growth and Scale tiers.'}
+              </p>
+            </div>
+          </div>
+
+          {monetizationAllowed && enableMonetization && (
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--color-text-primary)' }}>
+                  Default listing price (GBP) <span style={{ color: 'var(--color-danger)' }}>*</span>
+                </label>
+                <input name="listingPrice" type="number" min="1" step="1" className="input w-full" placeholder="99" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--color-text-primary)' }}>
+                  Featured listing price (GBP)
+                </label>
+                <input name="featuredPrice" type="number" min="1" step="1" className="input w-full" placeholder="149" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--color-text-primary)' }}>
+                  Paid listing approval mode
+                </label>
+                <select name="paidApprovalMode" className="input w-full" defaultValue="manual">
+                  <option value="manual">Manual review before publish</option>
+                  <option value="auto">Auto-publish paid listings</option>
+                </select>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-3 pt-2">

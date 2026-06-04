@@ -8,6 +8,8 @@ import { boardUrl } from '../../../lib/board-url'
 import { removeCustomDomain } from '../../../lib/railway'
 import { resolveTheme } from '../../../lib/theme'
 import { contrastRatio } from '../../../lib/color'
+import { canMonetize } from '../../../lib/creator-tier'
+import { resolveJobBoardThemeConfig } from '@jobuki/types'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,13 +26,32 @@ export async function loader(args: LoaderFunctionArgs) {
   const board = await requireBoardInWorkspace(args.params.id!, workspace.id)
   const db = getDb()
   const canPublish = await userHasWorkspaceFeature(user.id, workspace.id, 'board.publish')
+  const canManageMonetization = await userHasWorkspaceFeature(user.id, workspace.id, 'workspace.billing.manage')
+  const boardConfig = resolveJobBoardThemeConfig(board.boardConfig, {
+    boardName: board.name,
+    tagline: board.introText ?? undefined,
+    logoUrl: board.logoUrl ?? undefined,
+    headerImageUrl: board.heroImageUrl ?? undefined,
+    brandColor: (board.theme as any)?.colorPrimary,
+    accentColor: (board.theme as any)?.colorAccent,
+    backgroundColor: (board.theme as any)?.colorBackground,
+  })
 
   const boardJobs = await db.query.jobs.findMany({
     where: eq(jobs.boardId, board.id),
     orderBy: (j, { desc }) => [desc(j.createdAt)],
   })
 
-  return { board, jobs: boardJobs, publicUrl: boardUrl(board.slug, board.customDomain), canPublish }
+  return {
+    board,
+    jobs: boardJobs,
+    publicUrl: boardUrl(board.slug, board.customDomain),
+    canPublish,
+    workspacePlan: workspace.plan,
+    monetizationAllowed: canMonetize(workspace.plan),
+    canManageMonetization,
+    monetizationConfig: boardConfig.monetization,
+  }
 }
 
 export async function action(args: ActionFunctionArgs) {
@@ -105,6 +126,63 @@ export async function action(args: ActionFunctionArgs) {
     throw redirect('/dashboard/boards')
   }
 
+  if (intent === 'update_monetization') {
+    const canManageMonetization = await userHasWorkspaceFeature(user.id, workspace.id, 'workspace.billing.manage')
+    if (!canManageMonetization) {
+      return { ok: false, error: 'You do not have permission to manage monetization settings.' }
+    }
+
+    const monetizationAllowed = canMonetize(workspace.plan)
+    if (!monetizationAllowed) {
+      return { ok: false, error: 'Monetization is available on Growth and Scale tiers only.' }
+    }
+
+    const enableMonetization = form.get('enableMonetization') === 'on'
+    const approvalMode = String(form.get('paidApprovalMode') ?? 'manual')
+    const listingPriceRaw = String(form.get('listingPrice') ?? '').trim()
+    const featuredPriceRaw = String(form.get('featuredPrice') ?? '').trim()
+    const listingPrice = listingPriceRaw ? Number(listingPriceRaw) : null
+    const featuredPrice = featuredPriceRaw ? Number(featuredPriceRaw) : null
+
+    if (enableMonetization) {
+      if (listingPrice == null || Number.isNaN(listingPrice) || listingPrice <= 0) {
+        return { ok: false, error: 'Enter a valid default listing price greater than 0.' }
+      }
+      if (featuredPrice != null && (Number.isNaN(featuredPrice) || featuredPrice <= 0)) {
+        return { ok: false, error: 'Featured listing price must be greater than 0 when provided.' }
+      }
+      if (!['auto', 'manual'].includes(approvalMode)) {
+        return { ok: false, error: 'Invalid paid listing approval mode.' }
+      }
+    }
+
+    const currentConfig = resolveJobBoardThemeConfig(board.boardConfig, {
+      boardName: board.name,
+      tagline: board.introText ?? undefined,
+      logoUrl: board.logoUrl ?? undefined,
+      headerImageUrl: board.heroImageUrl ?? undefined,
+      brandColor: (board.theme as any)?.colorPrimary,
+      accentColor: (board.theme as any)?.colorAccent,
+      backgroundColor: (board.theme as any)?.colorBackground,
+    })
+
+    await db.update(boards).set({
+      boardConfig: {
+        ...currentConfig,
+        monetization: {
+          ...(currentConfig.monetization ?? {}),
+          enabled: enableMonetization,
+          defaultListingPrice: enableMonetization ? listingPrice : null,
+          featuredListingPrice: enableMonetization ? featuredPrice : null,
+          requiresApprovalForPaidListings: enableMonetization ? approvalMode !== 'auto' : true,
+        },
+      },
+      updatedAt: new Date(),
+    }).where(eq(boards.id, board.id))
+
+    return { ok: true, message: 'Monetization settings updated.' }
+  }
+
   return { ok: false }
 }
 
@@ -115,7 +193,16 @@ const JOB_STATUS_COLOR: Record<string, string> = {
 }
 
 export default function BoardShow() {
-  const { board, jobs: boardJobs, publicUrl, canPublish } = useLoaderData<typeof loader>()
+  const {
+    board,
+    jobs: boardJobs,
+    publicUrl,
+    canPublish,
+    workspacePlan,
+    monetizationAllowed,
+    canManageMonetization,
+    monetizationConfig,
+  } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const [confirmSlug, setConfirmSlug] = useState('')
@@ -294,6 +381,99 @@ export default function BoardShow() {
               Domains
             </Link>
           </div>
+        </section>
+
+        <section className="card p-5">
+          <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+            Monetization settings
+          </h3>
+          <p className="text-xs mb-3" style={{ color: 'var(--color-text-secondary)' }}>
+            Tier: <strong>{workspacePlan}</strong> · {monetizationAllowed ? 'Monetization available' : 'Monetization locked'}
+          </p>
+
+          {!monetizationAllowed && (
+            <div className="mb-3 px-3 py-2 rounded-lg text-xs"
+              style={{ backgroundColor: 'var(--color-warning-bg)', color: 'var(--color-warning)' }}>
+              Upgrade to Growth or Scale to configure paid listings.
+            </div>
+          )}
+
+          {!canManageMonetization && (
+            <div className="mb-3 px-3 py-2 rounded-lg text-xs"
+              style={{ backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-secondary)' }}>
+              Your role cannot edit monetization settings.
+            </div>
+          )}
+
+          <Form method="post" className="space-y-3">
+            <input type="hidden" name="intent" value="update_monetization" />
+
+            <label className="flex items-start gap-2 text-sm" style={{ color: 'var(--color-text-primary)' }}>
+              <input
+                type="checkbox"
+                name="enableMonetization"
+                defaultChecked={!!monetizationConfig?.enabled}
+                disabled={!monetizationAllowed || !canManageMonetization || submitting}
+                className="mt-0.5"
+              />
+              Enable paid listings for this board
+            </label>
+
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                  Default listing price (GBP)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  name="listingPrice"
+                  defaultValue={monetizationConfig?.defaultListingPrice ?? ''}
+                  className="input w-full"
+                  disabled={!monetizationAllowed || !canManageMonetization || submitting}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                  Featured listing price (GBP)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  name="featuredPrice"
+                  defaultValue={monetizationConfig?.featuredListingPrice ?? ''}
+                  className="input w-full"
+                  disabled={!monetizationAllowed || !canManageMonetization || submitting}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                  Paid listing approval mode
+                </label>
+                <select
+                  name="paidApprovalMode"
+                  className="input w-full"
+                  defaultValue={monetizationConfig?.requiresApprovalForPaidListings ? 'manual' : 'auto'}
+                  disabled={!monetizationAllowed || !canManageMonetization || submitting}
+                >
+                  <option value="manual">Manual review before publish</option>
+                  <option value="auto">Auto-publish paid listings</option>
+                </select>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="btn-outline text-sm"
+              disabled={!monetizationAllowed || !canManageMonetization || submitting}
+            >
+              {submitting ? 'Saving…' : 'Save monetization settings'}
+            </button>
+          </Form>
         </section>
 
         <section className="card p-5" style={{ borderColor: 'var(--color-danger)' }}>

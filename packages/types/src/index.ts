@@ -5,9 +5,19 @@ export type ButtonStyle = 'rounded' | 'pill' | 'sharp'
 export type JobBoardHeaderStyle = 'solid' | 'gradient' | 'image'
 export type JobBoardThemePreset = 'minimal' | 'startup' | 'editorial' | 'bold' | 'dark'
 export type JobBoardEmptyStateIcon = 'search' | 'briefcase' | 'sparkle' | 'inbox'
+export type BoardOwnerType = 'recruiter' | 'company' | 'community'
+
+export interface BoardMonetizationConfig {
+  enabled: boolean
+  currency: string
+  defaultListingPrice: number | null
+  featuredListingPrice: number | null
+  requiresApprovalForPaidListings: boolean
+}
 
 export interface JobBoardThemeConfig {
   boardName: string
+  ownerType?: BoardOwnerType
   tagline?: string
   logoUrl?: string
   headerImageUrl?: string
@@ -29,6 +39,7 @@ export interface JobBoardThemeConfig {
     showPoweredBy: boolean
     companyWebsiteUrl?: string
   }
+  monetization?: BoardMonetizationConfig
 }
 
 export interface BoardTheme {
@@ -150,7 +161,7 @@ export interface Workspace {
   createdAt: Date
 }
 
-export type AccountType = 'board_creator' | 'job_seeker'
+export type AccountType = 'board_creator' | 'job_seeker' | 'job_poster'
 export type CreatorPlan = Workspace['plan']
 
 export const CREATOR_PLAN_BOARD_LIMITS: Record<CreatorPlan, number> = {
@@ -197,6 +208,7 @@ export const DEFAULT_THEME: BoardTheme = {
 
 export const DEFAULT_JOB_BOARD_THEME_CONFIG: JobBoardThemeConfig = {
   boardName: 'Jobs',
+  ownerType: 'company',
   tagline: '',
   logoUrl: '',
   headerImageUrl: '',
@@ -217,6 +229,13 @@ export const DEFAULT_JOB_BOARD_THEME_CONFIG: JobBoardThemeConfig = {
   footer: {
     showPoweredBy: true,
     companyWebsiteUrl: '',
+  },
+  monetization: {
+    enabled: false,
+    currency: 'GBP',
+    defaultListingPrice: null,
+    featuredListingPrice: null,
+    requiresApprovalForPaidListings: true,
   },
 }
 
@@ -242,6 +261,10 @@ export function resolveJobBoardThemeConfig(
     footer: {
       ...DEFAULT_JOB_BOARD_THEME_CONFIG.footer,
       ...(partial?.footer ?? {}),
+    },
+    monetization: {
+      ...DEFAULT_JOB_BOARD_THEME_CONFIG.monetization,
+      ...(partial?.monetization ?? {}),
     },
   }
 
