@@ -140,7 +140,7 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
   const hasLogo = logoUrl.length > 0
   const emptyCtaLabel = (boardConfig.emptyState.ctaLabel ?? '').trim()
   const emptyCtaUrl = boardConfig.emptyState.ctaUrl || '#'
-  const fallbackTagline = totalOpen === 0 ? 'No open positions right now' : 'Explore open roles'
+  const fallbackTagline = 'Explore open roles'
   const heroTextColor = headerHasImage ? '#fff' : 'var(--header-text)'
   const heroMutedColor = headerHasImage ? 'rgba(255,255,255,0.84)' : 'var(--header-muted)'
 
@@ -237,29 +237,24 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
               {boardConfig.tagline || board.introText}
             </p>
           )}
-          {totalOpen > 0 ? (
-            <p className="text-[24px] md:text-[26px] font-semibold mt-7" style={{ color: 'var(--color-accent)' }}>
-              <span className="text-[40px] md:text-[44px] align-middle">{totalOpen}</span>
-              <span className="text-[22px] md:text-[24px] font-normal ml-3 align-middle" style={{ color: heroMutedColor }}>
-                open position{totalOpen !== 1 ? 's' : ''}
-              </span>
-            </p>
-          ) : (
-            <p className="text-[20px] md:text-[22px] font-semibold mt-7" style={{ color: heroMutedColor }}>
-              No open positions right now
-            </p>
-          )}
         </div>
       </header>
 
       {boardConfig.showSearch && (
         <div className="board-container relative -mt-9 md:-mt-10 z-10">
-          <Form method="get" className="p-3 md:p-4 rounded-[20px] grid grid-cols-1 md:grid-cols-4 gap-3 items-center"
+          <Form
+            method="get"
+            className={`p-3 md:p-4 rounded-[20px] grid grid-cols-1 gap-3 items-center ${
+              boardConfig.showFilters
+                ? 'md:[grid-template-columns:minmax(0,1.35fr)_minmax(0,0.75fr)_minmax(0,0.75fr)_auto]'
+                : 'md:[grid-template-columns:minmax(0,1.6fr)_minmax(0,0.9fr)_auto]'
+            }`}
             style={{
               backgroundColor: 'var(--color-surface)',
               border: '1px solid var(--color-border)',
               boxShadow: '0 12px 30px rgba(15, 23, 42, 0.12)',
-            }}>
+            }}
+          >
             <input
               id="jobs-search"
               aria-label="Search jobs"
@@ -295,9 +290,8 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
       <main className="board-container pt-12 pb-14 md:pt-14">
         {publishedJobs.length === 0 ? (
           <div
-            className="mx-auto text-center px-8 py-12 md:px-12 md:py-14 rounded-[22px]"
+            className="w-full mx-auto text-center px-8 py-12 md:px-12 md:py-14 rounded-[22px]"
             style={{
-              maxWidth: 740,
               backgroundColor: 'var(--color-surface)',
               border: '1px solid var(--color-border)',
               boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)',
@@ -305,9 +299,9 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
           >
             <div className="w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center text-[28px]"
               style={{ backgroundColor: 'var(--color-surface-subtle)' }}>
-              {boardConfig.emptyState.icon === 'briefcase' ? '💼' :
-                boardConfig.emptyState.icon === 'sparkle' ? '✨' :
-                  boardConfig.emptyState.icon === 'inbox' ? '📥' : '🔎'}
+              <span style={{ color: 'var(--color-text-secondary)' }}>
+                <EmptyStateIcon icon={boardConfig.emptyState.icon} />
+              </span>
             </div>
             <p className="text-[24px] md:text-[28px] font-semibold mb-3"
               style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-display)' }}>
@@ -417,6 +411,42 @@ function Tag({ children, color }: { children: React.ReactNode; color: 'primary' 
     >
       {children}
     </span>
+  )
+}
+
+function EmptyStateIcon({ icon }: { icon?: 'search' | 'briefcase' | 'sparkle' | 'inbox' }) {
+  if (icon === 'briefcase') {
+    return (
+      <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <rect x="3" y="7" width="18" height="12" rx="2" />
+        <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+        <path d="M3 12h18" />
+      </svg>
+    )
+  }
+
+  if (icon === 'sparkle') {
+    return (
+      <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+        <path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3z" />
+        <path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14z" />
+      </svg>
+    )
+  }
+
+  if (icon === 'inbox') {
+    return (
+      <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 4h16v12l-3-3h-3l-2 2-2-2H7l-3 3V4z" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <circle cx="11" cy="11" r="6" />
+      <path d="M16 16l5 5" />
+    </svg>
   )
 }
 
