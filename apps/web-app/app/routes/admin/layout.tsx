@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useLoaderData, useNavigate, Link } from 'react-router'
+import { Outlet, NavLink, useLoaderData, useNavigate, Link, useLocation } from 'react-router'
 import type { LoaderFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess } from '../../lib/auth.server'
 import { useClerk } from '@clerk/react-router'
@@ -18,10 +18,16 @@ const navItems = [
 
 export default function AdminLayout() {
   const { workspace, user } = useLoaderData<typeof loader>()
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const location = useLocation()
+
+  useEffect(() => {
+    setMobileNavOpen(false)
+  }, [location.pathname])
 
   return (
-    <div className="flex min-h-screen" style={{ backgroundColor: 'var(--color-background)' }}>
-      <aside className="w-56 shrink-0 flex flex-col h-screen sticky top-0 border-r"
+    <div className="min-h-screen md:flex" style={{ backgroundColor: 'var(--color-background)' }}>
+      <aside className="hidden md:flex w-56 shrink-0 flex-col h-screen sticky top-0 border-r"
         style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
 
         {/* Logo + workspace */}
@@ -41,27 +47,7 @@ export default function AdminLayout() {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 p-2.5">
-          {navItems.map(item => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/dashboard'}
-              className={({ isActive }) =>
-                `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm mb-0.5 no-underline transition-all ${
-                  isActive ? 'font-semibold' : 'font-normal'
-                }`
-              }
-              style={({ isActive }) => ({
-                backgroundColor: isActive ? 'var(--color-primary)18' : 'transparent',
-                color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-              })}
-            >
-              <span className="text-xs">{item.icon}</span>
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
+        <DashboardNav />
 
         {/* User menu */}
         <div className="p-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
@@ -69,10 +55,127 @@ export default function AdminLayout() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto">
-        <Outlet />
-      </main>
+      <div className="flex-1 min-w-0 flex flex-col">
+        <header className="md:hidden sticky top-0 z-40 px-4 py-3 border-b flex items-center justify-between"
+          style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(true)}
+            className="w-9 h-9 rounded-lg flex items-center justify-center"
+            style={{
+              backgroundColor: 'var(--color-surface-subtle)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text-primary)',
+            }}
+            aria-label="Open dashboard navigation"
+          >
+            ☰
+          </button>
+
+          <div className="min-w-0 text-center px-2">
+            <p className="text-[11px] uppercase tracking-[0.08em]" style={{ color: 'var(--color-text-muted)' }}>
+              Workspace
+            </p>
+            <p className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
+              {workspace.name}
+            </p>
+          </div>
+
+          <Link
+            to="/dashboard"
+            className="w-9 h-9 rounded-lg flex items-center justify-center no-underline"
+            style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }}
+            aria-label="Go to dashboard overview"
+          >
+            J
+          </Link>
+        </header>
+
+        <main className="flex-1 overflow-auto">
+          <Outlet />
+        </main>
+      </div>
+
+      {mobileNavOpen && (
+        <div className="md:hidden fixed inset-0 z-50">
+          <button
+            type="button"
+            className="absolute inset-0"
+            style={{ backgroundColor: 'rgba(17, 24, 39, 0.38)' }}
+            onClick={() => setMobileNavOpen(false)}
+            aria-label="Close dashboard navigation"
+          />
+
+          <div
+            className="relative h-full w-[84vw] max-w-[320px] flex flex-col border-r"
+            style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+          >
+            <div className="px-5 pt-6 pb-4" style={{ borderBottom: `1px solid var(--color-border)` }}>
+              <div className="flex items-center justify-between gap-2.5 mb-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                    style={{ backgroundColor: 'var(--color-primary)' }}>
+                    <span className="text-white text-sm font-extrabold">J</span>
+                  </div>
+                  <span className="text-base font-extrabold" style={{ color: 'var(--color-text-primary)' }}>
+                    Jobuki
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMobileNavOpen(false)}
+                  className="w-8 h-8 rounded-lg"
+                  style={{
+                    backgroundColor: 'var(--color-surface-subtle)',
+                    color: 'var(--color-text-secondary)',
+                    border: '1px solid var(--color-border)',
+                  }}
+                  aria-label="Close menu"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-xs truncate" style={{ color: 'var(--color-text-muted)' }}>
+                {workspace.name}
+              </p>
+            </div>
+
+            <DashboardNav onNavigate={() => setMobileNavOpen(false)} />
+
+            <div className="p-3 border-t mt-auto" style={{ borderColor: 'var(--color-border)' }}>
+              <UserMenu user={user} workspace={workspace} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  )
+}
+
+function DashboardNav({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <nav className="flex-1 p-2.5">
+      {navItems.map(item => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          end={item.to === '/dashboard'}
+          onClick={onNavigate}
+          className={({ isActive }) =>
+            `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm mb-0.5 no-underline transition-all ${
+              isActive ? 'font-semibold' : 'font-normal'
+            }`
+          }
+          style={({ isActive }) => ({
+            backgroundColor: isActive ? 'var(--color-primary)18' : 'transparent',
+            color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+          })}
+        >
+          <span className="text-xs">{item.icon}</span>
+          {item.label}
+        </NavLink>
+      ))}
+    </nav>
   )
 }
 
