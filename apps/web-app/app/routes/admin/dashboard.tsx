@@ -49,7 +49,7 @@ export default function Dashboard() {
   const { user, workspace, stats, canMonetize: monetizationEnabled } = useLoaderData<typeof loader>()
 
   return (
-    <div className="p-10 max-w-4xl">
+    <div className="w-full p-10 max-w-7xl">
       <div className="mb-8">
         <h1 className="text-2xl font-extrabold mb-1" style={{ color: 'var(--color-text-primary)' }}>
           {user.name ? `Welcome back, ${user.name.split(' ')[0]}` : 'Dashboard'}

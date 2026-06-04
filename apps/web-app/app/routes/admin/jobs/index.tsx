@@ -28,7 +28,7 @@ export default function JobsIndex() {
   const { jobs: rows } = useLoaderData<typeof loader>()
 
   return (
-    <div className="p-10 max-w-4xl">
+    <div className="w-full p-10 max-w-7xl">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-extrabold" style={{ color: 'var(--color-text-primary)' }}>

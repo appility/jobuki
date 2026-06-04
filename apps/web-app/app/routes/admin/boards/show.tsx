@@ -232,7 +232,7 @@ export default function BoardShow() {
   }, [actionData])
 
   return (
-    <div className="p-10 max-w-4xl">
+    <div className="w-full p-10 max-w-7xl">
       {/* Header */}
       <div className="mb-8">
         <div>
@@ -339,8 +339,9 @@ export default function BoardShow() {
                 title={`${board.name} preview`}
                 src={publicUrl}
                 loading="lazy"
-                className="w-full rounded-xl"
+                className="w-full rounded-xl pointer-events-none"
                 style={{ minHeight: 580, border: '1px solid var(--color-border)' }}
+                tabIndex={-1}
               />
             ) : (
               <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
