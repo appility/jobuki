@@ -37,6 +37,8 @@ export interface JobBoardThemeConfig {
   }
   footer: {
     showPoweredBy: boolean
+    xUrl?: string
+    linkedinUrl?: string
     companyWebsiteUrl?: string
   }
   monetization?: BoardMonetizationConfig
@@ -228,6 +230,8 @@ export const DEFAULT_JOB_BOARD_THEME_CONFIG: JobBoardThemeConfig = {
   },
   footer: {
     showPoweredBy: true,
+    xUrl: '',
+    linkedinUrl: '',
     companyWebsiteUrl: '',
   },
   monetization: {

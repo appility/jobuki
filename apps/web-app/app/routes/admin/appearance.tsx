@@ -142,6 +142,8 @@ export async function action(args: ActionFunctionArgs) {
         },
         footer: {
           showPoweredBy: parseBool(form.get('boardConfigFooterShowPoweredBy')),
+          xUrl: (form.get('boardConfigFooterXUrl') as string)?.trim(),
+          linkedinUrl: (form.get('boardConfigFooterLinkedinUrl') as string)?.trim(),
           companyWebsiteUrl: (form.get('boardConfigFooterCompanyWebsiteUrl') as string)?.trim(),
         },
       },
@@ -310,6 +312,8 @@ export default function AppearancePage() {
   const [configEmptyStateCtaLabel, setConfigEmptyStateCtaLabel] = useState(boardConfig.emptyState.ctaLabel ?? '')
   const [configEmptyStateCtaUrl, setConfigEmptyStateCtaUrl] = useState(boardConfig.emptyState.ctaUrl ?? '')
   const [configFooterShowPoweredBy, setConfigFooterShowPoweredBy] = useState(boardConfig.footer.showPoweredBy)
+  const [configFooterXUrl, setConfigFooterXUrl] = useState(boardConfig.footer.xUrl ?? '')
+  const [configFooterLinkedinUrl, setConfigFooterLinkedinUrl] = useState(boardConfig.footer.linkedinUrl ?? '')
   const [configFooterCompanyWebsiteUrl, setConfigFooterCompanyWebsiteUrl] = useState(boardConfig.footer.companyWebsiteUrl ?? '')
   const [uploadingKind, setUploadingKind] = useState<'logo' | 'header' | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -498,6 +502,8 @@ export default function AppearancePage() {
             <input type="hidden" name="boardConfigEmptyStateCtaLabel" value={configEmptyStateCtaLabel} />
             <input type="hidden" name="boardConfigEmptyStateCtaUrl" value={configEmptyStateCtaUrl} />
             <input type="hidden" name="boardConfigFooterShowPoweredBy" value={configFooterShowPoweredBy ? 'true' : 'false'} />
+            <input type="hidden" name="boardConfigFooterXUrl" value={configFooterXUrl} />
+            <input type="hidden" name="boardConfigFooterLinkedinUrl" value={configFooterLinkedinUrl} />
             <input type="hidden" name="boardConfigFooterCompanyWebsiteUrl" value={configFooterCompanyWebsiteUrl} />
             {/* Pass all theme tokens as hidden inputs */}
             {(Object.entries(t) as [keyof BoardTheme, string][]).map(([k, v]) => (
@@ -1009,6 +1015,20 @@ export default function AppearancePage() {
                 />
                 Show powered by
               </label>
+              <input
+                value={configFooterXUrl}
+                onChange={e => setConfigFooterXUrl(e.target.value)}
+                className="w-full px-2.5 py-1.5 rounded-lg text-xs border mb-2"
+                placeholder="X profile URL (optional)"
+                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+              />
+              <input
+                value={configFooterLinkedinUrl}
+                onChange={e => setConfigFooterLinkedinUrl(e.target.value)}
+                className="w-full px-2.5 py-1.5 rounded-lg text-xs border mb-2"
+                placeholder="LinkedIn URL (optional)"
+                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+              />
               <input
                 value={configFooterCompanyWebsiteUrl}
                 onChange={e => setConfigFooterCompanyWebsiteUrl(e.target.value)}

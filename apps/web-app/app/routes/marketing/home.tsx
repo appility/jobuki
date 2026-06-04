@@ -140,9 +140,17 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
   const hasLogo = logoUrl.length > 0
   const emptyCtaLabel = (boardConfig.emptyState.ctaLabel ?? '').trim()
   const emptyCtaUrl = boardConfig.emptyState.ctaUrl || '#'
+  const xUrl = (boardConfig.footer.xUrl ?? '').trim()
+  const linkedinUrl = (boardConfig.footer.linkedinUrl ?? '').trim()
+  const companyWebsiteUrl = (boardConfig.footer.companyWebsiteUrl ?? '').trim()
   const fallbackTagline = 'Explore open roles'
   const heroTextColor = headerHasImage ? '#fff' : 'var(--header-text)'
   const heroMutedColor = headerHasImage ? 'rgba(255,255,255,0.84)' : 'var(--header-muted)'
+  const footerLinks = [
+    xUrl ? { label: 'X', href: xUrl } : null,
+    linkedinUrl ? { label: 'LinkedIn', href: linkedinUrl } : null,
+    companyWebsiteUrl ? { label: 'Website', href: companyWebsiteUrl } : null,
+  ].filter((link): link is { label: string; href: string } => Boolean(link))
 
   return (
     <div
@@ -375,18 +383,28 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
 
       <footer className="board-container py-10 mt-2"
         style={{ borderTop: '1px solid var(--color-border)' }}>
-        <div className="flex items-center justify-center gap-6 mb-4 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          <span>X</span>
-          <span>LinkedIn</span>
-          <span>Website</span>
-        </div>
+        {footerLinks.length > 0 && (
+          <div className="flex items-center justify-center gap-6 mb-4 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+            {footerLinks.map((link) => (
+              <a
+                key={link.label}
+                href={link.href}
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
+        )}
         <p className="text-[13px] text-center" style={{ color: 'var(--color-text-secondary)' }}>
           {board.footerText || (
             boardConfig.footer.showPoweredBy
               ? <><span>Powered by </span><span className="font-extrabold" style={{ color: 'var(--color-text-secondary)' }}>Jobuki</span></>
               : (
-                boardConfig.footer.companyWebsiteUrl
-                  ? <a href={boardConfig.footer.companyWebsiteUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--color-text-secondary)' }}>{boardConfig.boardName}</a>
+                companyWebsiteUrl
+                  ? <a href={companyWebsiteUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--color-text-secondary)' }}>{boardConfig.boardName}</a>
                   : boardConfig.boardName
               )
           )}
@@ -465,18 +483,18 @@ function MarketingHome() {
 
   const typeCards = [
     {
-      title: 'Recruiter type',
-      cta: 'Explore recruiter type',
+      title: 'For recruiters',
+      cta: 'Explore recruiter boards',
       to: '/for/recruiters',
     },
     {
-      title: 'Company type',
-      cta: 'Explore company type',
+      title: 'For companies',
+      cta: 'Explore company boards',
       to: '/for/companies',
     },
     {
-      title: 'Community and charity type',
-      cta: 'Explore community type',
+      title: 'For communities and charities',
+      cta: 'Explore community boards',
       to: '/for/communities',
     },
   ]
@@ -537,13 +555,13 @@ function MarketingHome() {
               Hiring platform
             </p>
             <h1 className="text-4xl md:text-5xl font-extrabold leading-[1.05]" style={{ color: 'var(--color-text-primary)' }}>
-              Build a branded job board for your type.
+              Build a branded job board in minutes.
               <span className="marketing-minutes-slot">
                 <span className="marketing-minutes-cycle">in minutes</span>
               </span>
             </h1>
             <p className="text-base md:text-lg max-w-2xl mx-auto mt-5" style={{ color: 'var(--color-text-secondary)' }}>
-              Jobuki helps recruiters, companies, and communities launch branded boards and run hiring with a workflow built for their type.
+              Jobuki helps recruiters, companies, and communities launch branded boards and run hiring with workflows tailored to how they hire.
             </p>
             <div className="mt-7 flex justify-center">
               <Link to="/dashboard" className="btn-primary text-base px-8 py-3">
@@ -555,7 +573,7 @@ function MarketingHome() {
 
         <div className="mt-7 md:mt-9">
           <p className="text-xs font-bold tracking-[0.14em] uppercase mb-3 px-1" style={{ color: 'var(--color-text-muted)' }}>
-            Choose your type
+            Choose your audience
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">

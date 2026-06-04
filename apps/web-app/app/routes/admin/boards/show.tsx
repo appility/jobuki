@@ -98,12 +98,11 @@ export async function action(args: ActionFunctionArgs) {
         .filter(c => c.ratio < c.min)
         .map(c => `${c.label} is too low contrast (${c.ratio.toFixed(2)}:1, target ${c.min}:1).`)
 
-      if (warnings.length > 0) {
-        return {
-          ok: false,
-          error: 'Cannot publish yet: fix color contrast issues first.',
-          warnings,
-        }
+      await db.update(boards).set({ status: next, updatedAt: new Date() }).where(eq(boards.id, board.id))
+      return {
+        ok: true,
+        message: 'Board published.',
+        warnings,
       }
     }
 
@@ -380,11 +379,11 @@ export default function BoardShow() {
             <p><strong>Status:</strong> {board.status}</p>
             <p><strong>Public URL:</strong> {publicUrl.replace(/^https?:\/\//, '')}</p>
           </div>
-          {!actionData?.ok && actionData?.warnings?.length ? (
+          {actionData?.warnings?.length ? (
             <div className="mt-4 rounded-xl border px-4 py-3"
               style={{ borderColor: 'var(--color-warning)', backgroundColor: 'var(--color-warning-bg)' }}>
               <p className="text-sm font-semibold mb-1" style={{ color: 'var(--color-warning)' }}>
-                Fix these before publishing
+                Accessibility advice
               </p>
               <ul className="text-sm m-0 pl-5" style={{ color: 'var(--color-text-secondary)' }}>
                 {actionData.warnings.map((warning, idx) => (
@@ -392,7 +391,7 @@ export default function BoardShow() {
                 ))}
               </ul>
               <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
-                Tip: adjust colors in Appearance and try Publish again.
+                Tip: adjust colors in Appearance when convenient.
               </p>
             </div>
           ) : null}

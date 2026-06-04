@@ -86,7 +86,7 @@ export default function MarketLanding() {
           }}
         >
           <p className="text-xs font-bold tracking-[0.14em] uppercase mb-3" style={{ color: 'var(--color-text-muted)' }}>
-            Jobuki type
+            Hiring audience
           </p>
           <h1 className="text-4xl md:text-5xl font-extrabold leading-[1.05]" style={{ color: 'var(--color-text-primary)' }}>
             {content.title}
