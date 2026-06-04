@@ -12,3 +12,16 @@ Then R2 CORS no longer depends on tenant domains at all.
 Show upgrade CTA when board limit is reached.
 
 5. Add plan management UI for creator tier upgrades (free/growth/scale).
+
+6. Improve platform admin audit log UX:
+Show richer metadata in the activity feed, including changed roles/features.
+
+7. Extend audit logging beyond /admin:
+Capture board publish/unpublish and domain-management changes too.
+
+8. Add filters to the admin activity feed:
+Filter by actor, action type, and target.
+
+9. Replace more hardcoded permission checks with DB-backed feature checks.
+
+10. Keep Drizzle migration journal ordering stable automatically after generation.

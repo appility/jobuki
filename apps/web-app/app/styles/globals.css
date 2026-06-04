@@ -67,6 +67,114 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
 }
 
+@keyframes marketing-minutes-shift {
+  0% {
+    color: var(--color-primary);
+    font-family: var(--font-display);
+  }
+  25% {
+    color: color-mix(in srgb, var(--color-accent) 85%, var(--color-primary) 15%);
+    font-family: var(--font-body);
+  }
+  50% {
+    color: color-mix(in srgb, var(--color-primary) 45%, #0f766e 55%);
+    font-family: var(--font-mono);
+  }
+  75% {
+    color: color-mix(in srgb, var(--color-accent) 60%, #b45309 40%);
+    font-family: "Georgia", serif;
+  }
+  100% {
+    color: var(--color-primary);
+    font-family: var(--font-display);
+  }
+}
+
+.marketing-minutes-cycle {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: marketing-minutes-shift 8s ease-in-out infinite;
+}
+
+.marketing-minutes-slot {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 1.2em;
+  margin-top: 0.3em;
+}
+
+@keyframes marketing-symbol-burst {
+  0% {
+    transform: translate(-50%, -50%) scale(0.35);
+    opacity: 0;
+  }
+  16% {
+    opacity: 0.82;
+  }
+  56% {
+    transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1);
+    opacity: 0.72;
+  }
+  74% {
+    transform: translate(calc(-50% + var(--tx) + 3px), calc(-50% + var(--ty) - 3px)) scale(0.99);
+    opacity: 0.62;
+  }
+  88% {
+    transform: translate(calc(-50% + var(--tx) + 1px), calc(-50% + var(--ty) - 1px)) scale(0.98);
+    opacity: 0.3;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1);
+    opacity: 0;
+  }
+}
+
+.marketing-symbol-cloud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.marketing-symbol-node {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  animation: marketing-symbol-burst var(--burst-duration) ease-out infinite;
+  animation-delay: var(--delay);
+}
+
+.marketing-symbol-browser {
+  display: block;
+  width: 48px;
+  height: 48px;
+  color: var(--symbol-color);
+  opacity: 0.8;
+  filter: drop-shadow(0 4px 10px color-mix(in srgb, var(--symbol-color) 28%, transparent));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-minutes-cycle {
+    animation: none;
+    color: var(--color-primary);
+    font-family: var(--font-display);
+  }
+
+  .marketing-symbol-node {
+    animation: none;
+    transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty)));
+    opacity: 0.3;
+  }
+
+  .marketing-symbol-browser {
+    animation: none;
+  }
+}
+
 @layer components {
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 font-semibold transition-all duration-150 cursor-pointer border-0;
@@ -246,11 +354,11 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   .auth-clerk-card {
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-xl);
-    background-color: var(--color-surface);
-    box-shadow: var(--shadow-sm);
-    padding: 1.5rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 1.25rem;
     min-height: 100%;
   }
 
@@ -380,7 +488,7 @@ h1, h2, h3, h4, h5, h6 {
       box-shadow: none;
       border: 0;
       background: transparent;
-      padding: 0.2rem;
+      padding: 0.75rem;
     }
 
     .auth-clerk-slot {

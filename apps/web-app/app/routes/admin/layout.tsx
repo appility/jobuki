@@ -2,6 +2,7 @@ import { Outlet, NavLink, useLoaderData, useNavigate, Link } from 'react-router'
 import type { LoaderFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess } from '../../lib/auth.server'
 import { useClerk } from '@clerk/react-router'
+import { useUser } from '@clerk/react-router'
 import { useState, useRef, useEffect } from 'react'
 
 export async function loader(args: LoaderFunctionArgs) {
@@ -82,6 +83,7 @@ function UserMenu({ user, workspace }: {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const { signOut, openUserProfile } = useClerk()
+  const { user: clerkUser } = useUser()
   const navigate = useNavigate()
 
   // Close on outside click
@@ -98,6 +100,7 @@ function UserMenu({ user, workspace }: {
     : user.email[0].toUpperCase()
 
   const PLAN_LABEL: Record<string, string> = { free: 'Free', growth: 'Growth', scale: 'Scale' }
+  const avatarSrc = clerkUser?.imageUrl ?? user.imageUrl
 
   return (
     <div ref={ref} className="relative">
@@ -111,7 +114,7 @@ function UserMenu({ user, workspace }: {
           cursor: 'pointer',
         }}
       >
-        <Avatar src={user.imageUrl} initials={initials} size={32} />
+        <Avatar src={avatarSrc} initials={initials} size={32} />
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
             {user.name ?? user.email.split('@')[0]}
@@ -140,7 +143,7 @@ function UserMenu({ user, workspace }: {
           {/* User info header */}
           <div className="px-3 py-3 flex items-center gap-2.5"
             style={{ borderBottom: '1px solid var(--color-border)' }}>
-            <Avatar src={user.imageUrl} initials={initials} size={36} />
+            <Avatar src={avatarSrc} initials={initials} size={36} />
             <div className="min-w-0">
               {user.name && (
                 <p className="text-xs font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>

@@ -1,15 +1,46 @@
-import { redirect, Form, useActionData, useNavigation } from 'react-router'
+import { redirect, Form, useActionData, useLoaderData, useNavigation } from 'react-router'
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
 import { requireUser, getWorkspaceForUser } from '../../lib/auth.server'
 import { getDb, workspaces, workspaceMembers } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { toSlug } from './boards/new'
 
+type MarketSegment = 'recruiter' | 'company' | 'community'
+
+const MARKET_CONFIG: Record<MarketSegment, {
+  heading: string
+  description: string
+  suggestedName: string
+}> = {
+  recruiter: {
+    heading: 'Create your recruiter workspace',
+    description: 'Set up a branded board you can offer to client companies as a paid listing channel.',
+    suggestedName: 'Acme Talent Board',
+  },
+  company: {
+    heading: 'Create your company workspace',
+    description: 'Launch a branded careers hub for your team and publish openings from one place.',
+    suggestedName: 'Acme Careers',
+  },
+  community: {
+    heading: 'Create your community workspace',
+    description: 'Build a mission-led jobs board and support your community with focused opportunities.',
+    suggestedName: 'Acme Community Jobs',
+  },
+}
+
+function parseMarketSegment(value: string | null): MarketSegment | null {
+  if (value === 'recruiter' || value === 'company' || value === 'community') return value
+  return null
+}
+
 export async function loader(args: LoaderFunctionArgs) {
   const user = await requireUser(args)
   const existing = await getWorkspaceForUser(user.id)
   if (existing) throw redirect('/dashboard')
-  return {}
+  const url = new URL(args.request.url)
+  const market = parseMarketSegment(url.searchParams.get('market'))
+  return { market }
 }
 
 export async function action(args: ActionFunctionArgs) {
@@ -42,9 +73,11 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 export default function Onboarding() {
+  const { market } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const submitting = navigation.state === 'submitting'
+  const marketConfig = market ? MARKET_CONFIG[market] : null
 
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-background)' }}>
@@ -61,10 +94,10 @@ export default function Onboarding() {
 
         <div className="card p-8">
           <h1 className="text-xl font-extrabold mb-1" style={{ color: 'var(--color-text-primary)' }}>
-            Create your workspace
+            {marketConfig?.heading ?? 'Create your workspace'}
           </h1>
           <p className="text-sm mb-6" style={{ color: 'var(--color-text-secondary)' }}>
-            A workspace holds all your job boards, jobs, and applications.
+            {marketConfig?.description ?? 'A workspace holds all your job boards, jobs, and applications.'}
           </p>
 
           {actionData?.error && (
@@ -82,6 +115,7 @@ export default function Onboarding() {
               <input
                 name="name"
                 className="input w-full"
+                defaultValue={marketConfig?.suggestedName ?? ''}
                 placeholder="Acme Corp"
                 autoFocus
                 required

@@ -3,6 +3,7 @@ import { type RouteConfig, route, index, layout } from '@react-router/dev/routes
 export default [
   // ── Marketing ──────────────────────────────────────────────────────
   index('routes/marketing/home.tsx'),
+  route('for/:market', 'routes/marketing/market.tsx'),
 
   // ── Auth ──────────────────────────────────────────────────────────
   route('sign-in',       'routes/sign-in.tsx'),
