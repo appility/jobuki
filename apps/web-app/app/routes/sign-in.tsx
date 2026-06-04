@@ -70,6 +70,12 @@ export default function SignInPage() {
               signUpUrl={signUpUrl}
               appearance={clerkAuthAppearance}
             />
+            <p className="text-sm mt-4 text-center" style={{ color: 'var(--color-text-secondary)' }}>
+              New to Jobuki?{' '}
+              <Link to={signUpUrl} style={{ color: 'var(--color-primary)' }}>
+                Create an account
+              </Link>
+            </p>
           </div>
         </section>
       </div>

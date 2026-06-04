@@ -298,23 +298,56 @@ export default function BoardShow() {
       </div>
 
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="card p-5">
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Board status</p>
-            <p className="text-sm font-semibold mt-1" style={{ color: 'var(--color-text-primary)' }}>
-              {board.status === 'live' ? 'Live' : 'Draft'}
-            </p>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="card p-5">
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Board status</p>
+              <p className="text-sm font-semibold mt-1" style={{ color: 'var(--color-text-primary)' }}>
+                {board.status === 'live' ? 'Live' : 'Draft'}
+              </p>
+            </div>
+            <div className="card p-5">
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Total jobs</p>
+              <p className="text-sm font-semibold mt-1" style={{ color: 'var(--color-text-primary)' }}>{boardJobs.length}</p>
+            </div>
+            <div className="card p-5">
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Public URL</p>
+              <p className="text-sm font-semibold mt-1 truncate" style={{ color: 'var(--color-text-primary)' }}>
+                {publicUrl.replace(/^https?:\/\//, '')}
+              </p>
+            </div>
           </div>
-          <div className="card p-5">
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Total jobs</p>
-            <p className="text-sm font-semibold mt-1" style={{ color: 'var(--color-text-primary)' }}>{boardJobs.length}</p>
-          </div>
-          <div className="card p-5">
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Public URL</p>
-            <p className="text-sm font-semibold mt-1 truncate" style={{ color: 'var(--color-text-primary)' }}>
-              {publicUrl.replace(/^https?:\/\//, '')}
-            </p>
-          </div>
+
+          <section className="card p-4 md:p-5">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h3 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                Board preview
+              </h3>
+              <a
+                href={publicUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs no-underline"
+                style={{ color: 'var(--color-primary)' }}
+              >
+                Open full page ↗
+              </a>
+            </div>
+
+            {board.status === 'live' ? (
+              <iframe
+                title={`${board.name} preview`}
+                src={publicUrl}
+                loading="lazy"
+                className="w-full rounded-xl"
+                style={{ minHeight: 580, border: '1px solid var(--color-border)' }}
+              />
+            ) : (
+              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                Publish the board to enable live iframe preview.
+              </p>
+            )}
+          </section>
         </div>
       )}
 

@@ -143,7 +143,6 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
   const xUrl = (boardConfig.footer.xUrl ?? '').trim()
   const linkedinUrl = (boardConfig.footer.linkedinUrl ?? '').trim()
   const companyWebsiteUrl = (boardConfig.footer.companyWebsiteUrl ?? '').trim()
-  const fallbackTagline = 'Explore open roles'
   const heroTextColor = headerHasImage ? '#fff' : 'var(--header-text)'
   const heroMutedColor = headerHasImage ? 'rgba(255,255,255,0.84)' : 'var(--header-muted)'
   const footerLinks = [
@@ -181,9 +180,6 @@ function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>,
               <div className="min-w-0">
                 <p className="text-[16px] md:text-[18px] font-extrabold leading-tight truncate" style={{ color: 'var(--color-text-primary)' }}>
                   {boardConfig.boardName}
-                </p>
-                <p className="text-[13px] md:text-[14px] truncate" style={{ color: 'var(--color-text-secondary)' }}>
-                  {boardConfig.tagline || board.introText || fallbackTagline}
                 </p>
               </div>
             )}
@@ -555,7 +551,7 @@ function MarketingHome() {
               Hiring platform
             </p>
             <h1 className="text-4xl md:text-5xl font-extrabold leading-[1.05]" style={{ color: 'var(--color-text-primary)' }}>
-              Build a branded job board in minutes.
+              Build a branded job board.
               <span className="marketing-minutes-slot">
                 <span className="marketing-minutes-cycle">in minutes</span>
               </span>

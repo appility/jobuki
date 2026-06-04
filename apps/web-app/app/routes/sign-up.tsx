@@ -63,6 +63,12 @@ export default function SignUpPage() {
               unsafeMetadata={{ accountType: accountTypeMetadata }}
               appearance={clerkAuthAppearance}
             />
+            <p className="text-sm mt-4 text-center" style={{ color: 'var(--color-text-secondary)' }}>
+              Already have an account?{' '}
+              <Link to={signInUrl} style={{ color: 'var(--color-primary)' }}>
+                Sign in
+              </Link>
+            </p>
           </div>
         </section>
       </div>
