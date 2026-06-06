@@ -3,7 +3,7 @@ import type { LoaderFunctionArgs, MetaFunction } from 'react-router'
 import { getDb, jobs, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { marked } from 'marked'
-import sanitizeHtml from 'sanitize-html'
+import { repairMojibake, sanitizeFeedHtml } from '../../lib/feed-html'
 import type { Board } from '@jobuki/types'
 
 export async function loader({ params }: LoaderFunctionArgs) {
@@ -157,23 +157,8 @@ function Section({ title, children }: { title: string; children: string }) {
 }
 
 function toSafeRichHtml(input: string) {
-  const markdownHtml = marked.parse(input, { breaks: true, gfm: true })
-  return sanitizeHtml(markdownHtml as string, {
-    allowedTags: [
-      'p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre', 'blockquote',
-      'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'span',
-      'a',
-    ],
-    allowedAttributes: {
-      a: ['href', 'target', 'rel'],
-      div: ['class'],
-      span: ['class'],
-      code: ['class'],
-      '*': ['id'],
-    },
-    allowedSchemes: ['http', 'https', 'mailto'],
-    transformTags: {
-      a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer', target: '_blank' }, true),
-    },
-  })
+  const repaired = repairMojibake(input)
+  const hasHtml = /<\/?[a-z][\s\S]*>/i.test(repaired)
+  const html = hasHtml ? repaired : (marked.parse(repaired, { breaks: true, gfm: true }) as string)
+  return sanitizeFeedHtml(html)
 }
