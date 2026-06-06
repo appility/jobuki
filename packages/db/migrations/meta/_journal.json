@@ -64,6 +64,13 @@
       "when": 1788777600000,
       "tag": "0008_mellow_job_poster",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1788746400000,
+      "tag": "0009_fancy_job_categories",
+      "breakpoints": true
     }
   ]
 }

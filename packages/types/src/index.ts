@@ -5,6 +5,7 @@ export type ButtonStyle = 'rounded' | 'pill' | 'sharp'
 export type JobBoardHeaderStyle = 'solid' | 'gradient' | 'image'
 export type JobBoardThemePreset = 'minimal' | 'startup' | 'editorial' | 'bold' | 'dark'
 export type JobBoardEmptyStateIcon = 'search' | 'briefcase' | 'sparkle' | 'inbox'
+export type JobBoardJobsLayout = 'list' | 'boxes' | 'bento'
 export type BoardOwnerType = 'recruiter' | 'company' | 'community'
 
 export interface BoardMonetizationConfig {
@@ -26,6 +27,7 @@ export interface JobBoardThemeConfig {
   backgroundColor?: string
   headerStyle: JobBoardHeaderStyle
   themePreset: JobBoardThemePreset
+  jobsLayout: JobBoardJobsLayout
   showSearch: boolean
   showFilters: boolean
   emptyState: {
@@ -219,6 +221,7 @@ export const DEFAULT_JOB_BOARD_THEME_CONFIG: JobBoardThemeConfig = {
   backgroundColor: '#FAFAF8',
   headerStyle: 'solid',
   themePreset: 'minimal',
+  jobsLayout: 'bento',
   showSearch: true,
   showFilters: true,
   emptyState: {

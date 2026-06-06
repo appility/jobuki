@@ -1,9 +1,50 @@
-import { Form, Link, useLoaderData } from 'react-router'
+import { Link, useLoaderData } from 'react-router'
 import type { LoaderFunctionArgs, MetaFunction } from 'react-router'
 import { getDb, boards, jobs } from '@jobuki/db'
 import { eq, and, desc } from 'drizzle-orm'
 import { resolveTheme, themeToCSS } from '../../lib/theme'
-import { resolveJobBoardThemeConfig } from '@jobuki/types'
+import { PublicBoardHome } from '../../components/public-board-home'
+
+const CATEGORY_RULES: Array<{ category: string; keywords: string[] }> = [
+  { category: 'engineering', keywords: ['engineer', 'developer', 'typescript', 'backend', 'frontend', 'full stack', 'solidity', 'rust', 'golang', 'python'] },
+  { category: 'product', keywords: ['product manager', 'product owner', 'roadmap'] },
+  { category: 'design', keywords: ['designer', 'ux', 'ui', 'figma', 'product design'] },
+  { category: 'data', keywords: ['data', 'analytics', 'machine learning', 'ai', 'scientist'] },
+  { category: 'marketing', keywords: ['marketing', 'growth', 'seo', 'content', 'social'] },
+  { category: 'sales', keywords: ['sales', 'account executive', 'business development', 'bdr', 'partnership'] },
+  { category: 'operations', keywords: ['operations', 'ops', 'program manager', 'project manager'] },
+  { category: 'security', keywords: ['security', 'infosec', 'application security', 'devsecops'] },
+  { category: 'devrel', keywords: ['developer relations', 'devrel', 'advocate', 'community manager'] },
+]
+
+function normalizeCategory(value: string | null | undefined) {
+  return (value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+}
+
+function titleCaseCategory(value: string) {
+  return value
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function deriveJobCategory(job: (typeof jobs.$inferSelect)) {
+  const explicit = normalizeCategory(job.primaryCategory)
+  if (explicit) return explicit
+
+  const tagged = Array.isArray(job.categoryTags)
+    ? normalizeCategory(job.categoryTags.find((tag) => normalizeCategory(tag)))
+    : ''
+  if (tagged) return tagged
+
+  const haystack = [job.title, job.description, job.employmentType].join(' ').toLowerCase()
+  const inferred = CATEGORY_RULES.find((rule) => rule.keywords.some((keyword) => haystack.includes(keyword)))
+  return inferred?.category ?? ''
+}
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const boardSlug     = request.headers.get('x-board-slug')
@@ -37,7 +78,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url)
   const q = (url.searchParams.get('q') ?? '').trim().toLowerCase()
   const location = (url.searchParams.get('location') ?? '').trim().toLowerCase()
-  const department = (url.searchParams.get('department') ?? '').trim().toLowerCase()
+  const category = normalizeCategory(url.searchParams.get('category') ?? url.searchParams.get('department'))
 
   const filteredJobs = publishedJobs.filter((job) => {
     const qMatch =
@@ -47,9 +88,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
       (job.location ?? '').toLowerCase().includes(q)
 
     const locationMatch = !location || (job.location ?? '').toLowerCase() === location
-    const departmentMatch = !department || job.employmentType.toLowerCase() === department
+    const jobCategory = deriveJobCategory(job)
+    const categoryMatch = !category || jobCategory === category
 
-    return qMatch && locationMatch && departmentMatch
+    return qMatch && locationMatch && categoryMatch
   })
 
   const locations = Array.from(
@@ -60,9 +102,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
     )
   ).sort((a, b) => a.localeCompare(b))
 
-  const departments = Array.from(
-    new Set(publishedJobs.map((job) => job.employmentType))
-  )
+  const categories = Array.from(
+    new Set(
+      publishedJobs
+        .map((job) => deriveJobCategory(job))
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b)).map((value) => ({
+    value,
+    label: titleCaseCategory(value),
+  }))
 
   const css = themeToCSS(resolveTheme(board.theme ?? {}))
   return {
@@ -71,8 +120,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     css,
     jobs: filteredJobs,
     totalOpen: publishedJobs.length,
-    filters: { q, location, department },
-    filterOptions: { locations, departments },
+    filters: { q, location, category },
+    filterOptions: { locations, categories },
   }
 }
 
@@ -93,375 +142,12 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
   ]
 }
 
+export type BoardLoaderData = Extract<Awaited<ReturnType<typeof loader>>, { mode: 'board' }>
+
 export default function Home() {
   const data = useLoaderData<typeof loader>()
-  if (data.mode === 'board') return <BoardHome data={data} />
+  if (data.mode === 'board') return <PublicBoardHome data={data} />
   return <MarketingHome />
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────
-function formatSalary(min: number | null, max: number | null, currency: string, period: string) {
-  const fmt = (n: number) => n >= 1000 ? `${Math.round(n / 1000)}k` : `${n}`
-  if (min && max) return `${currency}${fmt(min)} – ${currency}${fmt(max)}`
-  if (min) return `From ${currency}${fmt(min)}`
-  if (max) return `Up to ${currency}${fmt(max)}`
-  return null
-}
-
-const REMOTE_LABEL: Record<string, string> = {
-  remote: 'Remote',
-  hybrid: 'Hybrid',
-  onsite: 'On-site',
-}
-
-const TYPE_LABEL: Record<string, string> = {
-  'full-time': 'Full-time',
-  'part-time': 'Part-time',
-  contract: 'Contract',
-  freelance: 'Freelance',
-  internship: 'Internship',
-}
-
-// ── Board home ────────────────────────────────────────────────────────
-function BoardHome({ data }: { data: Extract<Awaited<ReturnType<typeof loader>>, { mode: 'board' }> }) {
-  const { board, jobs: publishedJobs, css, totalOpen, filters, filterOptions } = data
-  const boardConfig = resolveJobBoardThemeConfig(board.boardConfig, {
-    boardName: board.name,
-    tagline: board.introText ?? undefined,
-    logoUrl: board.logoUrl ?? undefined,
-    headerImageUrl: board.heroImageUrl ?? undefined,
-    brandColor: (board.theme as any)?.colorPrimary,
-    accentColor: (board.theme as any)?.colorAccent,
-    backgroundColor: (board.theme as any)?.colorBackground,
-  })
-  const logoUrl = (boardConfig.logoUrl ?? '').trim()
-  const heroImageUrl = (boardConfig.headerImageUrl ?? '').trim()
-  const headerHasImage = !!heroImageUrl
-  const hasLogo = logoUrl.length > 0
-  const emptyCtaLabel = (boardConfig.emptyState.ctaLabel ?? '').trim()
-  const emptyCtaUrl = boardConfig.emptyState.ctaUrl || '#'
-  const xUrl = (boardConfig.footer.xUrl ?? '').trim()
-  const linkedinUrl = (boardConfig.footer.linkedinUrl ?? '').trim()
-  const companyWebsiteUrl = (boardConfig.footer.companyWebsiteUrl ?? '').trim()
-  const heroTextColor = headerHasImage ? '#fff' : 'var(--header-text)'
-  const heroMutedColor = headerHasImage ? 'rgba(255,255,255,0.84)' : 'var(--header-muted)'
-  const footerLinks = [
-    xUrl ? { label: 'X', href: xUrl } : null,
-    linkedinUrl ? { label: 'LinkedIn', href: linkedinUrl } : null,
-    companyWebsiteUrl ? { label: 'Website', href: companyWebsiteUrl } : null,
-  ].filter((link): link is { label: string; href: string } => Boolean(link))
-
-  return (
-    <div
-      className="min-h-screen"
-      style={{
-        backgroundColor: boardConfig.backgroundColor || 'var(--color-background)',
-        fontFamily: 'var(--font-body)',
-      }}
-    >
-      <style dangerouslySetInnerHTML={{ __html: css }} />
-
-      {/* Top bar */}
-      <div style={{ backgroundColor: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)' }}>
-        <div className="board-container py-4 md:py-5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            {hasLogo ? (
-              <img
-                src={logoUrl}
-                alt={boardConfig.boardName}
-                width={280}
-                height={96}
-                loading="eager"
-                fetchPriority="high"
-                decoding="async"
-                className="h-16 md:h-20 lg:h-24 w-auto max-w-[220px] md:max-w-[280px] object-contain shrink-0"
-              />
-            ) : (
-              <div className="min-w-0">
-                <p className="text-[16px] md:text-[18px] font-extrabold leading-tight truncate" style={{ color: 'var(--color-text-primary)' }}>
-                  {boardConfig.boardName}
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            {boardConfig.footer.companyWebsiteUrl && (
-              <a
-                href={boardConfig.footer.companyWebsiteUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="btn-outline text-[13px] whitespace-nowrap"
-              >
-                View company site
-              </a>
-            )}
-            {emptyCtaLabel && (
-              <a href={emptyCtaUrl} target="_blank" rel="noreferrer" className="btn-primary text-[13px] whitespace-nowrap px-5 py-2.5">
-                {emptyCtaLabel}
-              </a>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Header */}
-      <header
-        style={{
-          background:
-            headerHasImage
-              ? `url(${heroImageUrl}) center / cover no-repeat`
-              : boardConfig.headerStyle === 'gradient'
-                ? `linear-gradient(120deg, ${boardConfig.brandColor} 0%, ${boardConfig.accentColor || boardConfig.brandColor} 100%)`
-                : 'var(--header-bg)',
-          borderBottom: '1px solid var(--header-border)',
-          ...(headerHasImage ? {
-            position: 'relative',
-          } : {}),
-        }}
-      >
-        {/* Overlay for hero image readability */}
-        {headerHasImage && (
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: 'linear-gradient(180deg, rgba(10,14,22,0.56) 0%, rgba(10,14,22,0.36) 100%)',
-          }} />
-        )}
-        <div className="board-container py-12 md:py-16" style={{ position: 'relative', minHeight: 320 }}>
-          <h1 className="text-[42px] md:text-[56px] lg:text-[62px] font-extrabold leading-[0.95] tracking-[-0.02em] max-w-[14ch]"
-            style={{
-              fontFamily: 'var(--font-display)',
-              color: heroTextColor,
-            }}>
-            {boardConfig.boardName}
-          </h1>
-          {(boardConfig.tagline || board.introText) && (
-            <p className="text-[18px] md:text-[22px] leading-[1.4] max-w-3xl mt-4"
-              style={{ color: heroMutedColor }}>
-              {boardConfig.tagline || board.introText}
-            </p>
-          )}
-        </div>
-      </header>
-
-      {boardConfig.showSearch && (
-        <div className="board-container relative -mt-9 md:-mt-10 z-10">
-          <Form
-            method="get"
-            className={`p-3 md:p-4 rounded-[20px] grid grid-cols-1 gap-3 items-center ${
-              boardConfig.showFilters
-                ? 'md:[grid-template-columns:minmax(0,1.35fr)_minmax(0,0.75fr)_minmax(0,0.75fr)_auto]'
-                : 'md:[grid-template-columns:minmax(0,1.6fr)_minmax(0,0.9fr)_auto]'
-            }`}
-            style={{
-              backgroundColor: 'var(--color-surface)',
-              border: '1px solid var(--color-border)',
-              boxShadow: '0 12px 30px rgba(15, 23, 42, 0.12)',
-            }}
-          >
-            <input
-              id="jobs-search"
-              aria-label="Search jobs"
-              className="input text-[15px]"
-              name="q"
-              defaultValue={filters.q}
-              placeholder="Search jobs, companies, or keywords"
-            />
-            <label htmlFor="jobs-location" className="sr-only">Location</label>
-            <select id="jobs-location" className="input text-[15px]" name="location" defaultValue={filters.location}>
-              <option value="">Any location</option>
-              {filterOptions.locations.map((option) => (
-                <option key={option} value={option.toLowerCase()}>{option}</option>
-              ))}
-            </select>
-            {boardConfig.showFilters && (
-              <>
-                <label htmlFor="jobs-department" className="sr-only">Department</label>
-                <select id="jobs-department" className="input text-[15px]" name="department" defaultValue={filters.department}>
-                  <option value="">All departments</option>
-                  {filterOptions.departments.map((option) => (
-                    <option key={option} value={option.toLowerCase()}>{TYPE_LABEL[option] ?? option}</option>
-                  ))}
-                </select>
-              </>
-            )}
-            <button type="submit" className="btn-primary text-[15px] whitespace-nowrap h-[44px]">Search jobs</button>
-          </Form>
-        </div>
-      )}
-
-      {/* Jobs */}
-      <main className="board-container pt-12 pb-14 md:pt-14">
-        {publishedJobs.length === 0 ? (
-          <div
-            className="w-full mx-auto text-center px-8 py-12 md:px-12 md:py-14 rounded-[22px]"
-            style={{
-              backgroundColor: 'var(--color-surface)',
-              border: '1px solid var(--color-border)',
-              boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)',
-            }}
-          >
-            <div className="w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center text-[28px]"
-              style={{ backgroundColor: 'var(--color-surface-subtle)' }}>
-              <span style={{ color: 'var(--color-text-secondary)' }}>
-                <EmptyStateIcon icon={boardConfig.emptyState.icon} />
-              </span>
-            </div>
-            <p className="text-[24px] md:text-[28px] font-semibold mb-3"
-              style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-display)' }}>
-              {boardConfig.emptyState.title}
-            </p>
-            <p className="text-[15px] md:text-[16px] leading-7 max-w-xl mx-auto" style={{ color: 'var(--color-text-secondary)' }}>
-              {boardConfig.emptyState.description}
-            </p>
-            {(boardConfig.emptyState.ctaLabel || boardConfig.emptyState.ctaUrl) && (
-              <a
-                href={emptyCtaUrl}
-                className="btn-primary inline-flex mt-7 text-[15px] px-7 py-3"
-                target="_blank"
-                rel="noreferrer"
-              >
-                {emptyCtaLabel}
-              </a>
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {publishedJobs.map(job => {
-              const salary = formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency, job.salaryPeriod)
-              return (
-                <Link key={job.id} to={`/jobs/${job.id}`} className="job-card no-underline block group">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      {/* Title row */}
-                      <div className="flex items-start gap-3 mb-2">
-                        <h2 className="text-base font-bold leading-snug"
-                          style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-display)' }}>
-                          {job.title}
-                        </h2>
-                      </div>
-
-                      {/* Meta row */}
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {job.company && (
-                          <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                            {job.company}
-                          </span>
-                        )}
-                        {job.company && (job.location || job.remotePolicy) && (
-                          <span style={{ color: 'var(--color-border-strong)' }}>·</span>
-                        )}
-                        {job.location && (
-                          <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                            {job.location}
-                          </span>
-                        )}
-
-                        {/* Tags */}
-                        <span style={{ color: 'var(--color-border-strong)' }}>·</span>
-                        <Tag color="primary">{REMOTE_LABEL[job.remotePolicy] ?? job.remotePolicy}</Tag>
-                        <Tag color="muted">{TYPE_LABEL[job.employmentType] ?? job.employmentType}</Tag>
-                        {salary && <Tag color="muted">{salary}</Tag>}
-                      </div>
-                    </div>
-
-                    {/* CTA */}
-                    <button className="btn-accent text-sm shrink-0">
-                      Apply
-                    </button>
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
-        )}
-      </main>
-
-      <footer className="board-container py-10 mt-2"
-        style={{ borderTop: '1px solid var(--color-border)' }}>
-        {footerLinks.length > 0 && (
-          <div className="flex items-center justify-center gap-6 mb-4 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            {footerLinks.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
-                {link.label}
-              </a>
-            ))}
-          </div>
-        )}
-        <p className="text-[13px] text-center" style={{ color: 'var(--color-text-secondary)' }}>
-          {board.footerText || (
-            boardConfig.footer.showPoweredBy
-              ? <><span>Powered by </span><span className="font-extrabold" style={{ color: 'var(--color-text-secondary)' }}>Jobuki</span></>
-              : (
-                companyWebsiteUrl
-                  ? <a href={companyWebsiteUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--color-text-secondary)' }}>{boardConfig.boardName}</a>
-                  : boardConfig.boardName
-              )
-          )}
-        </p>
-      </footer>
-    </div>
-  )
-}
-
-function Tag({ children, color }: { children: React.ReactNode; color: 'primary' | 'muted' }) {
-  return (
-    <span
-      className="badge text-xs"
-      style={color === 'primary' ? {
-        backgroundColor: 'color-mix(in srgb, var(--color-primary) 10%, transparent)',
-        color: 'var(--color-primary)',
-      } : {
-        backgroundColor: 'var(--color-surface-subtle)',
-        color: 'var(--color-text-secondary)',
-        border: '1px solid var(--color-border)',
-      }}
-    >
-      {children}
-    </span>
-  )
-}
-
-function EmptyStateIcon({ icon }: { icon?: 'search' | 'briefcase' | 'sparkle' | 'inbox' }) {
-  if (icon === 'briefcase') {
-    return (
-      <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <rect x="3" y="7" width="18" height="12" rx="2" />
-        <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-        <path d="M3 12h18" />
-      </svg>
-    )
-  }
-
-  if (icon === 'sparkle') {
-    return (
-      <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-        <path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3z" />
-        <path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14z" />
-      </svg>
-    )
-  }
-
-  if (icon === 'inbox') {
-    return (
-      <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 4h16v12l-3-3h-3l-2 2-2-2H7l-3 3V4z" />
-      </svg>
-    )
-  }
-
-  return (
-    <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-      <circle cx="11" cy="11" r="6" />
-      <path d="M16 16l5 5" />
-    </svg>
-  )
 }
 
 // ── Marketing home ────────────────────────────────────────────────────

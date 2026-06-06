@@ -13,6 +13,7 @@ export default [
   // ── API ───────────────────────────────────────────────────────────
   route('api/upload-sign', 'routes/api/upload-sign.ts'),
   route('api/upload-image', 'routes/api/upload-image.ts'),
+  route('api/ingest-jobs', 'routes/api/ingest-jobs.ts'),
   route('health', 'routes/health.ts'),
   route('admin', 'routes/platform-admin/index.tsx'),
 

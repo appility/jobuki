@@ -16,6 +16,7 @@ import {
   type JobBoardHeaderStyle,
   type JobBoardThemePreset,
   type JobBoardEmptyStateIcon,
+  type JobBoardJobsLayout,
   type JobBoardThemeConfig,
 } from '@jobuki/types'
 
@@ -131,6 +132,7 @@ export async function action(args: ActionFunctionArgs) {
         backgroundColor: (form.get('boardConfigBackgroundColor') as string)?.trim(),
         headerStyle: form.get('boardConfigHeaderStyle') as JobBoardHeaderStyle,
         themePreset: form.get('boardConfigThemePreset') as JobBoardThemePreset,
+        jobsLayout: form.get('boardConfigJobsLayout') as JobBoardJobsLayout,
         showSearch: parseBool(form.get('boardConfigShowSearch')),
         showFilters: parseBool(form.get('boardConfigShowFilters')),
         emptyState: {
@@ -304,6 +306,7 @@ export default function AppearancePage() {
   const [configBackgroundColor, setConfigBackgroundColor] = useState(boardConfig.backgroundColor ?? '')
   const [configHeaderStyle, setConfigHeaderStyle] = useState<JobBoardHeaderStyle>(boardConfig.headerStyle)
   const [configThemePreset, setConfigThemePreset] = useState<JobBoardThemePreset>(boardConfig.themePreset)
+  const [configJobsLayout, setConfigJobsLayout] = useState<JobBoardJobsLayout>(boardConfig.jobsLayout)
   const [configShowSearch, setConfigShowSearch] = useState(boardConfig.showSearch)
   const [configShowFilters, setConfigShowFilters] = useState(boardConfig.showFilters)
   const [configEmptyStateIcon, setConfigEmptyStateIcon] = useState<JobBoardEmptyStateIcon>(boardConfig.emptyState.icon ?? 'search')
@@ -494,6 +497,7 @@ export default function AppearancePage() {
             <input type="hidden" name="boardConfigBackgroundColor" value={configBackgroundColor} />
             <input type="hidden" name="boardConfigHeaderStyle" value={configHeaderStyle} />
             <input type="hidden" name="boardConfigThemePreset" value={configThemePreset} />
+            <input type="hidden" name="boardConfigJobsLayout" value={configJobsLayout} />
             <input type="hidden" name="boardConfigShowSearch" value={configShowSearch ? 'true' : 'false'} />
             <input type="hidden" name="boardConfigShowFilters" value={configShowFilters ? 'true' : 'false'} />
             <input type="hidden" name="boardConfigEmptyStateIcon" value={configEmptyStateIcon} />
@@ -950,6 +954,20 @@ export default function AppearancePage() {
 
             {activeTab === 'board' && (
             <Section label="CONFIG TOGGLES">
+              <label className="block text-[11px] font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                Jobs layout
+              </label>
+              <select
+                value={configJobsLayout}
+                onChange={e => setConfigJobsLayout(e.target.value as JobBoardJobsLayout)}
+                className="w-full px-2.5 py-2 rounded-lg text-xs border mb-3"
+                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+              >
+                <option value="list">List</option>
+                <option value="boxes">Boxes</option>
+                <option value="bento">Bento</option>
+              </select>
+
               <label className="flex items-center gap-2 text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
                 <input type="checkbox" checked={configShowSearch} onChange={e => setConfigShowSearch(e.target.checked)} />
                 Show search

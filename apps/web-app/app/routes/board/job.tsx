@@ -2,6 +2,8 @@ import { useLoaderData, useOutletContext, Link } from 'react-router'
 import type { LoaderFunctionArgs, MetaFunction } from 'react-router'
 import { getDb, jobs, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
+import { marked } from 'marked'
+import sanitizeHtml from 'sanitize-html'
 import type { Board } from '@jobuki/types'
 
 export async function loader({ params }: LoaderFunctionArgs) {
@@ -137,16 +139,41 @@ function Chip({ children, icon, accent }: { children: React.ReactNode; icon?: st
 }
 
 function Section({ title, children }: { title: string; children: string }) {
+  const html = toSafeRichHtml(children)
+
   return (
     <section className="mb-8">
       <h2 className="text-base font-bold mb-3"
         style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text-primary)' }}>
         {title}
       </h2>
-      <div className="text-sm leading-relaxed whitespace-pre-line"
-        style={{ color: 'var(--color-text-secondary)' }}>
-        {children}
-      </div>
+      <div
+        className="text-sm leading-relaxed"
+        style={{ color: 'var(--color-text-secondary)' }}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
     </section>
   )
+}
+
+function toSafeRichHtml(input: string) {
+  const markdownHtml = marked.parse(input, { breaks: true, gfm: true })
+  return sanitizeHtml(markdownHtml as string, {
+    allowedTags: [
+      'p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre', 'blockquote',
+      'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'span',
+      'a',
+    ],
+    allowedAttributes: {
+      a: ['href', 'target', 'rel'],
+      div: ['class'],
+      span: ['class'],
+      code: ['class'],
+      '*': ['id'],
+    },
+    allowedSchemes: ['http', 'https', 'mailto'],
+    transformTags: {
+      a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer', target: '_blank' }, true),
+    },
+  })
 }

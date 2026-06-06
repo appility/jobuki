@@ -119,6 +119,8 @@ export const jobs = pgTable('jobs', {
   id:                  text('id').primaryKey().$defaultFn(() => createId()),
   boardId:             text('board_id').notNull().references(() => boards.id, { onDelete: 'cascade' }),
   title:               text('title').notNull(),
+  primaryCategory:     text('primary_category'),
+  categoryTags:        text('category_tags').array(),
   company:             text('company'),
   location:            text('location'),
   remotePolicy:        remotePolicyEnum('remote_policy').notNull().default('onsite'),
