@@ -225,6 +225,46 @@ function normalizeCategory(value?: string | null): string | null {
   return normalized || null
 }
 
+const CATEGORY_FILTER_TERMS: Record<string, string[]> = {
+  ai: ['ai', 'ml', 'llm', 'machine learning', 'artificial intelligence', 'data science'],
+  web: ['web', 'frontend', 'backend', 'full stack', 'javascript', 'typescript', 'react', 'node'],
+  crypto: ['crypto', 'web3', 'blockchain', 'defi', 'solidity'],
+}
+
+function hasTerm(haystack: string, term: string): boolean {
+  const normalizedTerm = cleanText(term)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+
+  if (!normalizedTerm) return false
+
+  const normalizedHaystack = (' ' + haystack.toLowerCase().replace(/[^a-z0-9]+/g, ' ') + ' ')
+  return normalizedHaystack.includes(' ' + normalizedTerm + ' ')
+}
+
+function matchesRequestFilters(
+  job: NormalizedJob,
+  context: Pick<IngestNormalizationContext, 'requestCategory' | 'requestSearchTerms' | 'requestTags'>
+): boolean {
+  const normalizedCategory = normalizeCategory(context.requestCategory)
+  const effectiveTerms = uniqueTags([...context.requestSearchTerms, ...context.requestTags])
+  const searchable = [job.title, job.description, job.company ?? '', job.location ?? ''].join(' ').toLowerCase()
+
+  const categoryTerms = normalizedCategory
+    ? uniqueTags([
+        normalizedCategory,
+        normalizedCategory.replace(/-/g, ' '),
+        ...(CATEGORY_FILTER_TERMS[normalizedCategory] ?? []),
+      ])
+    : []
+
+  const categoryMatch = categoryTerms.length === 0 || categoryTerms.some((term) => hasTerm(searchable, term))
+  const termMatch = effectiveTerms.length === 0 || effectiveTerms.some((term) => hasTerm(searchable, term))
+
+  return categoryMatch && termMatch
+}
+
 function inferCategories(job: IncomingJob, context: IngestNormalizationContext): {
   primaryCategory: string | null
   categoryTags: string[]
@@ -257,7 +297,45 @@ async function fetchText(url: string): Promise<string> {
   if (!response.ok) {
     throw new Error(`Feed fetch failed (${response.status}) for ${url}`)
   }
-  return response.text()
+
+  const bytes = new Uint8Array(await response.arrayBuffer())
+  const contentType = response.headers.get('content-type')
+  return decodeFeedText(bytes, contentType)
+}
+
+function decodeFeedText(bytes: Uint8Array, contentType?: string | null): string {
+  const charsetMatch = contentType?.match(/charset\s*=\s*([^;]+)/i)
+  const declared = (charsetMatch?.[1] ?? '').trim().toLowerCase().replace(/["']/g, '')
+
+  const normalizeCharset = (value: string): string => {
+    if (value === 'utf8') return 'utf-8'
+    if (value === 'latin1' || value === 'iso-8859-1') return 'windows-1252'
+    return value
+  }
+
+  const decodeWith = (encoding: string): string => {
+    try {
+      return new TextDecoder(encoding).decode(bytes)
+    } catch {
+      return ''
+    }
+  }
+
+  const declaredText = declared ? decodeWith(normalizeCharset(declared)) : ''
+  const utf8Text = decodeWith('utf-8')
+  const baseText = declaredText || utf8Text
+  const repaired = repairMojibake(baseText)
+
+  if (repaired && !repaired.includes('\uFFFD')) return repaired
+
+  const cp1252Text = decodeWith('windows-1252')
+  const cp1252Repaired = repairMojibake(cp1252Text)
+
+  if (cp1252Repaired && !cp1252Repaired.includes('\uFFFD')) {
+    return cp1252Repaired
+  }
+
+  return repaired || baseText || cp1252Repaired
 }
 
 function parseRssJobs(xml: string, limit: number, externalSource: string, remotePolicy?: string): IncomingJob[] {
@@ -611,14 +689,10 @@ function normalizeIncomingJob(job: IncomingJob, context: IngestNormalizationCont
   const salaryMin = toNumber(job.salaryMin ?? job.salaryRangeLower)
   const salaryMax = toNumber(job.salaryMax ?? job.salaryRangeHigher)
   const salaryCurrency = cleanText(job.salaryCurrency ?? job.currency) || 'GBP'
-
-  const applyLink = cleanText(job.applyLink ?? job.link)
-  const externalSource = cleanText(job.externalSource)
-  const sourceLine = [externalSource || null, applyLink || null].filter(Boolean).join(' · ')
   const { primaryCategory, categoryTags } = inferCategories(job, context)
 
   const descriptionCore = cleanText(job.description) || 'Imported listing.'
-  const description = sourceLine ? `${descriptionCore}\n\nSource: ${sourceLine}` : descriptionCore
+  const description = descriptionCore
 
   return {
     title,
@@ -746,7 +820,15 @@ export async function action({ request }: ActionFunctionArgs) {
     )
     .filter((job): job is NormalizedJob => Boolean(job))
 
-  if (normalized.length === 0) {
+  const filteredNormalized = normalized.filter((job) =>
+    matchesRequestFilters(job, {
+      requestCategory,
+      requestTags,
+      requestSearchTerms,
+    })
+  )
+
+  if (filteredNormalized.length === 0) {
     return Response.json({
       ok: true,
       source,
@@ -757,6 +839,8 @@ export async function action({ request }: ActionFunctionArgs) {
       skipped: 0,
       totalIncoming: incomingJobs.length,
       afterLookback: filteredIncoming.length,
+      normalized: normalized.length,
+      afterRequestFilters: filteredNormalized.length,
     })
   }
 
@@ -768,7 +852,7 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   const boardIds = allBoards.map((b) => b.id)
-  const titles = Array.from(new Set(normalized.map((j) => j.title))).slice(0, 1000)
+  const titles = Array.from(new Set(filteredNormalized.map((j) => j.title))).slice(0, 1000)
 
   const existingRows = titles.length
     ? await db
@@ -785,7 +869,7 @@ export async function action({ request }: ActionFunctionArgs) {
   let skipped = 0
 
   for (const board of allBoards) {
-    for (const job of normalized) {
+    for (const job of filteredNormalized) {
       const key = `${board.id}::${job.title.toLowerCase()}::${(job.company ?? '').toLowerCase()}`
       if (existingKeys.has(key)) {
         skipped += 1
@@ -825,6 +909,7 @@ export async function action({ request }: ActionFunctionArgs) {
       totalIncoming: incomingJobs.length,
       afterLookback: filteredIncoming.length,
       normalized: normalized.length,
+      afterRequestFilters: filteredNormalized.length,
       wouldInsert: rowsToInsert.length,
       skipped,
     })
@@ -853,6 +938,7 @@ export async function action({ request }: ActionFunctionArgs) {
     totalIncoming: incomingJobs.length,
     afterLookback: filteredIncoming.length,
     normalized: normalized.length,
+    afterRequestFilters: filteredNormalized.length,
     inserted,
     skipped,
   })

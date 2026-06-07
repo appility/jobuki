@@ -132,6 +132,7 @@ const V6_STYLES = `
   margin: 0 0 22px;
 }
 .v6-h-vio { color: var(--vio); }
+.v6-h-acc { color: var(--cta-accent); }
 .v6-h-dim { color: var(--rule); }
 .v6-sub {
   margin: 0 0 36px;
@@ -520,11 +521,12 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
     '--sky-l': '#E2EEFB',
     '--amber': '#C47B00',
     '--amb-l': '#FEF3DC',
-    '--bg': '#F0EBE3',
+    '--bg': 'var(--color-background)',
+    '--bg2': 'color-mix(in srgb, var(--color-background) 86%, var(--color-surface) 14%)',
     '--ink': 'var(--color-text-primary)',
-    '--white': '#FAF8F4',
-    '--rule': '#D4CBBD',
-    '--mid': '#7C7067',
+    '--white': 'var(--color-surface)',
+    '--rule': 'var(--color-border)',
+    '--mid': 'var(--color-text-secondary)',
     '--cta-bg': ctaBg,
     '--cta-fg': ctaFg,
     '--cta-accent': baseAccent,
@@ -548,7 +550,7 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
           TECH ROUNDABOUT
         </div>
         <div className="v6-nav-r">
-          <a className="v6-nl" href="#roles">Browse</a>
+          <Link className="v6-nl" to="/jobs">Browse</Link>
           <a className="v6-nl" href="#roles">Companies</a>
           <a className="v6-nl" href="#roles">Salaries</a>
           <a className="v6-ncta" href={boardConfig.emptyState.ctaUrl || '#'} target="_blank" rel="noreferrer">Post a role ↗</a>
@@ -566,7 +568,7 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
 
             <h1 className="v6-h1">
               Your <span className="v6-h-vio">next role</span><br />
-              is right here.<br />
+              is <span className="v6-h-acc">right here</span>.<br />
               <span className="v6-h-dim">No middlemen.</span>
             </h1>
 
@@ -796,7 +798,9 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
           )}
         </section>
 
-        <div className="v6-load"><button className="v6-load-btn" type="button">Load 25 more roles →</button></div>
+        <div className="v6-load">
+          <Link className="v6-load-btn" to="/jobs">Browse all roles →</Link>
+        </div>
 
       </div>
 

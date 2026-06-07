@@ -50,34 +50,64 @@ export default function BoardLayout() {
       {/* Per-board CSS variable injection — this is the entire theming system */}
       <style dangerouslySetInnerHTML={{ __html: css }} />
 
-      <header style={{ backgroundColor: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)' }}>
-        <div className="board-container py-4 md:py-5 flex items-center justify-between gap-4">
-          <Link to="/" className="no-underline flex items-center gap-3 min-w-0">
+      <header
+        className="sticky top-0 z-40"
+        style={{
+          backgroundColor: 'color-mix(in srgb, var(--color-surface) var(--board-header-surface-mix), transparent)',
+          borderBottom: '1px solid var(--color-border)',
+          backdropFilter: 'blur(var(--board-header-blur))',
+          boxShadow: '0 1px 0 color-mix(in srgb, var(--color-border) 85%, transparent)',
+        }}
+      >
+        <div className="max-w-[1280px] mx-auto h-[62px] px-10 flex items-center justify-between gap-4">
+          <Link to="/" className="no-underline flex items-center gap-2.5 min-w-0">
             {hasLogo ? (
               <img
                 src={logoUrl}
                 alt={boardConfig.boardName}
-                width={180}
-                height={56}
+                width={156}
+                height={36}
                 loading="eager"
                 decoding="async"
-                className="h-12 md:h-14 w-auto max-w-[180px] object-contain shrink-0"
+                className="h-9 w-auto max-w-[156px] object-contain shrink-0"
               />
             ) : (
-              <div className="min-w-0">
-                <p className="text-[16px] md:text-[18px] font-extrabold leading-tight truncate" style={{ color: 'var(--color-text-primary)' }}>
+              <>
+                <svg className="w-7 h-7 shrink-0" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                  <circle cx="14" cy="14" r="3" fill="var(--color-primary)" />
+                  <circle cx="14" cy="14" r="7" stroke="var(--color-primary)" strokeWidth="2" fill="none" strokeDasharray="3 2" />
+                  <circle cx="14" cy="14" r="12" stroke="var(--color-border)" strokeWidth="1.5" fill="none" />
+                </svg>
+                <span
+                  className="truncate text-[13px] font-extrabold tracking-[0.01em]"
+                  style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'var(--color-text-primary)' }}
+                >
                   {boardConfig.boardName}
-                </p>
-                <p className="text-[13px] md:text-[14px] truncate" style={{ color: 'var(--color-text-secondary)' }}>
-                  {boardConfig.tagline || board.introText || 'Find your next role'}
-                </p>
-              </div>
+                </span>
+              </>
             )}
           </Link>
 
-          <Link to="/" className="btn-outline text-[13px] whitespace-nowrap" aria-label="Back to all jobs">
-            Back
-          </Link>
+          <div className="flex items-center gap-0.5">
+            <Link to="/jobs" className="px-3.5 py-2 text-[13px] font-medium rounded-[10px] transition-colors" style={{ color: 'var(--color-text-secondary)' }}>
+              Browse
+            </Link>
+            <Link to="/jobs" className="px-3.5 py-2 text-[13px] font-medium rounded-[10px] transition-colors" style={{ color: 'var(--color-text-secondary)' }}>
+              Companies
+            </Link>
+            <Link to="/jobs" className="px-3.5 py-2 text-[13px] font-medium rounded-[10px] transition-colors" style={{ color: 'var(--color-text-secondary)' }}>
+              Salaries
+            </Link>
+            <a
+              className="ml-2 px-5 py-[9px] text-[13px] font-bold rounded-[10px] no-underline transition-transform duration-150"
+              style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-primary-fg)' }}
+              href={boardConfig.emptyState.ctaUrl || '#'}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Post a role ↗
+            </a>
+          </div>
         </div>
       </header>
 

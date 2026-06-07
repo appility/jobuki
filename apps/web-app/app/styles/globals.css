@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=Inter:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;700&family=Unbounded:wght@700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -54,6 +56,12 @@
   --header-text:           var(--color-text-primary);
   --header-muted:          var(--color-text-secondary);
   --header-border:         var(--color-border);
+  --board-ambient-primary: 8%;
+  --board-ambient-accent:  7%;
+  --board-hero-tint:       8%;
+  --board-card-tint:       4%;
+  --board-header-surface-mix: 88%;
+  --board-header-blur:     8px;
 }
 
 body {

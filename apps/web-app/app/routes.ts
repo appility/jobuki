@@ -46,6 +46,8 @@ export default [
 
   // ── Public board (resolved from subdomain/custom domain by server) ─
   layout('routes/board/layout.tsx', [
+    route('jobs',        'routes/board/index.tsx'),
+    route('jobs/category/:category', 'routes/board/category.tsx'),
     route('jobs/:jobId',  'routes/board/job.tsx'),
     route('apply/:jobId', 'routes/board/apply.tsx'),
   ]),

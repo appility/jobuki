@@ -119,6 +119,12 @@ export async function action(args: ActionFunctionArgs) {
       radius2xl:          form.get('radius2xl') as string,
       headerStyle:        form.get('headerStyle') as HeaderStyle,
       buttonStyle:        form.get('buttonStyle') as ButtonStyle,
+      boardAmbientPrimary: form.get('boardAmbientPrimary') as string,
+      boardAmbientAccent: form.get('boardAmbientAccent') as string,
+      boardHeroTint: form.get('boardHeroTint') as string,
+      boardCardTint: form.get('boardCardTint') as string,
+      boardHeaderSurfaceMix: form.get('boardHeaderSurfaceMix') as string,
+      boardHeaderBlur: form.get('boardHeaderBlur') as string,
     }
 
     const boardConfig: JobBoardThemeConfig = resolveJobBoardThemeConfig(
@@ -669,6 +675,88 @@ export default function AppearancePage() {
                     }}
                   >{s}</button>
                 ))}
+              </div>
+            </Section>
+            )}
+
+            {activeTab === 'theme' && (
+            <Section label="BOARD VISUAL TUNING">
+              <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                Controls for public board atmosphere and chrome depth.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                    Ambient primary
+                  </label>
+                  <input
+                    value={t.boardAmbientPrimary}
+                    onChange={e => updateToken('boardAmbientPrimary', e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
+                    placeholder="8%"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                    Ambient accent
+                  </label>
+                  <input
+                    value={t.boardAmbientAccent}
+                    onChange={e => updateToken('boardAmbientAccent', e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
+                    placeholder="7%"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                    Hero tint
+                  </label>
+                  <input
+                    value={t.boardHeroTint}
+                    onChange={e => updateToken('boardHeroTint', e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
+                    placeholder="8%"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                    Card tint
+                  </label>
+                  <input
+                    value={t.boardCardTint}
+                    onChange={e => updateToken('boardCardTint', e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
+                    placeholder="4%"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                    Header surface mix
+                  </label>
+                  <input
+                    value={t.boardHeaderSurfaceMix}
+                    onChange={e => updateToken('boardHeaderSurfaceMix', e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
+                    placeholder="88%"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                    Header blur
+                  </label>
+                  <input
+                    value={t.boardHeaderBlur}
+                    onChange={e => updateToken('boardHeaderBlur', e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
+                    placeholder="8px"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                  />
+                </div>
               </div>
             </Section>
             )}

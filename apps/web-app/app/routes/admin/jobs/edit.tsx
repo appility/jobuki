@@ -1,8 +1,16 @@
 import { useLoaderData, Form, useActionData, useNavigation, redirect } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
+import { useState } from 'react'
 import { requireWorkspaceAccess } from '../../../lib/auth.server'
 import { getDb, jobs, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
+import { RichTextEditor } from '../../../components/rich-text/RichTextEditor'
+import {
+  isTiptapDoc,
+  parseTiptapJson,
+  tiptapDocToPlainText,
+  type TiptapNode,
+} from '../../../lib/rich-text'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,7 +53,10 @@ export async function action(args: ActionFunctionArgs) {
   }
 
   const title = (form.get('title') as string).trim()
-  const description = (form.get('description') as string).trim()
+  const descriptionJson = parseTiptapJson(form.get('descriptionJson'))
+  const plainDescriptionFromJson = tiptapDocToPlainText(descriptionJson).trim()
+  const plainDescriptionFallback = (form.get('description') as string | null)?.trim() ?? ''
+  const description = plainDescriptionFromJson || plainDescriptionFallback
   if (!title) return { error: 'Title is required.' }
   if (!description) return { error: 'Description is required.' }
 
@@ -60,6 +71,7 @@ export async function action(args: ActionFunctionArgs) {
     employmentType: (form.get('employmentType') as any),
     salaryMin,
     salaryMax,
+    descriptionJson: descriptionJson as Record<string, unknown> | null,
     description,
     requirements:   (form.get('requirements') as string).trim() || null,
     benefits:       (form.get('benefits') as string).trim() || null,
@@ -75,6 +87,9 @@ export default function EditJob() {
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const submitting = navigation.state === 'submitting'
+  const [descriptionJson, setDescriptionJson] = useState<TiptapNode | string>(
+    isTiptapDoc(job.descriptionJson) ? job.descriptionJson : (job.description ?? '')
+  )
 
   return (
     <div className="p-10 max-w-2xl">
@@ -150,8 +165,18 @@ export default function EditJob() {
           </Field>
         </div>
 
-        <Field label="Description" required hint="Markdown supported">
-          <textarea name="description" defaultValue={job.description} className="input w-full" rows={8} required />
+        <Field label="Description" required hint="Rich text supported">
+          <RichTextEditor value={descriptionJson} onChange={setDescriptionJson} />
+          <input
+            type="hidden"
+            name="descriptionJson"
+            value={typeof descriptionJson === 'string' ? '' : JSON.stringify(descriptionJson)}
+          />
+          <input
+            type="hidden"
+            name="description"
+            value={tiptapDocToPlainText(descriptionJson).trim()}
+          />
         </Field>
 
         <Field label="Requirements">

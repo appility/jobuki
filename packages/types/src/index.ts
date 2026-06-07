@@ -76,6 +76,13 @@ export interface BoardTheme {
   headerStyle: HeaderStyle
   // Button
   buttonStyle: ButtonStyle
+  // Board visual tuning
+  boardAmbientPrimary: string
+  boardAmbientAccent: string
+  boardHeroTint: string
+  boardCardTint: string
+  boardHeaderSurfaceMix: string
+  boardHeaderBlur: string
 }
 
 export interface Board {
@@ -208,6 +215,12 @@ export const DEFAULT_THEME: BoardTheme = {
   radius2xl: '24px',
   headerStyle: 'minimal',
   buttonStyle: 'rounded',
+  boardAmbientPrimary: '8%',
+  boardAmbientAccent: '7%',
+  boardHeroTint: '8%',
+  boardCardTint: '4%',
+  boardHeaderSurfaceMix: '88%',
+  boardHeaderBlur: '8px',
 }
 
 export const DEFAULT_JOB_BOARD_THEME_CONFIG: JobBoardThemeConfig = {

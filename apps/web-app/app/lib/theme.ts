@@ -49,6 +49,12 @@ ${scope} {
   --header-text:   ${headerText};
   --header-muted:  ${headerMuted};
   --header-border: ${headerBorder};
+  --board-ambient-primary: ${theme.boardAmbientPrimary};
+  --board-ambient-accent: ${theme.boardAmbientAccent};
+  --board-hero-tint: ${theme.boardHeroTint};
+  --board-card-tint: ${theme.boardCardTint};
+  --board-header-surface-mix: ${theme.boardHeaderSurfaceMix};
+  --board-header-blur: ${theme.boardHeaderBlur};
 }`.trim()
 }
 

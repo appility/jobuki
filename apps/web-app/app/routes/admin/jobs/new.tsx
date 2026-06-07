@@ -1,8 +1,16 @@
 import { redirect, Form, useActionData, useNavigation, useLoaderData } from 'react-router'
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
+import { useState } from 'react'
 import { requireWorkspaceAccess } from '../../../lib/auth.server'
 import { getDb, boards, jobs } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
+import { RichTextEditor } from '../../../components/rich-text/RichTextEditor'
+import {
+  EMPTY_TIPTAP_DOC,
+  parseTiptapJson,
+  tiptapDocToPlainText,
+  type TiptapNode,
+} from '../../../lib/rich-text'
 
 export async function loader(args: LoaderFunctionArgs) {
   const { workspace } = await requireWorkspaceAccess(args)
@@ -24,7 +32,10 @@ export async function action(args: ActionFunctionArgs) {
 
   const boardId = form.get('boardId') as string
   const title = (form.get('title') as string).trim()
-  const description = (form.get('description') as string).trim()
+  const descriptionJson = parseTiptapJson(form.get('descriptionJson'))
+  const plainDescriptionFromJson = tiptapDocToPlainText(descriptionJson).trim()
+  const plainDescriptionFallback = (form.get('description') as string | null)?.trim() ?? ''
+  const description = plainDescriptionFromJson || plainDescriptionFallback
 
   if (!boardId) return { error: 'Select a board.' }
   if (!title) return { error: 'Job title is required.' }
@@ -48,6 +59,7 @@ export async function action(args: ActionFunctionArgs) {
     employmentType: (form.get('employmentType') as any) || 'full-time',
     salaryMin,
     salaryMax,
+    descriptionJson: descriptionJson as Record<string, unknown> | null,
     description,
     requirements:   (form.get('requirements') as string).trim() || null,
     benefits:       (form.get('benefits') as string).trim() || null,
@@ -62,6 +74,7 @@ export default function NewJob() {
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const submitting = navigation.state === 'submitting'
+  const [descriptionJson, setDescriptionJson] = useState<TiptapNode>(EMPTY_TIPTAP_DOC)
 
   return (
     <div className="p-10 max-w-2xl">
@@ -130,9 +143,14 @@ export default function NewJob() {
           </Field>
         </div>
 
-        <Field label="Description" required hint="Markdown supported">
-          <textarea name="description" className="input w-full" rows={8}
-            placeholder="About the role…" required />
+        <Field label="Description" required hint="Rich text supported">
+          <RichTextEditor value={descriptionJson} onChange={setDescriptionJson} />
+          <input type="hidden" name="descriptionJson" value={JSON.stringify(descriptionJson)} />
+          <input
+            type="hidden"
+            name="description"
+            value={tiptapDocToPlainText(descriptionJson).trim()}
+          />
         </Field>
 
         <Field label="Requirements">

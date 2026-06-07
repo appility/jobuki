@@ -129,6 +129,7 @@ export const jobs = pgTable('jobs', {
   salaryMax:           integer('salary_max'),
   salaryCurrency:      text('salary_currency').notNull().default('GBP'),
   salaryPeriod:        text('salary_period').notNull().default('annual'),
+  descriptionJson:     jsonb('description_json').$type<Record<string, unknown> | null>(),
   description:         text('description').notNull(),
   requirements:        text('requirements'),
   benefits:            text('benefits'),

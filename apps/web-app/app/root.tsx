@@ -79,6 +79,41 @@ function getErrorMessage(error: unknown) {
   return 'Something went wrong while loading this page.'
 }
 
+function decodeHtmlEntities(input: string) {
+  return input
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/<br\s*\/?>/gi, '\n')
+}
+
+function cleanErrorMessage(input: string) {
+  const trimmed = input.trim()
+  if (!trimmed) return 'Something went wrong while loading this page.'
+
+  const looksLikeHtmlDump = /<!doctype html>|<html[\s>]/i.test(trimmed)
+  if (!looksLikeHtmlDump) return trimmed
+
+  const preMatch = trimmed.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i)
+  if (preMatch?.[1]) {
+    return decodeHtmlEntities(preMatch[1]).replace(/\n{3,}/g, '\n\n').trim()
+  }
+
+  const titleMatch = trimmed.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
+  if (titleMatch?.[1]) {
+    return decodeHtmlEntities(titleMatch[1]).trim()
+  }
+
+  return 'A server error occurred while loading this page.'
+}
+
+function summarizeError(message: string) {
+  const firstLine = message.split('\n').find((line) => line.trim())?.trim() ?? message
+  return firstLine.length > 180 ? `${firstLine.slice(0, 177)}...` : firstLine
+}
+
 function isSchemaMismatchError(message: string) {
   const lower = message.toLowerCase()
   return (
@@ -89,8 +124,9 @@ function isSchemaMismatchError(message: string) {
 
 export function ErrorBoundary() {
   const error = useRouteError()
-  const message = getErrorMessage(error)
+  const message = cleanErrorMessage(getErrorMessage(error))
   const schemaMismatch = isSchemaMismatchError(message)
+  const summary = summarizeError(message)
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: 'var(--color-background)', fontFamily: 'var(--font-body)' }}>
@@ -110,11 +146,23 @@ export function ErrorBoundary() {
 
         <div className="rounded-xl border p-3 mb-5" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}>
           <p className="text-xs font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
-            Error details
+            Error summary
           </p>
           <p className="text-sm break-words" style={{ color: 'var(--color-text-primary)' }}>
-            {message}
+            {summary}
           </p>
+
+          <details className="mt-2">
+            <summary className="text-xs font-semibold cursor-pointer" style={{ color: 'var(--color-text-muted)' }}>
+              View technical details
+            </summary>
+            <pre
+              className="mt-2 text-xs whitespace-pre-wrap break-words"
+              style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)' }}
+            >
+              {message}
+            </pre>
+          </details>
         </div>
 
         {schemaMismatch && (
