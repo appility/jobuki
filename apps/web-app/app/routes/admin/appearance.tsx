@@ -8,6 +8,7 @@ import { resolveTheme, themeToCSS } from '../../lib/theme'
 import { suggestAccents, readableFg, isValidHex } from '../../lib/color'
 import { addCustomDomain, isValidDomain, removeCustomDomain } from '../../lib/railway'
 import { ALLOWED_IMAGE_MIME_TYPES, createBoardAssetUploadUrl, MAX_UPLOAD_BYTES } from '../../lib/r2.server'
+import { parseBoardCategories, titleCaseCategory } from '../../lib/board-categories'
 import {
   resolveJobBoardThemeConfig,
   type BoardTheme,
@@ -130,6 +131,7 @@ export async function action(args: ActionFunctionArgs) {
     const boardConfig: JobBoardThemeConfig = resolveJobBoardThemeConfig(
       {
         boardName: (form.get('boardConfigBoardName') as string)?.trim(),
+        categories: parseBoardCategories(form.get('boardConfigCategories') as string),
         tagline: (form.get('boardConfigTagline') as string)?.trim(),
         logoUrl: (form.get('boardConfigLogoUrl') as string)?.trim(),
         headerImageUrl: (form.get('boardConfigHeaderImageUrl') as string)?.trim(),
@@ -304,6 +306,7 @@ export default function AppearancePage() {
   const [heroImageUrl, setHeroImageUrl] = useState(boardConfig.headerImageUrl ?? board.heroImageUrl ?? '')
   const [introText, setIntroText]       = useState(board.introText ?? '')
   const [configBoardName, setConfigBoardName] = useState(boardConfig.boardName)
+  const [configCategoriesText, setConfigCategoriesText] = useState((boardConfig.categories ?? []).map((item) => titleCaseCategory(item)).join('\n'))
   const [configTagline, setConfigTagline] = useState(boardConfig.tagline ?? '')
   const [configLogoUrl, setConfigLogoUrl] = useState(boardConfig.logoUrl ?? '')
   const [configHeaderImageUrl, setConfigHeaderImageUrl] = useState(boardConfig.headerImageUrl ?? '')
@@ -495,6 +498,7 @@ export default function AppearancePage() {
             <input type="hidden" name="introText" value={introText} />
             <input type="hidden" name="footerText" value={board.footerText ?? ''} />
             <input type="hidden" name="boardConfigBoardName" value={configBoardName} />
+            <input type="hidden" name="boardConfigCategories" value={configCategoriesText} />
             <input type="hidden" name="boardConfigTagline" value={configTagline} />
             <input type="hidden" name="boardConfigLogoUrl" value={configLogoUrl} />
             <input type="hidden" name="boardConfigHeaderImageUrl" value={configHeaderImageUrl} />
@@ -1064,6 +1068,21 @@ export default function AppearancePage() {
                 <input type="checkbox" checked={configShowFilters} onChange={e => setConfigShowFilters(e.target.checked)} />
                 Show filters
               </label>
+
+              <label className="block text-[11px] font-semibold mt-4 mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                Board categories
+              </label>
+              <textarea
+                value={configCategoriesText}
+                onChange={e => setConfigCategoriesText(e.target.value)}
+                rows={5}
+                className="w-full px-3 py-2 rounded-xl text-xs border leading-relaxed resize-y"
+                placeholder={'Engineering\nProduct\nDesign'}
+                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)', boxSizing: 'border-box' }}
+              />
+              <p className="text-[11px] mt-2" style={{ color: 'var(--color-text-muted)' }}>
+                One category per line. These drive the public filters, sitemap, and job category picker.
+              </p>
             </Section>
             )}
 

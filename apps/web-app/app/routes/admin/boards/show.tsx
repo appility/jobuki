@@ -337,7 +337,7 @@ export default function BoardShow() {
             {board.status === 'live' ? (
               <iframe
                 title={`${board.name} preview`}
-                src={publicUrl}
+                src={`${publicUrl}?preview=1`}
                 loading="lazy"
                 className="w-full rounded-xl pointer-events-none"
                 style={{ minHeight: 580, border: '1px solid var(--color-border)' }}

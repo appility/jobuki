@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { resolveJobBoardThemeConfig } from '@jobuki/types'
 import type { BoardLoaderData } from '../routes/marketing/home'
 import { hexToHsl, hslToHex, isValidHex, readableFg } from '../lib/color'
+import { publicJobPath } from '../lib/public-job-path'
 
 const V6_STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,700&family=Unbounded:wght@700;800;900&display=swap');
@@ -222,7 +223,7 @@ const V6_STYLES = `
 .v6-mj-t { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .v6-mj-m { font-size: 11px; font-weight: 500; color: var(--mid); }
 .v6-mj-r { text-align: right; }
-.v6-mj-s { font-size: 13px; font-weight: 700; }
+.v6-mj-s { font-size: 13px; font-weight: 600; }
 .v6-badge {
   display: inline-block;
   margin-top: 2px;
@@ -290,12 +291,7 @@ const V6_STYLES = `
 }
 .v6-list-meta { font-size: 12px; color: var(--mid); display: flex; gap: 6px; flex-wrap: wrap; }
 .v6-list-right { text-align: right; flex-shrink: 0; }
-.v6-list-salary {
-  font-family: 'Unbounded', var(--font-display), sans-serif;
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-}
+.v6-list-salary { font-size: 13px; font-weight: 600; }
 .v6-s3 { grid-column: span 3; }
 .v6-s4 { grid-column: span 4; }
 .v6-s5 { grid-column: span 5; }
@@ -343,7 +339,7 @@ const V6_STYLES = `
   border-top: 1px solid var(--bg2);
   padding-top: 14px;
 }
-.v6-cj-sal { font-family: 'Unbounded', var(--font-display), sans-serif; font-size: 18px; font-weight: 800; letter-spacing: -0.04em; }
+.v6-cj-sal { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
 .v6-cj-r { text-align: right; }
 .v6-cj-ago { margin-top: 4px; font-size: 11px; color: var(--rule); font-weight: 600; }
 
@@ -596,7 +592,7 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
               <p className="v6-panel-s">Just added</p>
             </div>
             {topJobs.map((job) => (
-              <Link className="v6-mj" key={`top-${job.id}`} to={`/jobs/${job.id}`}>
+              <Link className="v6-mj" key={`top-${job.id}`} to={publicJobPath(job)}>
                 <div className="v6-mj-ico">{job.employmentType === 'full-time' ? '🏦' : job.employmentType === 'contract' ? '⚙️' : job.employmentType === 'part-time' ? '📊' : '💼'}</div>
                 <div className="v6-mj-b">
                   <div className="v6-mj-t">{job.title}</div>
@@ -650,7 +646,7 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
           ) : jobsLayout === 'list' ? (
             <div className="v6-list">
               {jobs.slice(0, 8).map((job) => (
-                <Link key={`list-${job.id}`} className="v6-list-item" to={`/jobs/${job.id}`}>
+                <Link key={`list-${job.id}`} className="v6-list-item" to={publicJobPath(job)}>
                   <div className="v6-list-main">
                     <div className="v6-list-title">{job.title}</div>
                     <div className="v6-list-meta">
@@ -679,7 +675,7 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
                 <Link
                   key={`box-${job.id}`}
                   className={`v6-card v6-cj ${idx === 0 ? 'v6-card-vio v6-s5' : idx === 3 ? 'v6-card-stone v6-s5' : 'v6-s4'}`}
-                  to={`/jobs/${job.id}`}
+                  to={publicJobPath(job)}
                 >
                   <div className="v6-cj-cat"><span className="v6-cj-dot" />{TYPE_LABEL[job.employmentType] ?? job.employmentType}</div>
                   <div className="v6-cj-t">{job.title}</div>
@@ -709,7 +705,7 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
           ) : (
             <div className="v6-grid">
               {featuredJob && (
-                <Link className="v6-card v6-card-vio v6-cj v6-s5" to={`/jobs/${featuredJob.id}`}>
+                <Link className="v6-card v6-card-vio v6-cj v6-s5" to={publicJobPath(featuredJob)}>
                   <div className="v6-cj-cat"><span className="v6-cj-dot" />Featured</div>
                   <div className="v6-cj-t">{featuredJob.title}</div>
                   <div className="v6-cj-m"><strong>{featuredJob.company || boardConfig.boardName}</strong><span>·</span>{featuredJob.location || 'Flexible'}</div>
@@ -737,7 +733,7 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
               </div>
 
               {jobs.slice(1, 3).map((job) => (
-                <Link key={job.id} className="v6-card v6-cj v6-s4" to={`/jobs/${job.id}`}>
+                <Link key={job.id} className="v6-card v6-cj v6-s4" to={publicJobPath(job)}>
                   <div className="v6-cj-cat"><span className="v6-cj-dot" />{TYPE_LABEL[job.employmentType] ?? job.employmentType}</div>
                   <div className="v6-cj-t">{job.title}</div>
                   <div className="v6-cj-m"><strong>{job.company || boardConfig.boardName}</strong><span>·</span>{job.location || 'Flexible'}</div>
@@ -759,7 +755,7 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
               </div>
 
               {jobs[3] && (
-                <Link className="v6-card v6-card-stone v6-cj v6-s5" to={`/jobs/${jobs[3].id}`}>
+                <Link className="v6-card v6-card-stone v6-cj v6-s5" to={publicJobPath(jobs[3])}>
                   <div className="v6-cj-cat"><span className="v6-cj-dot" />Engineering</div>
                   <div className="v6-cj-t">{jobs[3].title}</div>
                   <div className="v6-cj-m"><strong>{jobs[3].company || boardConfig.boardName}</strong><span>·</span>{jobs[3].location || 'Flexible'}</div>
@@ -780,7 +776,7 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
               </div>
 
               {jobs.slice(4, 7).map((job) => (
-                <Link key={`tail-${job.id}`} className="v6-card v6-cj v6-s4" to={`/jobs/${job.id}`}>
+                <Link key={`tail-${job.id}`} className="v6-card v6-cj v6-s4" to={publicJobPath(job)}>
                   <div className="v6-cj-cat"><span className="v6-cj-dot" />{TYPE_LABEL[job.employmentType] ?? job.employmentType}</div>
                   <div className="v6-cj-t">{job.title}</div>
                   <div className="v6-cj-m"><strong>{job.company || boardConfig.boardName}</strong><span>·</span>{job.location || 'Flexible'}</div>

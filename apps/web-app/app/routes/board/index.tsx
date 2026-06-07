@@ -2,56 +2,46 @@ import { Form, Link, useLoaderData, useOutletContext } from 'react-router'
 import type { LoaderFunctionArgs } from 'react-router'
 import { getDb, boards, jobs } from '@jobuki/db'
 import { and, desc, eq } from 'drizzle-orm'
-import type { Board } from '@jobuki/types'
+import { resolveJobBoardThemeConfig, type Board } from '@jobuki/types'
+import { deriveJobCategory, normalizeCategory, resolveBoardCategories, titleCaseCategory } from '../../lib/board-categories'
+import { publicJobPath } from '../../lib/public-job-path'
 
 const PAGE_SIZE = 10
-
-const CATEGORY_RULES: Array<{ category: string; keywords: string[] }> = [
-  { category: 'engineering', keywords: ['engineer', 'developer', 'typescript', 'backend', 'frontend', 'full stack', 'solidity', 'rust', 'golang', 'python'] },
-  { category: 'product', keywords: ['product manager', 'product owner', 'roadmap'] },
-  { category: 'design', keywords: ['designer', 'ux', 'ui', 'figma', 'product design'] },
-  { category: 'data', keywords: ['data', 'analytics', 'machine learning', 'ai', 'scientist'] },
-  { category: 'marketing', keywords: ['marketing', 'growth', 'seo', 'content', 'social'] },
-  { category: 'sales', keywords: ['sales', 'account executive', 'business development', 'bdr', 'partnership'] },
-  { category: 'operations', keywords: ['operations', 'ops', 'program manager', 'project manager'] },
-  { category: 'security', keywords: ['security', 'infosec', 'application security', 'devsecops'] },
-  { category: 'devrel', keywords: ['developer relations', 'devrel', 'advocate', 'community manager'] },
-]
-
-function normalizeCategory(value: string | null | undefined) {
-  return (value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-}
-
-function titleCaseCategory(value: string) {
-  return value
-    .split('-')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
-}
-
-function deriveJobCategory(job: typeof jobs.$inferSelect) {
-  const explicit = normalizeCategory(job.primaryCategory)
-  if (explicit) return explicit
-
-  const tagged = Array.isArray(job.categoryTags)
-    ? normalizeCategory(job.categoryTags.find((tag) => normalizeCategory(tag)))
-    : ''
-  if (tagged) return tagged
-
-  const haystack = [job.title, job.description, job.employmentType].join(' ').toLowerCase()
-  const inferred = CATEGORY_RULES.find((rule) => rule.keywords.some((keyword) => haystack.includes(keyword)))
-  return inferred?.category ?? ''
-}
 
 function salaryLabel(job: typeof jobs.$inferSelect) {
   if (!job.salaryMin && !job.salaryMax) return 'Salary not listed'
   const low = job.salaryMin ? `${job.salaryCurrency}${job.salaryMin.toLocaleString()}` : null
   const high = job.salaryMax ? `${job.salaryCurrency}${job.salaryMax.toLocaleString()}` : null
   return [low, high].filter(Boolean).join(' - ') + (job.salaryPeriod ? ` / ${job.salaryPeriod}` : '')
+}
+
+function companyInitials(name: string | null | undefined) {
+  const safe = (name ?? '').trim()
+  if (!safe) return 'JB'
+  return safe
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}
+
+function remoteBadge(remotePolicy: string) {
+  if (remotePolicy === 'remote') return { bg: '#E2F4EB', fg: '#1B7A4E', label: 'Remote' }
+  if (remotePolicy === 'hybrid') return { bg: '#E2EEFB', fg: '#1760C8', label: 'Hybrid' }
+  return { bg: '#FEF3DC', fg: '#C47B00', label: 'On-site' }
+}
+
+function categoryBadge(category: string) {
+  const key = titleCaseCategory(category)
+  const map: Record<string, { bg: string; fg: string }> = {
+    Engineering: { bg: '#EDE6FF', fg: '#4A22D4' },
+    Product: { bg: '#E2EEFB', fg: '#1760C8' },
+    Design: { bg: '#FEF3DC', fg: '#C47B00' },
+    Data: { bg: '#E2F4EB', fg: '#1B7A4E' },
+    Security: { bg: '#FFE9E9', fg: '#B91C1C' },
+  }
+  return map[key] ?? { bg: '#F5F4F2', fg: '#7C7067' }
 }
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -68,6 +58,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   if (!board || board.status !== 'live') throw new Response('Board not found', { status: 404 })
+
+  const boardConfig = resolveJobBoardThemeConfig(board.boardConfig, {
+    boardName: board.name,
+    tagline: board.introText ?? undefined,
+    logoUrl: board.logoUrl ?? undefined,
+    headerImageUrl: board.heroImageUrl ?? undefined,
+    brandColor: (board.theme as any)?.colorPrimary,
+    accentColor: (board.theme as any)?.colorAccent,
+    backgroundColor: (board.theme as any)?.colorBackground,
+  })
+  const boardCategories = resolveBoardCategories(boardConfig.categories)
 
   const allJobs = await db.query.jobs.findMany({
     where: and(eq(jobs.boardId, board.id), eq(jobs.status, 'published')),
@@ -89,7 +90,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       (job.location ?? '').toLowerCase().includes(q)
 
     const locationMatch = !location || (job.location ?? '').toLowerCase() === location
-    const categoryMatch = !category || deriveJobCategory(job) === category
+    const categoryMatch = !category || deriveJobCategory(job, boardCategories) === category
 
     return qMatch && locationMatch && categoryMatch
   })
@@ -100,7 +101,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const pageStart = (currentPage - 1) * PAGE_SIZE
   const paginatedJobs = filteredJobs.slice(pageStart, pageStart + PAGE_SIZE)
 
-  const categories = Array.from(new Set(allJobs.map((job) => deriveJobCategory(job)).filter(Boolean))).sort()
+  const derivedCategories = Array.from(new Set(allJobs.map((job) => deriveJobCategory(job, boardCategories)).filter(Boolean))).sort()
+  const categories = boardCategories.length ? boardCategories : derivedCategories
   const locations = Array.from(new Set(allJobs.map((job) => (job.location ?? '').trim()).filter(Boolean))).sort()
 
   return {
@@ -110,12 +112,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     filters: { q, location, category },
     pagination: { page: currentPage, pageSize: PAGE_SIZE, totalPages },
     options: { categories, locations },
+    boardCategories,
   }
 }
 
 export default function BoardJobsPage() {
   const { board } = useOutletContext<{ board: Board }>()
-  const { jobs: filteredJobs, totalJobs, totalFilteredJobs, filters, pagination, options } = useLoaderData<typeof loader>()
+  const { jobs: filteredJobs, totalJobs, totalFilteredJobs, filters, pagination, options, boardCategories } = useLoaderData<typeof loader>()
 
   const makePageHref = (targetPage: number) => {
     const params = new URLSearchParams()
@@ -135,57 +138,96 @@ export default function BoardJobsPage() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--color-background)' }}>
-      <section className="board-container pt-8 pb-6">
-        <p className="text-[11px] font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--color-text-muted)' }}>
-          {board.name}
-        </p>
-        <h1 className="mt-2 text-3xl md:text-4xl font-extrabold leading-tight" style={{ color: 'var(--color-text-primary)' }}>
-          Browse open roles
-        </h1>
-        <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          {pageStart}-{pageEnd} of {totalFilteredJobs} matching roles ({totalJobs} published total)
-        </p>
+      <main className="max-w-[1280px] mx-auto px-6 lg:px-10 pt-10 pb-20">
+        <section>
+          <h1
+            className="text-[22px] font-extrabold tracking-[-0.03em]"
+            style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'var(--color-text-primary)' }}
+          >
+            {board.name} Jobs
+          </h1>
+          <p className="mt-2 text-[13px]" style={{ color: 'var(--color-text-secondary)' }}>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block w-[7px] h-[7px] rounded-full" style={{ backgroundColor: 'var(--color-primary)' }} />
+              {pageStart}-{pageEnd} of {totalFilteredJobs} matching roles ({totalJobs} published total)
+            </span>
+          </p>
 
-        <Form method="get" className="mt-5 grid grid-cols-1 md:grid-cols-[1fr_180px_auto] gap-3">
-          <input
-            name="q"
-            defaultValue={filters.q}
-            className="input w-full"
-            placeholder="Search title, company, or location"
-            aria-label="Search jobs"
-          />
-          <select name="location" defaultValue={filters.location} className="input w-full" aria-label="Filter by location">
-            <option value="">All locations</option>
-            {options.locations.map((item) => (
-              <option key={item} value={item.toLowerCase()}>
-                {item}
-              </option>
-            ))}
-          </select>
-          <button type="submit" className="btn-primary px-6">Search</button>
-          {filters.category ? <input type="hidden" name="category" value={filters.category} /> : null}
-        </Form>
-      </section>
-
-      <section className="board-container pb-5">
-        <div className="flex flex-wrap gap-2">
-          <Link to="/jobs" className="btn-outline text-xs">
-            All
-          </Link>
-          {options.categories.map((item) => (
-            <Link
-              key={item}
-              to={`/jobs/category/${item}`}
-              className="btn-outline text-xs"
-              style={filters.category === item ? { backgroundColor: 'var(--color-primary)', color: 'var(--color-primary-fg)' } : undefined}
+          <Form method="get" className="mt-5 flex flex-col md:flex-row gap-2.5">
+            <div
+              className="flex-1 flex overflow-hidden rounded-xl border"
+              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}
             >
-              {titleCaseCategory(item)}
-            </Link>
-          ))}
-        </div>
-      </section>
+              <input
+                name="q"
+                defaultValue={filters.q}
+                className="flex-1 bg-transparent border-0 outline-none px-4 py-3 text-sm"
+                style={{ color: 'var(--color-text-primary)' }}
+                placeholder="Role, skill or company..."
+                aria-label="Search jobs"
+              />
+              <select
+                name="location"
+                defaultValue={filters.location}
+                className="border-0 outline-none px-3 text-xs font-semibold"
+                style={{ color: 'var(--color-text-secondary)', backgroundColor: 'transparent' }}
+                aria-label="Filter by location"
+              >
+                <option value="">Anywhere</option>
+                {options.locations.map((item) => (
+                  <option key={item} value={item.toLowerCase()}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+              <button type="submit" className="px-5 text-sm font-bold" style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-primary-fg)' }}>
+                Search →
+              </button>
+            </div>
+            {filters.category ? <input type="hidden" name="category" value={filters.category} /> : null}
+          </Form>
+        </section>
 
-      <main className="board-container pb-14">
+        <section className="mt-4">
+          <div className="flex flex-wrap gap-1.5">
+            <Link
+              to="/jobs"
+              className="px-3.5 py-1.5 text-xs font-bold rounded-full border"
+              style={{
+                borderColor: !filters.category ? 'var(--color-text-primary)' : 'var(--color-border)',
+                backgroundColor: !filters.category ? 'var(--color-text-primary)' : 'var(--color-surface)',
+                color: !filters.category ? 'var(--color-background)' : 'var(--color-text-secondary)',
+              }}
+            >
+              All roles
+            </Link>
+            {options.categories.map((item) => (
+              <Link
+                key={item}
+                to={`/jobs/category/${item}`}
+                className="px-3.5 py-1.5 text-xs font-bold rounded-full border"
+                style={{
+                  borderColor: filters.category === item ? 'var(--color-text-primary)' : 'var(--color-border)',
+                  backgroundColor: filters.category === item ? 'var(--color-text-primary)' : 'var(--color-surface)',
+                  color: filters.category === item ? 'var(--color-background)' : 'var(--color-text-secondary)',
+                }}
+              >
+                {titleCaseCategory(item)}
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[12px] font-bold tracking-[0.02em]" style={{ color: 'var(--color-text-primary)' }}>
+              {totalFilteredJobs} role{totalFilteredJobs === 1 ? '' : 's'}
+            </span>
+            <span className="text-xs px-2.5 py-1.5 rounded-md border" style={{ color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
+              Most recent
+            </span>
+          </div>
+
         {filteredJobs.length === 0 ? (
           <div className="rounded-xl border p-10 text-center" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
             <p className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>No matching roles</p>
@@ -195,31 +237,56 @@ export default function BoardJobsPage() {
           <div className="space-y-6">
             <div className="grid grid-cols-1 gap-3">
               {filteredJobs.map((job) => {
-                const category = deriveJobCategory(job)
+                const category = deriveJobCategory(job, boardCategories)
+                const remote = remoteBadge(job.remotePolicy)
+                const cat = categoryBadge(category || 'all')
                 return (
                   <Link
                     key={job.id}
-                    to={`/jobs/${job.id}`}
-                    className="block rounded-2xl border p-5 no-underline transition-transform duration-150 hover:-translate-y-[1px]"
+                    to={publicJobPath(job)}
+                    className="block rounded-[14px] border px-5 py-[18px] no-underline transition-transform duration-150 hover:-translate-y-[1px]"
                     style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}
                   >
-                    <div className="flex items-start justify-between gap-4 flex-wrap">
-                      <div className="min-w-0">
-                        <h2 className="font-bold text-lg leading-tight" style={{ color: 'var(--color-text-primary)' }}>{job.title}</h2>
-                        <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                          {[job.company, job.location, job.remotePolicy].filter(Boolean).join(' • ')}
-                        </p>
-                        <div className="mt-3 flex items-center gap-2 flex-wrap">
-                          {category ? (
-                            <span className="text-[11px] font-bold uppercase tracking-wide px-2 py-1 rounded-full"
-                              style={{ backgroundColor: 'color-mix(in srgb, var(--color-primary) 14%, transparent)', color: 'var(--color-primary)' }}>
-                              {titleCaseCategory(category)}
-                            </span>
-                          ) : null}
-                          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{salaryLabel(job)}</span>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="min-w-0 flex items-center gap-4 flex-1">
+                        <div
+                          className="w-[42px] h-[42px] rounded-[10px] border flex items-center justify-center text-xs font-extrabold shrink-0"
+                          style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-background)', color: 'var(--color-text-secondary)', fontFamily: "'Unbounded', var(--font-display), sans-serif" }}
+                        >
+                          {companyInitials(job.company)}
+                        </div>
+
+                        <div className="min-w-0">
+                          <h2
+                            className="text-sm font-bold leading-[1.25] truncate"
+                            style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'var(--color-text-primary)' }}
+                          >
+                            {job.title}
+                          </h2>
+                          <div className="mt-1 flex items-center gap-2 text-xs flex-wrap" style={{ color: 'var(--color-text-secondary)' }}>
+                            {job.company ? <span style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{job.company}</span> : null}
+                            <span className="inline-block w-[3px] h-[3px] rounded-full" style={{ backgroundColor: 'var(--color-border)' }} />
+                            <span>{job.location || 'Location flexible'}</span>
+                            {category ? (
+                              <span className="text-[10px] font-bold uppercase tracking-[0.04em] px-2 py-0.5 rounded-md" style={{ backgroundColor: cat.bg, color: cat.fg }}>
+                                {titleCaseCategory(category)}
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
-                      <span className="btn-outline text-xs">View role</span>
+
+                      <div className="shrink-0 flex flex-col items-end gap-1.5">
+                        <span className="text-sm font-semibold whitespace-nowrap"
+                          style={{ color: 'var(--color-text-primary)' }}>
+                          {salaryLabel(job)}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold uppercase tracking-[0.04em] px-2 py-0.5 rounded-md" style={{ backgroundColor: remote.bg, color: remote.fg }}>
+                            {remote.label}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </Link>
                 )
@@ -230,8 +297,14 @@ export default function BoardJobsPage() {
               <nav className="flex items-center justify-center gap-1.5 flex-wrap" aria-label="Pagination">
                 <Link
                   to={makePageHref(Math.max(1, pagination.page - 1))}
-                  className="btn-outline text-xs"
-                  style={pagination.page === 1 ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
+                  className="px-3 py-1.5 text-xs font-bold rounded-full border"
+                  style={{
+                    opacity: pagination.page === 1 ? 0.5 : 1,
+                    pointerEvents: pagination.page === 1 ? 'none' : undefined,
+                    borderColor: 'var(--color-border)',
+                    backgroundColor: 'var(--color-surface)',
+                    color: 'var(--color-text-secondary)',
+                  }}
                 >
                   Prev
                 </Link>
@@ -244,8 +317,10 @@ export default function BoardJobsPage() {
                       {showGap ? <span className="px-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>…</span> : null}
                       <Link
                         to={makePageHref(page)}
-                        className="btn-outline text-xs min-w-9"
-                        style={page === pagination.page ? { backgroundColor: 'var(--color-primary)', color: 'var(--color-primary-fg)', borderColor: 'var(--color-primary)' } : undefined}
+                        className="min-w-9 text-center px-3 py-1.5 text-xs font-bold rounded-full border"
+                        style={page === pagination.page
+                          ? { backgroundColor: 'var(--color-text-primary)', color: 'var(--color-background)', borderColor: 'var(--color-text-primary)' }
+                          : { borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', color: 'var(--color-text-secondary)' }}
                       >
                         {page}
                       </Link>
@@ -255,8 +330,14 @@ export default function BoardJobsPage() {
 
                 <Link
                   to={makePageHref(Math.min(pagination.totalPages, pagination.page + 1))}
-                  className="btn-outline text-xs"
-                  style={pagination.page === pagination.totalPages ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
+                  className="px-3 py-1.5 text-xs font-bold rounded-full border"
+                  style={{
+                    opacity: pagination.page === pagination.totalPages ? 0.5 : 1,
+                    pointerEvents: pagination.page === pagination.totalPages ? 'none' : undefined,
+                    borderColor: 'var(--color-border)',
+                    backgroundColor: 'var(--color-surface)',
+                    color: 'var(--color-text-secondary)',
+                  }}
                 >
                   Next
                 </Link>
@@ -264,6 +345,7 @@ export default function BoardJobsPage() {
             ) : null}
           </div>
         )}
+        </section>
       </main>
     </div>
   )

@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { requireWorkspaceAccess } from '../../../lib/auth.server'
 import { getDb, boards, jobs } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
+import { resolveJobBoardThemeConfig } from '@jobuki/types'
+import { normalizeCategory, resolveBoardCategories, titleCaseCategory } from '../../../lib/board-categories'
 import { RichTextEditor } from '../../../components/rich-text/RichTextEditor'
 import {
   EMPTY_TIPTAP_DOC,
@@ -23,7 +25,16 @@ export async function loader(args: LoaderFunctionArgs) {
   const url = new URL(args.request.url)
   const preselectedBoardId = url.searchParams.get('boardId') ?? ''
 
-  return { boards: workspaceBoards, preselectedBoardId }
+  return {
+    boards: workspaceBoards.map((board) => ({
+      id: board.id,
+      name: board.name,
+      categories: resolveBoardCategories(
+        resolveJobBoardThemeConfig(board.boardConfig, { boardName: board.name }).categories
+      ),
+    })),
+    preselectedBoardId,
+  }
 }
 
 export async function action(args: ActionFunctionArgs) {
@@ -46,6 +57,13 @@ export async function action(args: ActionFunctionArgs) {
   // Verify board belongs to workspace
   const board = await db.query.boards.findFirst({ where: eq(boards.id, boardId) })
   if (!board || board.workspaceId !== workspace.id) return { error: 'Invalid board.' }
+  const boardCategories = resolveBoardCategories(
+    resolveJobBoardThemeConfig(board.boardConfig, { boardName: board.name }).categories
+  )
+  const primaryCategory = normalizeCategory(form.get('primaryCategory') as string)
+  if (primaryCategory && boardCategories.length > 0 && !boardCategories.includes(primaryCategory)) {
+    return { error: 'Choose a valid category for this board.' }
+  }
 
   const salaryMin = form.get('salaryMin') ? Number(form.get('salaryMin')) : null
   const salaryMax = form.get('salaryMax') ? Number(form.get('salaryMax')) : null
@@ -57,6 +75,7 @@ export async function action(args: ActionFunctionArgs) {
     location:       (form.get('location') as string).trim() || null,
     remotePolicy:   (form.get('remotePolicy') as any) || 'onsite',
     employmentType: (form.get('employmentType') as any) || 'full-time',
+    primaryCategory: primaryCategory || null,
     salaryMin,
     salaryMax,
     descriptionJson: descriptionJson as Record<string, unknown> | null,
@@ -74,7 +93,10 @@ export default function NewJob() {
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const submitting = navigation.state === 'submitting'
+  const [boardId, setBoardId] = useState(preselectedBoardId)
   const [descriptionJson, setDescriptionJson] = useState<TiptapNode>(EMPTY_TIPTAP_DOC)
+  const selectedBoard = workspaceBoards.find((board) => board.id === boardId)
+  const availableCategories = selectedBoard?.categories ?? []
 
   return (
     <div className="p-10 max-w-2xl">
@@ -95,7 +117,7 @@ export default function NewJob() {
       <Form method="post" className="flex flex-col gap-5">
         {/* Board selector */}
         <Field label="Board" required>
-          <select name="boardId" defaultValue={preselectedBoardId} className="input w-full" required>
+          <select name="boardId" value={boardId} onChange={(e) => setBoardId(e.target.value)} className="input w-full" required>
             <option value="">Select a board…</option>
             {workspaceBoards.map(b => (
               <option key={b.id} value={b.id}>{b.name}</option>
@@ -131,6 +153,15 @@ export default function NewJob() {
             <option value="contract">Contract</option>
             <option value="freelance">Freelance</option>
             <option value="internship">Internship</option>
+          </select>
+        </Field>
+
+        <Field label="Category" hint={availableCategories.length === 0 ? 'Add board categories in Appearance before assigning jobs.' : undefined}>
+          <select name="primaryCategory" className="input w-full" defaultValue="" disabled={!availableCategories.length}>
+            <option value="">No category</option>
+            {availableCategories.map((category) => (
+              <option key={category} value={category}>{titleCaseCategory(category)}</option>
+            ))}
           </select>
         </Field>
 

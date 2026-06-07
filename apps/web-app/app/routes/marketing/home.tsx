@@ -2,49 +2,10 @@ import { Link, useLoaderData } from 'react-router'
 import type { LoaderFunctionArgs, MetaFunction } from 'react-router'
 import { getDb, boards, jobs } from '@jobuki/db'
 import { eq, and, desc } from 'drizzle-orm'
+import { resolveJobBoardThemeConfig } from '@jobuki/types'
 import { resolveTheme, themeToCSS } from '../../lib/theme'
+import { deriveJobCategory, normalizeCategory, resolveBoardCategories, titleCaseCategory } from '../../lib/board-categories'
 import { PublicBoardHome } from '../../components/public-board-home'
-
-const CATEGORY_RULES: Array<{ category: string; keywords: string[] }> = [
-  { category: 'engineering', keywords: ['engineer', 'developer', 'typescript', 'backend', 'frontend', 'full stack', 'solidity', 'rust', 'golang', 'python'] },
-  { category: 'product', keywords: ['product manager', 'product owner', 'roadmap'] },
-  { category: 'design', keywords: ['designer', 'ux', 'ui', 'figma', 'product design'] },
-  { category: 'data', keywords: ['data', 'analytics', 'machine learning', 'ai', 'scientist'] },
-  { category: 'marketing', keywords: ['marketing', 'growth', 'seo', 'content', 'social'] },
-  { category: 'sales', keywords: ['sales', 'account executive', 'business development', 'bdr', 'partnership'] },
-  { category: 'operations', keywords: ['operations', 'ops', 'program manager', 'project manager'] },
-  { category: 'security', keywords: ['security', 'infosec', 'application security', 'devsecops'] },
-  { category: 'devrel', keywords: ['developer relations', 'devrel', 'advocate', 'community manager'] },
-]
-
-function normalizeCategory(value: string | null | undefined) {
-  return (value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-}
-
-function titleCaseCategory(value: string) {
-  return value
-    .split('-')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
-}
-
-function deriveJobCategory(job: (typeof jobs.$inferSelect)) {
-  const explicit = normalizeCategory(job.primaryCategory)
-  if (explicit) return explicit
-
-  const tagged = Array.isArray(job.categoryTags)
-    ? normalizeCategory(job.categoryTags.find((tag) => normalizeCategory(tag)))
-    : ''
-  if (tagged) return tagged
-
-  const haystack = [job.title, job.description, job.employmentType].join(' ').toLowerCase()
-  const inferred = CATEGORY_RULES.find((rule) => rule.keywords.some((keyword) => haystack.includes(keyword)))
-  return inferred?.category ?? ''
-}
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const boardSlug     = request.headers.get('x-board-slug')
@@ -70,6 +31,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
     throw new Response('Board not found', { status: 404 })
   }
 
+  const boardConfig = resolveJobBoardThemeConfig(board.boardConfig, {
+    boardName: board.name,
+    tagline: board.introText ?? undefined,
+    logoUrl: board.logoUrl ?? undefined,
+    headerImageUrl: board.heroImageUrl ?? undefined,
+    brandColor: (board.theme as any)?.colorPrimary,
+    accentColor: (board.theme as any)?.colorAccent,
+    backgroundColor: (board.theme as any)?.colorBackground,
+  })
+  const boardCategories = resolveBoardCategories(boardConfig.categories)
+
   const publishedJobs = await db.query.jobs.findMany({
     where: and(eq(jobs.boardId, board.id), eq(jobs.status, 'published')),
     orderBy: [desc(jobs.createdAt)],
@@ -88,7 +60,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       (job.location ?? '').toLowerCase().includes(q)
 
     const locationMatch = !location || (job.location ?? '').toLowerCase() === location
-    const jobCategory = deriveJobCategory(job)
+    const jobCategory = deriveJobCategory(job, boardCategories)
     const categoryMatch = !category || jobCategory === category
 
     return qMatch && locationMatch && categoryMatch
@@ -102,13 +74,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
     )
   ).sort((a, b) => a.localeCompare(b))
 
-  const categories = Array.from(
+  const derivedCategories = Array.from(
     new Set(
       publishedJobs
-        .map((job) => deriveJobCategory(job))
+        .map((job) => deriveJobCategory(job, boardCategories))
         .filter(Boolean)
     )
-  ).sort((a, b) => a.localeCompare(b)).map((value) => ({
+  ).sort((a, b) => a.localeCompare(b))
+
+  const categories = (boardCategories.length ? boardCategories : derivedCategories).map((value) => ({
     value,
     label: titleCaseCategory(value),
   }))

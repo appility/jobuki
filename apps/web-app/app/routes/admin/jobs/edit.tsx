@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { requireWorkspaceAccess } from '../../../lib/auth.server'
 import { getDb, jobs, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
+import { resolveJobBoardThemeConfig } from '@jobuki/types'
+import { normalizeCategory, resolveBoardCategories, titleCaseCategory } from '../../../lib/board-categories'
 import { RichTextEditor } from '../../../components/rich-text/RichTextEditor'
 import {
   isTiptapDoc,
@@ -32,7 +34,13 @@ export async function loader(args: LoaderFunctionArgs) {
   const board = await db.query.boards.findFirst({ where: eq(boards.id, job.boardId) })
   if (!board || board.workspaceId !== workspace.id) throw new Response('Not found', { status: 404 })
 
-  return { job, board }
+  return {
+    job,
+    board,
+    boardCategories: resolveBoardCategories(
+      resolveJobBoardThemeConfig(board.boardConfig, { boardName: board.name }).categories
+    ),
+  }
 }
 
 export async function action(args: ActionFunctionArgs) {
@@ -46,6 +54,9 @@ export async function action(args: ActionFunctionArgs) {
 
   const board = await db.query.boards.findFirst({ where: eq(boards.id, job.boardId) })
   if (!board || board.workspaceId !== workspace.id) throw new Response('Not found', { status: 404 })
+  const boardCategories = resolveBoardCategories(
+    resolveJobBoardThemeConfig(board.boardConfig, { boardName: board.name }).categories
+  )
 
   if (intent === 'delete') {
     await db.delete(jobs).where(eq(jobs.id, job.id))
@@ -59,6 +70,10 @@ export async function action(args: ActionFunctionArgs) {
   const description = plainDescriptionFromJson || plainDescriptionFallback
   if (!title) return { error: 'Title is required.' }
   if (!description) return { error: 'Description is required.' }
+  const primaryCategory = normalizeCategory(form.get('primaryCategory') as string)
+  if (primaryCategory && boardCategories.length > 0 && !boardCategories.includes(primaryCategory)) {
+    return { error: 'Choose a valid category for this board.' }
+  }
 
   const salaryMin = form.get('salaryMin') ? Number(form.get('salaryMin')) : null
   const salaryMax = form.get('salaryMax') ? Number(form.get('salaryMax')) : null
@@ -69,6 +84,7 @@ export async function action(args: ActionFunctionArgs) {
     location:       (form.get('location') as string).trim() || null,
     remotePolicy:   (form.get('remotePolicy') as any),
     employmentType: (form.get('employmentType') as any),
+    primaryCategory: primaryCategory || null,
     salaryMin,
     salaryMax,
     descriptionJson: descriptionJson as Record<string, unknown> | null,
@@ -83,7 +99,7 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 export default function EditJob() {
-  const { job, board } = useLoaderData<typeof loader>()
+  const { job, board, boardCategories } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const submitting = navigation.state === 'submitting'
@@ -153,6 +169,15 @@ export default function EditJob() {
             <option value="contract">Contract</option>
             <option value="freelance">Freelance</option>
             <option value="internship">Internship</option>
+          </select>
+        </Field>
+
+        <Field label="Category" hint={boardCategories.length === 0 ? 'Add board categories in Appearance before assigning jobs.' : undefined}>
+          <select name="primaryCategory" defaultValue={job.primaryCategory ?? ''} className="input w-full" disabled={!boardCategories.length}>
+            <option value="">No category</option>
+            {boardCategories.map((category) => (
+              <option key={category} value={category}>{titleCaseCategory(category)}</option>
+            ))}
           </select>
         </Field>
 

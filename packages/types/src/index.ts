@@ -19,6 +19,7 @@ export interface BoardMonetizationConfig {
 export interface JobBoardThemeConfig {
   boardName: string
   ownerType?: BoardOwnerType
+  categories?: string[]
   tagline?: string
   logoUrl?: string
   headerImageUrl?: string
@@ -226,6 +227,7 @@ export const DEFAULT_THEME: BoardTheme = {
 export const DEFAULT_JOB_BOARD_THEME_CONFIG: JobBoardThemeConfig = {
   boardName: 'Jobs',
   ownerType: 'company',
+  categories: [],
   tagline: '',
   logoUrl: '',
   headerImageUrl: '',

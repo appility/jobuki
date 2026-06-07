@@ -4,16 +4,30 @@ import { getDb, jobs, boards } from '@jobuki/db'
 import { and, desc, eq, ne } from 'drizzle-orm'
 import { marked } from 'marked'
 import { repairMojibake, sanitizeFeedHtml } from '../../lib/feed-html'
-import type { Board } from '@jobuki/types'
+import { resolveJobBoardThemeConfig, type Board } from '@jobuki/types'
 import { RichTextRenderer } from '../../components/rich-text/RichTextRenderer'
 import { isTiptapDoc } from '../../lib/rich-text'
+import { deriveJobCategory, resolveBoardCategories, titleCaseCategory } from '../../lib/board-categories'
+import { publicJobPath } from '../../lib/public-job-path'
 
-export async function loader({ params }: LoaderFunctionArgs) {
+export async function loader({ params, request }: LoaderFunctionArgs) {
   const db = getDb()
   const job = await db.query.jobs.findFirst({ where: eq(jobs.id, params.jobId!) })
   if (!job || job.status !== 'published') throw new Response('Not found', { status: 404 })
   const board = await db.query.boards.findFirst({ where: eq(boards.id, job.boardId) })
   if (!board) throw new Response('Not found', { status: 404 })
+  const url = new URL(request.url)
+  const isPreviewMode = url.searchParams.get('preview') === '1'
+  const boardConfig = resolveJobBoardThemeConfig(board.boardConfig, {
+    boardName: board.name,
+    tagline: board.introText ?? undefined,
+    logoUrl: board.logoUrl ?? undefined,
+    headerImageUrl: board.heroImageUrl ?? undefined,
+    brandColor: (board.theme as any)?.colorPrimary,
+    accentColor: (board.theme as any)?.colorAccent,
+    backgroundColor: (board.theme as any)?.colorBackground,
+  })
+  const boardCategories = resolveBoardCategories(boardConfig.categories)
 
   const similarJobs = await db.query.jobs.findMany({
     where: and(
@@ -25,7 +39,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
     limit: 3,
   })
 
-  return { job, board, similarJobs }
+  return { job, board, similarJobs, isPreviewMode, boardCategories }
 }
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
@@ -52,7 +66,7 @@ const TYPE_LABEL: Record<string, string> = {
 }
 
 export default function JobDetail() {
-  const { job, board, similarJobs } = useLoaderData<typeof loader>()
+  const { job, board, similarJobs, isPreviewMode, boardCategories } = useLoaderData<typeof loader>()
   const { board: layoutBoard } = useOutletContext<{ board: Board }>()
 
   const salary = (job.salaryMin || job.salaryMax)
@@ -63,8 +77,12 @@ export default function JobDetail() {
     : null
 
   const postedAt = job.createdAt ? formatDate(job.createdAt) : null
-  const categoryLabel = titleCaseCategory(job.primaryCategory)
-  const heroLine = `Apply directly to ${job.company || board.name}. No middlemen.`
+  const categoryLabel = titleCaseCategory(deriveJobCategory(job, boardCategories))
+  const skillTags = Array.isArray(job.categoryTags) ? job.categoryTags.slice(0, 6) : []
+  const remoteBadge = getRemoteBadge(job.remotePolicy)
+  const categoryBadge = getCategoryBadge(categoryLabel)
+  const compactSalary = formatCompactSalary(job.salaryMin, job.salaryMax, job.salaryCurrency)
+  const companyMark = companyInitials(job.company)
 
   return (
     <div
@@ -75,122 +93,208 @@ export default function JobDetail() {
           'radial-gradient(circle at 8% 12%, color-mix(in srgb, var(--color-primary) var(--board-ambient-primary), transparent) 0%, transparent 34%), radial-gradient(circle at 92% 84%, color-mix(in srgb, var(--color-accent) var(--board-ambient-accent), transparent) 0%, transparent 36%), var(--color-background)',
       }}
     >
-      <main className="max-w-[1280px] mx-auto px-10 pt-8 pb-16">
-        <section className="py-4 md:py-6">
-          <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 mb-5 text-[11px] font-semibold"
-            style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
-            <span className="inline-flex w-5 h-5 items-center justify-center rounded-full"
-              style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-primary-fg)' }}>•</span>
-            Open role
-          </div>
+      <main className="max-w-[1280px] mx-auto px-6 lg:px-10 pt-9 pb-20">
+        <Link
+          to="/jobs"
+          className="inline-flex items-center gap-2 text-[13px] font-semibold rounded-[10px] px-4 py-2 border mb-7"
+          style={{ color: 'var(--color-text-secondary)', backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+        >
+          ← Back to all roles
+        </Link>
 
-          <h1
-            className="m-0 text-[clamp(40px,5.5vw,66px)] font-extrabold leading-[1.05] tracking-[-0.03em]"
-            style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'var(--color-text-primary)' }}
-          >
-            {job.title}
-          </h1>
+        <section className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-5 items-start">
+          <main className="rounded-[20px] overflow-hidden border" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
+            <header className="px-8 py-8 border-b" style={{ borderColor: 'var(--color-border)' }}>
+              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.08em] mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+                <span>Jobs</span>
+                <span style={{ color: 'var(--color-border)' }}>›</span>
+                <span style={{ color: categoryBadge.fg }}>{categoryLabel || 'General'}</span>
+                <span style={{ color: 'var(--color-border)' }}>›</span>
+                <span style={{ color: 'var(--color-text-primary)' }}>{job.title}</span>
+              </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            {job.company ? <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{job.company}</span> : null}
-            {job.company && (job.location || postedAt) ? <span>•</span> : null}
-            {job.location ? <span>{job.location}</span> : null}
-            {job.location && postedAt ? <span>•</span> : null}
-            {postedAt ? <span>Posted {postedAt}</span> : null}
-          </div>
+              <div className="flex items-start gap-4 mb-4">
+                <div
+                  className="w-[52px] h-[52px] rounded-[12px] border flex items-center justify-center text-sm font-extrabold shrink-0"
+                  style={{ backgroundColor: 'var(--color-background)', borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)', fontFamily: "'Unbounded', var(--font-display), sans-serif" }}
+                >
+                  {companyMark}
+                </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            {categoryLabel ? <Chip accent>{categoryLabel}</Chip> : null}
-            <Chip>{REMOTE_LABEL[job.remotePolicy] ?? job.remotePolicy}</Chip>
-            <Chip>{TYPE_LABEL[job.employmentType] ?? job.employmentType}</Chip>
-            {salary ? <Chip>{salary}</Chip> : null}
-          </div>
+                <div className="flex-1 min-w-0">
+                  <h1
+                    className="text-[23px] font-extrabold leading-[1.15] tracking-[-0.03em] mb-2"
+                    style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'var(--color-text-primary)' }}
+                  >
+                    {job.title}
+                  </h1>
 
-          <p className="mt-5 text-[16px] leading-relaxed max-w-[56ch]" style={{ color: 'var(--color-text-secondary)' }}>
-            {heroLine}
-          </p>
+                  <div className="flex items-center gap-2.5 text-[13px] flex-wrap" style={{ color: 'var(--color-text-secondary)' }}>
+                    {job.company ? <span style={{ color: 'var(--color-text-primary)', fontWeight: 700 }}>{job.company}</span> : null}
+                    <Dot />
+                    <span>{job.location || 'Remote / Global'}</span>
+                    <Dot />
+                    <span style={{ color: 'var(--color-border-strong)', fontWeight: 600 }}>{postedAt || 'Recently posted'}</span>
+                  </div>
+                </div>
+              </div>
 
-          <div className="mt-6 flex items-center gap-3">
-            <Link to={`/apply/${job.id}`} className="btn-primary inline-flex justify-center" style={{ boxShadow: 'var(--shadow-sm)' }}>
-              Apply now →
-            </Link>
-            <Link to="/jobs" className="btn-outline inline-flex justify-center text-sm">
-              Back to roles
-            </Link>
-          </div>
-        </section>
+              <div className="flex gap-1.5 flex-wrap">
+                <span className="text-[11px] font-bold tracking-[0.03em] px-2.5 py-1 rounded-[7px]" style={{ backgroundColor: categoryBadge.bg, color: categoryBadge.fg }}>
+                  {categoryLabel || 'General'}
+                </span>
+                <span className="text-[11px] font-bold tracking-[0.03em] px-2.5 py-1 rounded-[7px]" style={{ backgroundColor: remoteBadge.bg, color: remoteBadge.fg }}>
+                  {remoteBadge.label}
+                </span>
+                <span className="text-[11px] font-semibold tracking-[0.03em] px-2.5 py-1 rounded-[7px] border" style={{ backgroundColor: 'var(--color-background)', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)' }}>
+                  {TYPE_LABEL[job.employmentType] ?? job.employmentType}
+                </span>
+                {compactSalary ? (
+                  <span className="text-[11px] font-semibold tracking-[0.03em] px-2.5 py-1 rounded-[7px] border" style={{ backgroundColor: 'var(--color-background)', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)' }}>
+                    {compactSalary}
+                  </span>
+                ) : null}
+              </div>
+            </header>
 
-        <section className="mt-7 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-10 items-start">
-          <div className="min-w-0 space-y-10">
-            {isTiptapDoc(job.descriptionJson) ? (
-              <PlainSection title="About the role">
-                <RichTextRenderer content={job.descriptionJson} className="prose prose-slate max-w-none text-sm" />
-              </PlainSection>
-            ) : job.description ? (
-              <PlainSection title="About the role">
+            {skillTags.length > 0 ? (
+              <div className="px-8 py-4 border-b flex gap-1.5 flex-wrap" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-background)' }}>
+                {skillTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="text-[11px] font-semibold px-2.5 py-1 rounded-[7px] border"
+                    style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)' }}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="px-8 py-8">
+              {isTiptapDoc(job.descriptionJson) ? (
+                <RichTextRenderer
+                  content={job.descriptionJson}
+                  className="prose prose-slate max-w-none prose-p:text-[14px] prose-p:leading-[1.9] prose-li:text-[14px] prose-li:leading-[1.8] prose-h3:text-[10px] prose-h3:uppercase prose-h3:tracking-[0.12em] prose-h3:font-extrabold prose-h3:mt-8 prose-h3:pt-7 prose-h3:border-t"
+                />
+              ) : job.description ? (
                 <SectionBody>{job.description}</SectionBody>
-              </PlainSection>
-            ) : null}
+              ) : null}
 
-            {job.requirements ? (
-              <PlainSection title="Requirements">
-                <SectionBody>{job.requirements}</SectionBody>
-              </PlainSection>
-            ) : null}
+              {job.requirements ? (
+                <div className="mt-8 pt-7 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                  <h3 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-3" style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'var(--color-text-secondary)' }}>
+                    Requirements
+                  </h3>
+                  <SectionBody>{job.requirements}</SectionBody>
+                </div>
+              ) : null}
 
-            {job.benefits ? (
-              <PlainSection title="Benefits">
-                <SectionBody>{job.benefits}</SectionBody>
-              </PlainSection>
-            ) : null}
-          </div>
-
-          <aside className="lg:sticky lg:top-20">
-            <div className="pt-2 pb-3 border-b" style={{ borderColor: 'var(--color-border)' }}>
-              <h2 className="text-base font-bold" style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'var(--color-text-primary)' }}>
-                Role details
-              </h2>
+              {job.benefits ? (
+                <div className="mt-8 pt-7 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                  <h3 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-3" style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'var(--color-text-secondary)' }}>
+                    Benefits
+                  </h3>
+                  <SectionBody>{job.benefits}</SectionBody>
+                </div>
+              ) : null}
             </div>
-            <div className="pt-2">
+          </main>
+
+          <aside className="space-y-3 lg:sticky lg:top-20">
+            <section className="rounded-[18px] border p-[22px]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
+              {compactSalary ? (
+                <p className="text-[28px] font-extrabold leading-[1.05] tracking-[-0.04em]"
+                  style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'var(--color-text-primary)' }}>
+                  {compactSalary}
+                </p>
+              ) : null}
+              <p className="text-xs mt-1 mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+                per year · {job.salaryCurrency}
+              </p>
+              <Link to={`/apply/${job.id}`} className="w-full btn-primary inline-flex justify-center py-3.5 text-sm font-bold mb-2">
+                Apply now →
+              </Link>
+              <button className="w-full py-2.5 text-[13px] font-semibold rounded-xl border"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)', backgroundColor: 'transparent' }}>
+                Save role
+              </button>
+            </section>
+
+            <section className="rounded-[18px] border p-[22px]" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
+              <h2 className="text-[10px] font-extrabold uppercase tracking-[0.1em] mb-3" style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'var(--color-text-secondary)' }}>
+                Details
+              </h2>
               <MetaRow label="Company" value={job.company} />
               <MetaRow label="Location" value={job.location} />
+              <MetaRow label="Work style" value={remoteBadge.label} />
               <MetaRow label="Type" value={TYPE_LABEL[job.employmentType] ?? job.employmentType} />
-              <MetaRow label="Mode" value={REMOTE_LABEL[job.remotePolicy] ?? job.remotePolicy} />
               <MetaRow label="Category" value={categoryLabel || 'General'} />
-              <MetaRow label="Salary" value={salary || 'Not listed'} />
               <MetaRow label="Posted" value={postedAt} />
-            </div>
+            </section>
+
+            {!isPreviewMode ? (
+            <section className="rounded-[18px] border p-[22px]" style={{ borderColor: '#2A251F', backgroundColor: '#16120E' }}>
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] mb-2" style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'rgba(240,235,227,0.35)' }}>
+                Hiring?
+              </p>
+              <p className="text-[13px] leading-[1.7] mb-4" style={{ color: '#D4CBBD' }}>
+                Reach <span style={{ color: 'var(--color-accent)', fontWeight: 700 }}>40,000+</span> Web3 engineers looking for their next role right now.
+              </p>
+              <a
+                href={board.customDomain ? `https://${board.customDomain}` : '#'}
+                className="w-full inline-flex items-center justify-center rounded-[10px] py-3 text-[13px] font-bold"
+                style={{ backgroundColor: 'var(--color-accent)', color: 'var(--color-accent-fg)' }}
+              >
+                Post a role →
+              </a>
+            </section>
+            ) : null}
+
+            {similarJobs.length > 0 ? (
+              <section>
+                <h2 className="text-[10px] font-extrabold uppercase tracking-[0.1em] mb-2.5" style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'var(--color-text-secondary)' }}>
+                  Similar roles
+                </h2>
+                <div className="space-y-2">
+                  {similarJobs.map((item) => {
+                    const itemBadge = getRemoteBadge(item.remotePolicy)
+                    const itemSalary = formatCompactSalary(item.salaryMin, item.salaryMax, item.salaryCurrency)
+
+                    return (
+                      <Link
+                        key={item.id}
+                        to={publicJobPath(item)}
+                        className="flex items-center justify-between gap-4 rounded-xl border px-4 py-3 no-underline transition-colors"
+                        style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}
+                      >
+                        <div>
+                          <p className="text-[11px] font-bold mb-0.5" style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'var(--color-text-primary)' }}>
+                            {item.title}
+                          </p>
+                          <p className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
+                            {[item.company, item.location].filter(Boolean).join(' · ')}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          {itemSalary ? (
+                            <p className="text-xs font-extrabold mb-1" style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'var(--color-text-primary)' }}>
+                              {itemSalary}
+                            </p>
+                          ) : null}
+                          <span className="text-[10px] font-bold uppercase tracking-[0.04em] px-1.5 py-0.5 rounded"
+                            style={{ backgroundColor: itemBadge.bg, color: itemBadge.fg }}>
+                            {itemBadge.label}
+                          </span>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              </section>
+            ) : null}
           </aside>
         </section>
-
-        {similarJobs.length > 0 ? (
-          <section className="mt-12">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: "'Unbounded', var(--font-display), sans-serif" }}>
-                Similar roles
-              </h2>
-              <Link to="/jobs" className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>
-                See all →
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {similarJobs.map((item) => (
-                <Link
-                  key={item.id}
-                  to={`/jobs/${item.id}`}
-                  className="block rounded-[18px] border p-4 no-underline transition-transform duration-150 hover:-translate-y-[1px]"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', boxShadow: 'var(--shadow-sm)' }}
-                >
-                  <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{item.title}</p>
-                  <p className="mt-1 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                    {[item.company, item.location].filter(Boolean).join(' • ')}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </section>
-        ) : null}
       </main>
 
       <footer className="py-8" style={{ borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
@@ -206,35 +310,48 @@ export default function JobDetail() {
   )
 }
 
-function Chip({ children, icon, accent }: { children: React.ReactNode; icon?: string; accent?: boolean }) {
-  return (
-    <span className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full tracking-[0.02em]"
-      style={accent ? {
-        backgroundColor: 'color-mix(in srgb, var(--color-primary) 16%, transparent)',
-        color: 'var(--color-primary)',
-      } : {
-        backgroundColor: 'var(--color-surface-subtle)',
-        color: 'var(--color-text-secondary)',
-        border: '1px solid var(--color-border)',
-      }}>
-      {icon && <span>{icon}</span>}
-      {children}
-    </span>
-  )
+function Dot() {
+  return <span className="inline-block w-[3px] h-[3px] rounded-full" style={{ backgroundColor: 'var(--color-border)' }} />
 }
 
-function PlainSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="pb-7 border-b" style={{ borderColor: 'var(--color-border)' }}>
-      <div className="flex items-center gap-2 mb-3">
-        <div className="h-4 w-1 rounded" style={{ backgroundColor: 'var(--color-primary)' }} />
-        <h2 className="text-base font-bold" style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'var(--color-text-primary)' }}>
-          {title}
-        </h2>
-      </div>
-      <div>{children}</div>
-    </section>
-  )
+function getRemoteBadge(remotePolicy: string) {
+  if (remotePolicy === 'remote') return { bg: '#E2F4EB', fg: '#1B7A4E', label: 'Remote' }
+  if (remotePolicy === 'hybrid') return { bg: '#E2EEFB', fg: '#1760C8', label: 'Hybrid' }
+  return { bg: '#FEF3DC', fg: '#C47B00', label: 'On-site' }
+}
+
+function getCategoryBadge(category: string) {
+  const map: Record<string, { bg: string; fg: string }> = {
+    Engineering: { bg: '#EDE6FF', fg: '#4A22D4' },
+    Research: { bg: '#E2EEFB', fg: '#1760C8' },
+    Design: { bg: '#FEF3DC', fg: '#C47B00' },
+    Growth: { bg: '#E2F4EB', fg: '#1B7A4E' },
+    Security: { bg: '#FFE9E9', fg: '#B91C1C' },
+  }
+  return map[category] ?? { bg: '#F0EBE3', fg: '#7C7067' }
+}
+
+function companyInitials(company: string | null | undefined) {
+  const safe = (company ?? '').trim()
+  if (!safe) return 'JB'
+  return safe
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}
+
+function formatCompactSalary(min: number | null, max: number | null, currency: string) {
+  if (!min && !max) return null
+
+  const symbol = currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : '$'
+  const compact = (value: number | null) => (value ? `${symbol}${Math.round(value / 1000)}k` : null)
+  const low = compact(min)
+  const high = compact(max)
+
+  if (low && high) return `${low}–${high}`
+  return low ?? high
 }
 
 function SectionBody({ children }: { children: string }) {
@@ -242,8 +359,8 @@ function SectionBody({ children }: { children: string }) {
 
   return (
     <div
-      className="text-sm leading-relaxed"
-      style={{ color: 'var(--color-text-secondary)' }}
+      className="prose prose-slate max-w-none prose-p:text-[14px] prose-p:leading-[1.9] prose-li:text-[14px] prose-li:leading-[1.8] prose-h3:text-[10px] prose-h3:uppercase prose-h3:tracking-[0.12em] prose-h3:font-extrabold prose-h3:mt-8 prose-h3:pt-7 prose-h3:border-t"
+      style={{ color: '#2E2924' }}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )
@@ -263,14 +380,6 @@ function MetaRow({ label, value }: { label: string; value: string | null | undef
       </span>
     </div>
   )
-}
-
-function titleCaseCategory(value: string | null | undefined) {
-  if (!value) return ''
-  return value
-    .split('-')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
 }
 
 function formatDate(value: string | Date) {
