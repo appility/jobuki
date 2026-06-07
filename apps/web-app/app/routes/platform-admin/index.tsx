@@ -2,15 +2,21 @@ import { Form, Link, useActionData, useLoaderData, useNavigation } from 'react-r
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
 import { useDeferredValue, useState } from 'react'
 import { and, eq, inArray } from 'drizzle-orm'
-import { adminAuditLogs, features, getDb, roleFeatures, roles, users, workspaceMembers } from '@jobuki/db'
+import { adminAuditLogs, features, getDb, roleFeatures, roles, users, workspaceMembers, workspaces } from '@jobuki/db'
 import { requirePlatformAdmin } from '../../lib/auth.server'
 
 const MEMBER_ROLES = ['owner', 'admin', 'member'] as const
+const WORKSPACE_PLANS = ['free', 'growth', 'scale'] as const
 
 type MemberRole = typeof MEMBER_ROLES[number]
+type WorkspacePlan = typeof WORKSPACE_PLANS[number]
 
 function isMemberRole(value: string): value is MemberRole {
   return MEMBER_ROLES.includes(value as MemberRole)
+}
+
+function isWorkspacePlan(value: string): value is WorkspacePlan {
+  return WORKSPACE_PLANS.includes(value as WorkspacePlan)
 }
 
 async function logAdminAction(params: {
@@ -190,6 +196,48 @@ export async function action(args: ActionFunctionArgs) {
     })
 
     return { ok: true, message: `Updated ${membership.user.email} to ${nextRole}.` }
+  }
+
+  if (intent === 'update_workspace_plan') {
+    const workspaceId = String(form.get('workspaceId') || '')
+    const nextPlan = String(form.get('plan') || '')
+
+    if (!workspaceId || !isWorkspacePlan(nextPlan)) {
+      return { ok: false, error: 'Invalid workspace plan update.' }
+    }
+
+    const workspace = await db.query.workspaces.findFirst({
+      where: eq(workspaces.id, workspaceId),
+      columns: { id: true, name: true, slug: true, plan: true },
+    })
+
+    if (!workspace) {
+      return { ok: false, error: 'Workspace not found.' }
+    }
+
+    if (workspace.plan === nextPlan) {
+      return { ok: true, message: `${workspace.name} is already on the ${nextPlan} plan.` }
+    }
+
+    await db
+      .update(workspaces)
+      .set({ plan: nextPlan, updatedAt: new Date() })
+      .where(eq(workspaces.id, workspace.id))
+
+    await logAdminAction({
+      actorUserId: user.id,
+      action: 'workspace.plan_updated',
+      targetType: 'workspace',
+      targetId: workspace.id,
+      metadata: {
+        workspaceName: workspace.name,
+        workspaceSlug: workspace.slug,
+        previousPlan: workspace.plan,
+        nextPlan,
+      },
+    })
+
+    return { ok: true, message: `Updated ${workspace.name} to ${nextPlan}.` }
   }
 
   if (intent === 'update_role_features') {
@@ -385,10 +433,11 @@ export default function PlatformAdminPage() {
 
                   <div className="mt-5 rounded-2xl border overflow-hidden"
                     style={{ borderColor: 'var(--color-border)' }}>
-                    <div className="grid grid-cols-[minmax(0,1.1fr)_120px_120px] gap-3 px-4 py-3 text-xs font-semibold"
+                    <div className="grid grid-cols-[minmax(0,1.1fr)_120px_120px_210px] gap-3 px-4 py-3 text-xs font-semibold"
                       style={{ backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-muted)' }}>
                       <span>Workspace</span>
                       <span>Current role</span>
+                      <span>Plan</span>
                       <span>Update</span>
                     </div>
                     {entry.workspaceMembers.length === 0 ? (
@@ -396,15 +445,17 @@ export default function PlatformAdminPage() {
                         This user is not a member of any workspace yet.
                       </div>
                     ) : entry.workspaceMembers.map((membership) => {
-                      const isSaving = navigation.state === 'submitting'
+                      const isSavingRole = navigation.state === 'submitting'
                         && String(navigation.formData?.get('membershipId')) === membership.id
+                      const isSavingPlan = navigation.state === 'submitting'
+                        && String(navigation.formData?.get('workspaceId')) === membership.workspaceId
+                      const roleFormId = `role-form-${membership.id}`
+                      const planFormId = `plan-form-${membership.id}`
 
                       return (
-                        <Form key={membership.id} method="post"
-                          className="grid grid-cols-[minmax(0,1.1fr)_120px_120px] gap-3 px-4 py-3 items-center border-t"
+                        <div key={membership.id}
+                          className="grid grid-cols-[minmax(0,1.1fr)_120px_120px_210px] gap-3 px-4 py-3 items-center border-t"
                           style={{ borderColor: 'var(--color-border)' }}>
-                          <input type="hidden" name="intent" value="update_membership_role" />
-                          <input type="hidden" name="membershipId" value={membership.id} />
                           <div>
                             <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                               {membership.workspace.name}
@@ -413,20 +464,46 @@ export default function PlatformAdminPage() {
                               {membership.workspace.slug}
                             </p>
                           </div>
-                          <select
-                            name="role"
-                            defaultValue={membership.role}
-                            className="input text-sm"
-                            aria-label={`Role for ${entry.email} in ${membership.workspace.name}`}
-                          >
-                            {MEMBER_ROLES.map((role) => (
-                              <option key={role} value={role}>{role}</option>
-                            ))}
-                          </select>
-                          <button type="submit" className="btn-primary text-sm" disabled={isSaving}>
-                            {isSaving ? 'Saving…' : 'Save'}
-                          </button>
-                        </Form>
+
+                          <Form id={roleFormId} method="post">
+                            <input type="hidden" name="intent" value="update_membership_role" />
+                            <input type="hidden" name="membershipId" value={membership.id} />
+                            <select
+                              name="role"
+                              defaultValue={membership.role}
+                              className="input text-sm"
+                              aria-label={`Role for ${entry.email} in ${membership.workspace.name}`}
+                            >
+                              {MEMBER_ROLES.map((role) => (
+                                <option key={role} value={role}>{role}</option>
+                              ))}
+                            </select>
+                          </Form>
+
+                          <Form id={planFormId} method="post">
+                            <input type="hidden" name="intent" value="update_workspace_plan" />
+                            <input type="hidden" name="workspaceId" value={membership.workspaceId} />
+                            <select
+                              name="plan"
+                              defaultValue={membership.workspace.plan}
+                              className="input text-sm"
+                              aria-label={`Plan for ${membership.workspace.name}`}
+                            >
+                              {WORKSPACE_PLANS.map((plan) => (
+                                <option key={plan} value={plan}>{plan}</option>
+                              ))}
+                            </select>
+                          </Form>
+
+                          <div className="flex items-center gap-2">
+                            <button type="submit" form={roleFormId} className="btn-outline text-sm" disabled={isSavingRole}>
+                              {isSavingRole ? 'Saving…' : 'Save role'}
+                            </button>
+                            <button type="submit" form={planFormId} className="btn-primary text-sm" disabled={isSavingPlan}>
+                              {isSavingPlan ? 'Saving…' : 'Save plan'}
+                            </button>
+                          </div>
+                        </div>
                       )
                     })}
                   </div>
@@ -597,6 +674,8 @@ function formatAuditAction(action: string) {
       return 'Workspace role updated'
     case 'role_features.updated':
       return 'Role features updated'
+    case 'workspace.plan_updated':
+      return 'Workspace plan updated'
     default:
       return action
   }

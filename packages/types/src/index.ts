@@ -127,6 +127,9 @@ export interface Job {
   id: string
   boardId: string
   title: string
+  externalApplyUrl: string | null
+  externalListingUrl: string | null
+  externalSource: string | null
   company: string | null
   location: string | null
   remotePolicy: RemotePolicy

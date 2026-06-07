@@ -72,6 +72,9 @@ type IngestRequestBody = {
 type NormalizedJob = {
   title: string
   description: string
+  externalApplyUrl: string | null
+  externalListingUrl: string | null
+  externalSource: string | null
   primaryCategory: string | null
   categoryTags: string[]
   company: string | null
@@ -677,6 +680,19 @@ function classifySourceError(error: unknown): SourceHealthEntry {
   return { status: 'error', count: 0, error: message }
 }
 
+function normalizeExternalUrl(value: string | null | undefined): string | null {
+  const raw = cleanText(value)
+  if (!raw) return null
+
+  try {
+    const parsed = new URL(raw)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null
+    return parsed.toString()
+  } catch {
+    return null
+  }
+}
+
 function normalizeIncomingJob(job: IncomingJob, context: IngestNormalizationContext): NormalizedJob | null {
   const title = cleanText(job.title)
   if (!title) return null
@@ -689,6 +705,9 @@ function normalizeIncomingJob(job: IncomingJob, context: IngestNormalizationCont
   const salaryMin = toNumber(job.salaryMin ?? job.salaryRangeLower)
   const salaryMax = toNumber(job.salaryMax ?? job.salaryRangeHigher)
   const salaryCurrency = cleanText(job.salaryCurrency ?? job.currency) || 'GBP'
+  const externalApplyUrl = normalizeExternalUrl(job.applyLink) ?? normalizeExternalUrl(job.link)
+  const externalListingUrl = normalizeExternalUrl(job.link)
+  const externalSource = cleanText(job.externalSource) || null
   const { primaryCategory, categoryTags } = inferCategories(job, context)
 
   const descriptionCore = cleanText(job.description) || 'Imported listing.'
@@ -697,6 +716,9 @@ function normalizeIncomingJob(job: IncomingJob, context: IngestNormalizationCont
   return {
     title,
     description,
+    externalApplyUrl,
+    externalListingUrl,
+    externalSource,
     primaryCategory,
     categoryTags,
     company,
@@ -879,9 +901,12 @@ export async function action({ request }: ActionFunctionArgs) {
       rowsToInsert.push({
         boardId: board.id,
         title: job.title,
-          primaryCategory: job.primaryCategory,
-          categoryTags: job.categoryTags,
-          company: job.company,
+        externalApplyUrl: job.externalApplyUrl,
+        externalListingUrl: job.externalListingUrl,
+        externalSource: job.externalSource,
+        primaryCategory: job.primaryCategory,
+        categoryTags: job.categoryTags,
+        company: job.company,
         location: job.location,
         remotePolicy: job.remotePolicy,
         employmentType: job.employmentType,

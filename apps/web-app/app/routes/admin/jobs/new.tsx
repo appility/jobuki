@@ -71,6 +71,9 @@ export async function action(args: ActionFunctionArgs) {
   const [job] = await db.insert(jobs).values({
     boardId,
     title,
+    externalApplyUrl: null,
+    externalListingUrl: null,
+    externalSource: null,
     company:        (form.get('company') as string).trim() || null,
     location:       (form.get('location') as string).trim() || null,
     remotePolicy:   (form.get('remotePolicy') as any) || 'onsite',

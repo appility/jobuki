@@ -83,6 +83,7 @@ export default function JobDetail() {
   const categoryBadge = getCategoryBadge(categoryLabel)
   const compactSalary = formatCompactSalary(job.salaryMin, job.salaryMax, job.salaryCurrency)
   const companyMark = companyInitials(job.company)
+  const externalApplyHref = job.externalApplyUrl || job.externalListingUrl
 
   return (
     <div
@@ -212,9 +213,20 @@ export default function JobDetail() {
               <p className="text-xs mt-1 mb-4" style={{ color: 'var(--color-text-secondary)' }}>
                 per year · {job.salaryCurrency}
               </p>
-              <Link to={`/apply/${job.id}`} className="w-full btn-primary inline-flex justify-center py-3.5 text-sm font-bold mb-2">
-                Apply now →
-              </Link>
+              {externalApplyHref ? (
+                <a
+                  href={externalApplyHref}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="w-full btn-primary inline-flex justify-center py-3.5 text-sm font-bold mb-2 no-underline"
+                >
+                  Apply on original listing ↗
+                </a>
+              ) : (
+                <Link to={`/apply/${job.id}`} className="w-full btn-primary inline-flex justify-center py-3.5 text-sm font-bold mb-2">
+                  Apply now →
+                </Link>
+              )}
               <button className="w-full py-2.5 text-[13px] font-semibold rounded-xl border"
                 style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)', backgroundColor: 'transparent' }}>
                 Save role

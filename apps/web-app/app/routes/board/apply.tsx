@@ -1,5 +1,6 @@
-import { useLoaderData, useOutletContext, Form, useActionData, useNavigation, Link } from 'react-router'
+import { useLoaderData, useOutletContext, Form, useActionData, useNavigation } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
+import { redirect } from 'react-router'
 import { getDb, jobs, applications } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import type { Board } from '@jobuki/types'
@@ -8,6 +9,8 @@ export async function loader({ params }: LoaderFunctionArgs) {
   const db = getDb()
   const job = await db.query.jobs.findFirst({ where: eq(jobs.id, params.jobId!) })
   if (!job || job.status !== 'published') throw new Response('Not found', { status: 404 })
+  const externalApplyHref = job.externalApplyUrl || job.externalListingUrl
+  if (externalApplyHref) return redirect(externalApplyHref, 302)
   return { job }
 }
 
@@ -15,6 +18,8 @@ export async function action({ params, request }: ActionFunctionArgs) {
   const db = getDb()
   const job = await db.query.jobs.findFirst({ where: eq(jobs.id, params.jobId!) })
   if (!job || job.status !== 'published') throw new Response('Not found', { status: 404 })
+  const externalApplyHref = job.externalApplyUrl || job.externalListingUrl
+  if (externalApplyHref) return redirect(externalApplyHref, 302)
 
   const form = await request.formData()
   const candidateName  = (form.get('candidateName') as string).trim()
@@ -34,7 +39,7 @@ export async function action({ params, request }: ActionFunctionArgs) {
     linkedinUrl:    (form.get('linkedinUrl') as string).trim() || null,
   })
 
-  return { submitted: true }
+  return redirect(`/apply/${job.id}/success`)
 }
 
 export default function Apply() {
@@ -48,79 +53,61 @@ export default function Apply() {
     <div className="min-h-screen" style={{ backgroundColor: 'var(--color-background)', fontFamily: 'var(--font-body)' }}>
 
       <main className="board-container py-12">
-        {actionData?.submitted ? (
-          /* Success state */
-          <div className="max-w-md mx-auto text-center py-16">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl"
-              style={{ backgroundColor: 'var(--color-success-bg)', color: 'var(--color-success)' }}>
-              ✓
-            </div>
-            <h1 className="text-2xl font-extrabold mb-2"
+        <div className="max-w-lg">
+          <div className="mb-8">
+            <h1 className="text-2xl font-extrabold mb-1"
               style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text-primary)' }}>
-              Application submitted
+              Apply for this role
             </h1>
-            <p className="text-sm mb-8" style={{ color: 'var(--color-text-secondary)' }}>
-              Thanks for applying to <strong>{job.title}</strong>. We'll review your application and be in touch.
+            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+              {job.title}{job.company ? ` at ${job.company}` : ''}
             </p>
-            <Link to="/" className="btn-primary">← Back to all roles</Link>
           </div>
-        ) : (
-          <div className="max-w-lg">
-            <div className="mb-8">
-              <h1 className="text-2xl font-extrabold mb-1"
-                style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text-primary)' }}>
-                Apply for this role
-              </h1>
-              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                {job.title}{job.company ? ` at ${job.company}` : ''}
-              </p>
+
+          {actionData?.error && (
+            <div className="mb-6 px-4 py-3 rounded-xl text-sm"
+              style={{ backgroundColor: 'var(--color-danger-bg)', color: 'var(--color-danger)' }}>
+              {actionData.error}
             </div>
+          )}
 
-            {actionData?.error && (
-              <div className="mb-6 px-4 py-3 rounded-xl text-sm"
-                style={{ backgroundColor: 'var(--color-danger-bg)', color: 'var(--color-danger)' }}>
-                {actionData.error}
-              </div>
-            )}
+          <Form method="post" className="flex flex-col gap-5">
+            <FormField label="Full name" required>
+              <input name="candidateName" className="input w-full"
+                placeholder="Jane Smith" required autoFocus />
+            </FormField>
 
-            <Form method="post" className="flex flex-col gap-5">
-              <FormField label="Full name" required>
-                <input name="candidateName" className="input w-full"
-                  placeholder="Jane Smith" required autoFocus />
-              </FormField>
+            <FormField label="Email address" required>
+              <input name="candidateEmail" type="email" className="input w-full"
+                placeholder="jane@example.com" required />
+            </FormField>
 
-              <FormField label="Email address" required>
-                <input name="candidateEmail" type="email" className="input w-full"
-                  placeholder="jane@example.com" required />
-              </FormField>
+            <FormField label="Phone number" hint="Optional">
+              <input name="candidatePhone" type="tel" className="input w-full"
+                placeholder="+44 7700 900000" />
+            </FormField>
 
-              <FormField label="Phone number" hint="Optional">
-                <input name="candidatePhone" type="tel" className="input w-full"
-                  placeholder="+44 7700 900000" />
-              </FormField>
+            <FormField label="CV / Resume" hint="Paste a link to your CV (Google Drive, Dropbox, etc.)">
+              <input name="cvUrl" type="url" className="input w-full"
+                placeholder="https://drive.google.com/..." />
+            </FormField>
 
-              <FormField label="CV / Resume" hint="Paste a link to your CV (Google Drive, Dropbox, etc.)">
-                <input name="cvUrl" type="url" className="input w-full"
-                  placeholder="https://drive.google.com/..." />
-              </FormField>
+            <FormField label="LinkedIn" hint="Optional">
+              <input name="linkedinUrl" type="url" className="input w-full"
+                placeholder="https://linkedin.com/in/..." />
+            </FormField>
 
-              <FormField label="LinkedIn" hint="Optional">
-                <input name="linkedinUrl" type="url" className="input w-full"
-                  placeholder="https://linkedin.com/in/..." />
-              </FormField>
+            <FormField label="Cover letter" hint="Optional — tell us why you'd be a great fit">
+              <textarea name="coverLetter" className="input w-full" rows={6}
+                placeholder="I'm excited to apply because…" />
+            </FormField>
 
-              <FormField label="Cover letter" hint="Optional — tell us why you'd be a great fit">
-                <textarea name="coverLetter" className="input w-full" rows={6}
-                  placeholder="I'm excited to apply because…" />
-              </FormField>
-
-              <button type="submit" disabled={submitting}
-                className="btn-primary w-full py-3 text-base mt-2">
-                {submitting ? 'Submitting…' : 'Submit application →'}
-              </button>
-            </Form>
-          </div>
-        )}
+            <button type="submit" disabled={submitting}
+              className="btn-primary w-full py-3 text-base mt-2">
+              {submitting ? 'Submitting…' : 'Submit application →'}
+            </button>
+          </Form>
+        </div>
       </main>
 
       <footer className="board-container py-8" style={{ borderTop: '1px solid var(--color-border)' }}>

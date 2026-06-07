@@ -52,5 +52,6 @@ export default [
     route('jobs/:jobId', 'routes/board/job-legacy.tsx'),
     route('jobs/:jobId/:jobTitle',  'routes/board/job.tsx'),
     route('apply/:jobId', 'routes/board/apply.tsx'),
+    route('apply/:jobId/success', 'routes/board/apply-success.tsx'),
   ]),
 ] satisfies RouteConfig
