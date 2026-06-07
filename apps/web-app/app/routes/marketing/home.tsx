@@ -1,4 +1,4 @@
-import { Link, useLoaderData } from 'react-router'
+import { Form, Link, useLoaderData } from 'react-router'
 import type { LoaderFunctionArgs, MetaFunction } from 'react-router'
 import { getDb, boards, jobs } from '@jobuki/db'
 import { eq, and, desc } from 'drizzle-orm'
