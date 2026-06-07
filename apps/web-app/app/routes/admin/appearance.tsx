@@ -19,6 +19,7 @@ import {
   type JobBoardEmptyStateIcon,
   type JobBoardJobsLayout,
   type JobBoardThemeConfig,
+  type JobBoardCssVariables,
 } from '@jobuki/types'
 
 // ── Loader ────────────────────────────────────────────────────────────
@@ -96,6 +97,10 @@ export async function action(args: ActionFunctionArgs) {
   // ── Save theme + content ────────────────────────────────────────────
   if (intent === 'save') {
     const parseBool = (value: FormDataEntryValue | null) => value === 'true' || value === 'on'
+    const parseOptional = (value: FormDataEntryValue | null) => {
+      const safe = String(value ?? '').trim()
+      return safe.length > 0 ? safe : undefined
+    }
 
     const theme: BoardTheme = {
       ...resolveTheme(board.theme ?? {}),
@@ -167,6 +172,16 @@ export async function action(args: ActionFunctionArgs) {
         backgroundColor: theme.colorBackground,
       }
     )
+
+    boardConfig.cssVariables = {
+      pillActiveBg: parseOptional(form.get('boardConfigCssVarPillActiveBg')),
+      pillActiveFg: parseOptional(form.get('boardConfigCssVarPillActiveFg')),
+      pillActiveBorder: parseOptional(form.get('boardConfigCssVarPillActiveBorder')),
+      pillInactiveBg: parseOptional(form.get('boardConfigCssVarPillInactiveBg')),
+      pillInactiveFg: parseOptional(form.get('boardConfigCssVarPillInactiveFg')),
+      pillInactiveBorder: parseOptional(form.get('boardConfigCssVarPillInactiveBorder')),
+      pillDisabledOpacity: parseOptional(form.get('boardConfigCssVarPillDisabledOpacity')),
+    }
 
     await db
       .update(boards)
@@ -327,6 +342,13 @@ export default function AppearancePage() {
   const [configFooterXUrl, setConfigFooterXUrl] = useState(boardConfig.footer.xUrl ?? '')
   const [configFooterLinkedinUrl, setConfigFooterLinkedinUrl] = useState(boardConfig.footer.linkedinUrl ?? '')
   const [configFooterCompanyWebsiteUrl, setConfigFooterCompanyWebsiteUrl] = useState(boardConfig.footer.companyWebsiteUrl ?? '')
+  const [configCssVarPillActiveBg, setConfigCssVarPillActiveBg] = useState(boardConfig.cssVariables?.pillActiveBg ?? '')
+  const [configCssVarPillActiveFg, setConfigCssVarPillActiveFg] = useState(boardConfig.cssVariables?.pillActiveFg ?? '')
+  const [configCssVarPillActiveBorder, setConfigCssVarPillActiveBorder] = useState(boardConfig.cssVariables?.pillActiveBorder ?? '')
+  const [configCssVarPillInactiveBg, setConfigCssVarPillInactiveBg] = useState(boardConfig.cssVariables?.pillInactiveBg ?? '')
+  const [configCssVarPillInactiveFg, setConfigCssVarPillInactiveFg] = useState(boardConfig.cssVariables?.pillInactiveFg ?? '')
+  const [configCssVarPillInactiveBorder, setConfigCssVarPillInactiveBorder] = useState(boardConfig.cssVariables?.pillInactiveBorder ?? '')
+  const [configCssVarPillDisabledOpacity, setConfigCssVarPillDisabledOpacity] = useState(boardConfig.cssVariables?.pillDisabledOpacity ?? '')
   const [uploadingKind, setUploadingKind] = useState<'logo' | 'header' | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'brand' | 'theme' | 'board' | 'content'>('brand')
@@ -442,7 +464,16 @@ export default function AppearancePage() {
   }
 
   // Scoped to .board-preview so it never bleeds into the admin shell
-  const previewCSS = themeToCSS(t, '.board-preview')
+  const previewCssVariables: JobBoardCssVariables = {
+    pillActiveBg: configCssVarPillActiveBg || undefined,
+    pillActiveFg: configCssVarPillActiveFg || undefined,
+    pillActiveBorder: configCssVarPillActiveBorder || undefined,
+    pillInactiveBg: configCssVarPillInactiveBg || undefined,
+    pillInactiveFg: configCssVarPillInactiveFg || undefined,
+    pillInactiveBorder: configCssVarPillInactiveBorder || undefined,
+    pillDisabledOpacity: configCssVarPillDisabledOpacity || undefined,
+  }
+  const previewCSS = themeToCSS(t, '.board-preview', previewCssVariables)
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ fontFamily: 'var(--font-body)' }}>
@@ -519,6 +550,13 @@ export default function AppearancePage() {
             <input type="hidden" name="boardConfigFooterXUrl" value={configFooterXUrl} />
             <input type="hidden" name="boardConfigFooterLinkedinUrl" value={configFooterLinkedinUrl} />
             <input type="hidden" name="boardConfigFooterCompanyWebsiteUrl" value={configFooterCompanyWebsiteUrl} />
+            <input type="hidden" name="boardConfigCssVarPillActiveBg" value={configCssVarPillActiveBg} />
+            <input type="hidden" name="boardConfigCssVarPillActiveFg" value={configCssVarPillActiveFg} />
+            <input type="hidden" name="boardConfigCssVarPillActiveBorder" value={configCssVarPillActiveBorder} />
+            <input type="hidden" name="boardConfigCssVarPillInactiveBg" value={configCssVarPillInactiveBg} />
+            <input type="hidden" name="boardConfigCssVarPillInactiveFg" value={configCssVarPillInactiveFg} />
+            <input type="hidden" name="boardConfigCssVarPillInactiveBorder" value={configCssVarPillInactiveBorder} />
+            <input type="hidden" name="boardConfigCssVarPillDisabledOpacity" value={configCssVarPillDisabledOpacity} />
             {/* Pass all theme tokens as hidden inputs */}
             {(Object.entries(t) as [keyof BoardTheme, string][]).map(([k, v]) => (
               <input key={k} type="hidden" name={k} value={v} />
@@ -761,6 +799,83 @@ export default function AppearancePage() {
                     style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
                   />
                 </div>
+              </div>
+            </Section>
+            )}
+
+            {activeTab === 'theme' && (
+            <Section label="ADVANCED CSS VARIABLES (OPTIONAL)">
+              <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                Optional pill-state overrides for power users. Leave blank to use system defaults.
+              </p>
+              <div className="mb-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfigCssVarPillActiveBg('')
+                    setConfigCssVarPillActiveFg('')
+                    setConfigCssVarPillActiveBorder('')
+                    setConfigCssVarPillInactiveBg('')
+                    setConfigCssVarPillInactiveFg('')
+                    setConfigCssVarPillInactiveBorder('')
+                    setConfigCssVarPillDisabledOpacity('')
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border"
+                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)', backgroundColor: 'var(--color-surface)' }}
+                >
+                  Reset to system defaults
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <input
+                  value={configCssVarPillActiveBg}
+                  onChange={e => setConfigCssVarPillActiveBg(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
+                  placeholder="Pill active background (e.g. #1C1917)"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                />
+                <input
+                  value={configCssVarPillActiveFg}
+                  onChange={e => setConfigCssVarPillActiveFg(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
+                  placeholder="Pill active text (e.g. #FAFAF8)"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                />
+                <input
+                  value={configCssVarPillActiveBorder}
+                  onChange={e => setConfigCssVarPillActiveBorder(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
+                  placeholder="Pill active border"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                />
+                <input
+                  value={configCssVarPillInactiveBg}
+                  onChange={e => setConfigCssVarPillInactiveBg(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
+                  placeholder="Pill inactive background"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                />
+                <input
+                  value={configCssVarPillInactiveFg}
+                  onChange={e => setConfigCssVarPillInactiveFg(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
+                  placeholder="Pill inactive text"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                />
+                <input
+                  value={configCssVarPillInactiveBorder}
+                  onChange={e => setConfigCssVarPillInactiveBorder(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
+                  placeholder="Pill inactive border"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                />
+                <input
+                  value={configCssVarPillDisabledOpacity}
+                  onChange={e => setConfigCssVarPillDisabledOpacity(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
+                  placeholder="Pill disabled opacity (e.g. 0.5)"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                />
               </div>
             </Section>
             )}

@@ -16,10 +16,21 @@ export interface BoardMonetizationConfig {
   requiresApprovalForPaidListings: boolean
 }
 
+export interface JobBoardCssVariables {
+  pillActiveBg?: string
+  pillActiveFg?: string
+  pillActiveBorder?: string
+  pillInactiveBg?: string
+  pillInactiveFg?: string
+  pillInactiveBorder?: string
+  pillDisabledOpacity?: string
+}
+
 export interface JobBoardThemeConfig {
   boardName: string
   ownerType?: BoardOwnerType
   categories?: string[]
+  cssVariables?: JobBoardCssVariables
   tagline?: string
   logoUrl?: string
   headerImageUrl?: string
@@ -231,6 +242,7 @@ export const DEFAULT_JOB_BOARD_THEME_CONFIG: JobBoardThemeConfig = {
   boardName: 'Jobs',
   ownerType: 'company',
   categories: [],
+  cssVariables: {},
   tagline: '',
   logoUrl: '',
   headerImageUrl: '',
@@ -290,6 +302,10 @@ export function resolveJobBoardThemeConfig(
     monetization: {
       ...DEFAULT_JOB_BOARD_THEME_CONFIG.monetization,
       ...(partial?.monetization ?? {}),
+    },
+    cssVariables: {
+      ...DEFAULT_JOB_BOARD_THEME_CONFIG.cssVariables,
+      ...(partial?.cssVariables ?? {}),
     },
   }
 

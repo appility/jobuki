@@ -25,14 +25,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   if (!board || board.status !== 'live') throw new Response('Board not found', { status: 404 })
 
-  const theme = resolveTheme(board.theme ?? {})
-  const css = themeToCSS(theme)
-
-  return { board, css }
+  return { board }
 }
 
 export default function BoardLayout() {
-  const { board, css } = useLoaderData<typeof loader>()
+  const { board } = useLoaderData<typeof loader>()
   const boardConfig = resolveJobBoardThemeConfig(board.boardConfig, {
     boardName: board.name,
     tagline: board.introText ?? undefined,
@@ -42,6 +39,8 @@ export default function BoardLayout() {
     accentColor: (board.theme as any)?.colorAccent,
     backgroundColor: (board.theme as any)?.colorBackground,
   })
+  const theme = resolveTheme(board.theme ?? {})
+  const css = themeToCSS(theme, ':root', boardConfig.cssVariables)
   const logoUrl = (boardConfig.logoUrl ?? '').trim()
   const hasLogo = logoUrl.length > 0
 
@@ -79,8 +78,7 @@ export default function BoardLayout() {
                   <circle cx="14" cy="14" r="12" stroke="var(--color-border)" strokeWidth="1.5" fill="none" />
                 </svg>
                 <span
-                  className="truncate text-[13px] font-extrabold tracking-[0.01em]"
-                  style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'var(--color-text-primary)' }}
+                  className="truncate text-[13px] font-extrabold tracking-[0.01em] font-display text-text-primary"
                 >
                   {boardConfig.boardName}
                 </span>
@@ -89,18 +87,17 @@ export default function BoardLayout() {
           </Link>
 
           <div className="flex items-center gap-0.5">
-            <Link to="/jobs" className="px-3.5 py-2 text-[13px] font-medium rounded-[10px] transition-colors" style={{ color: 'var(--color-text-secondary)' }}>
+            <Link to="/jobs" className="px-3.5 py-2 text-[13px] font-medium rounded-[10px] transition-colors text-text-secondary">
               Browse
             </Link>
-            <Link to="/jobs" className="px-3.5 py-2 text-[13px] font-medium rounded-[10px] transition-colors" style={{ color: 'var(--color-text-secondary)' }}>
+            <Link to="/jobs" className="px-3.5 py-2 text-[13px] font-medium rounded-[10px] transition-colors text-text-secondary">
               Companies
             </Link>
-            <Link to="/jobs" className="px-3.5 py-2 text-[13px] font-medium rounded-[10px] transition-colors" style={{ color: 'var(--color-text-secondary)' }}>
+            <Link to="/jobs" className="px-3.5 py-2 text-[13px] font-medium rounded-[10px] transition-colors text-text-secondary">
               Salaries
             </Link>
             <a
-              className="ml-2 px-5 py-[9px] text-[13px] font-bold rounded-[10px] no-underline transition-transform duration-150"
-              style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-primary-fg)' }}
+              className="ml-2 px-5 py-[9px] text-[13px] font-bold rounded-[10px] no-underline transition-transform duration-150 bg-primary text-primary-fg"
               href={boardConfig.emptyState.ctaUrl || '#'}
               target="_blank"
               rel="noreferrer"

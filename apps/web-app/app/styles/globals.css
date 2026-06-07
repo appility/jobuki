@@ -21,6 +21,34 @@
   --color-text-muted:     #A8A29E;
   --color-border:         #E7E5E4;
   --color-border-strong:  #D6D3D1;
+  --color-surface-inverse: #1C1917;
+  --color-text-inverse:    #ffffff;
+  --color-border-inverse:  rgba(255, 255, 255, 0.2);
+  --color-panel-strong:    #1F1A15;
+  --color-panel-strong-fg: #F5F4F2;
+  --color-badge-remote-bg: #E2F4EB;
+  --color-badge-remote-fg: #1B7A4E;
+  --color-badge-hybrid-bg: #EDE6FF;
+  --color-badge-hybrid-fg: #4A22D4;
+  --color-badge-onsite-bg: #FEF3DC;
+  --color-badge-onsite-fg: #C47B00;
+  --color-badge-category-1-bg: #EDE6FF;
+  --color-badge-category-1-fg: #4A22D4;
+  --color-badge-category-2-bg: #E2EEFB;
+  --color-badge-category-2-fg: #1760C8;
+  --color-badge-category-3-bg: #FEF3DC;
+  --color-badge-category-3-fg: #C47B00;
+  --color-badge-category-4-bg: #E2F4EB;
+  --color-badge-category-4-fg: #1B7A4E;
+  --color-badge-category-5-bg: #FFE9E9;
+  --color-badge-category-5-fg: #B91C1C;
+  --pill-active-bg:        var(--color-text-primary);
+  --pill-active-fg:        var(--color-background);
+  --pill-active-border:    var(--color-text-primary);
+  --pill-inactive-bg:      var(--color-surface);
+  --pill-inactive-fg:      var(--color-text-secondary);
+  --pill-inactive-border:  var(--color-border);
+  --pill-disabled-opacity: 0.5;
   --color-success:        #16A34A;
   --color-success-bg:     #F0FDF4;
   --color-warning:        #D97706;
@@ -507,6 +535,29 @@ h1, h2, h3, h4, h5, h6 {
     .auth-clerk-root {
       min-height: 0;
     }
+  }
+
+  .pill {
+    @apply inline-flex items-center justify-center rounded-full border text-xs font-bold;
+    padding: 0.375rem 0.875rem;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  }
+
+  .pill-active {
+    background-color: var(--pill-active-bg);
+    color: var(--pill-active-fg);
+    border-color: var(--pill-active-border);
+  }
+
+  .pill-inactive {
+    background-color: var(--pill-inactive-bg);
+    color: var(--pill-inactive-fg);
+    border-color: var(--pill-inactive-border);
+  }
+
+  .pill-disabled {
+    opacity: var(--pill-disabled-opacity);
+    pointer-events: none;
   }
 }
 

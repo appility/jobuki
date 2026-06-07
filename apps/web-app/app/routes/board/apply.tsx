@@ -50,23 +50,21 @@ export default function Apply() {
   const submitting  = navigation.state === 'submitting'
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-background)', fontFamily: 'var(--font-body)' }}>
+    <div className="min-h-screen bg-background font-body">
 
       <main className="board-container py-12">
         <div className="max-w-lg">
           <div className="mb-8">
-            <h1 className="text-2xl font-extrabold mb-1"
-              style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text-primary)' }}>
+            <h1 className="text-2xl font-extrabold mb-1 font-display text-text-primary">
               Apply for this role
             </h1>
-            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+            <p className="text-sm text-text-secondary">
               {job.title}{job.company ? ` at ${job.company}` : ''}
             </p>
           </div>
 
           {actionData?.error && (
-            <div className="mb-6 px-4 py-3 rounded-xl text-sm"
-              style={{ backgroundColor: 'var(--color-danger-bg)', color: 'var(--color-danger)' }}>
+            <div className="mb-6 px-4 py-3 rounded-xl text-sm bg-danger-bg text-danger">
               {actionData.error}
             </div>
           )}
@@ -110,10 +108,10 @@ export default function Apply() {
         </div>
       </main>
 
-      <footer className="board-container py-8" style={{ borderTop: '1px solid var(--color-border)' }}>
-        <p className="text-xs text-center" style={{ color: 'var(--color-text-muted)' }}>
+      <footer className="board-container py-8 border-t border-border">
+        <p className="text-xs text-center text-text-muted">
           {board.footerText || (
-            <>Powered by <span className="font-extrabold" style={{ color: 'var(--color-text-secondary)' }}>Jobuki</span></>
+            <>Powered by <span className="font-extrabold text-text-secondary">Jobuki</span></>
           )}
         </p>
       </footer>
@@ -127,10 +125,10 @@ function FormField({ label, hint, required, children }: {
   return (
     <div>
       <div className="flex items-baseline gap-2 mb-1.5">
-        <label className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          {label}{required && <span style={{ color: 'var(--color-danger)' }}> *</span>}
+        <label className="text-sm font-semibold text-text-primary">
+          {label}{required && <span className="text-danger"> *</span>}
         </label>
-        {hint && <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{hint}</span>}
+        {hint && <span className="text-xs text-text-muted">{hint}</span>}
       </div>
       {children}
     </div>

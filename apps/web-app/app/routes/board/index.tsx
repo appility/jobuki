@@ -27,21 +27,21 @@ function companyInitials(name: string | null | undefined) {
 }
 
 function remoteBadge(remotePolicy: string) {
-  if (remotePolicy === 'remote') return { bg: '#E2F4EB', fg: '#1B7A4E', label: 'Remote' }
-  if (remotePolicy === 'hybrid') return { bg: '#E2EEFB', fg: '#1760C8', label: 'Hybrid' }
-  return { bg: '#FEF3DC', fg: '#C47B00', label: 'On-site' }
+  if (remotePolicy === 'remote') return { bg: 'var(--color-badge-remote-bg)', fg: 'var(--color-badge-remote-fg)', label: 'Remote' }
+  if (remotePolicy === 'hybrid') return { bg: 'var(--color-badge-hybrid-bg)', fg: 'var(--color-badge-hybrid-fg)', label: 'Hybrid' }
+  return { bg: 'var(--color-badge-onsite-bg)', fg: 'var(--color-badge-onsite-fg)', label: 'On-site' }
 }
 
 function categoryBadge(category: string) {
   const key = titleCaseCategory(category)
   const map: Record<string, { bg: string; fg: string }> = {
-    Engineering: { bg: '#EDE6FF', fg: '#4A22D4' },
-    Product: { bg: '#E2EEFB', fg: '#1760C8' },
-    Design: { bg: '#FEF3DC', fg: '#C47B00' },
-    Data: { bg: '#E2F4EB', fg: '#1B7A4E' },
-    Security: { bg: '#FFE9E9', fg: '#B91C1C' },
+    Engineering: { bg: 'var(--color-badge-category-1-bg)', fg: 'var(--color-badge-category-1-fg)' },
+    Product: { bg: 'var(--color-badge-category-2-bg)', fg: 'var(--color-badge-category-2-fg)' },
+    Design: { bg: 'var(--color-badge-category-3-bg)', fg: 'var(--color-badge-category-3-fg)' },
+    Data: { bg: 'var(--color-badge-category-4-bg)', fg: 'var(--color-badge-category-4-fg)' },
+    Security: { bg: 'var(--color-badge-category-5-bg)', fg: 'var(--color-badge-category-5-fg)' },
   }
-  return map[key] ?? { bg: '#F5F4F2', fg: '#7C7067' }
+  return map[key] ?? { bg: 'var(--color-surface-subtle)', fg: 'var(--color-text-secondary)' }
 }
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -137,40 +137,36 @@ export default function BoardJobsPage() {
     .filter((page) => Math.abs(page - pagination.page) <= 2 || page === 1 || page === pagination.totalPages)
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-background)' }}>
+    <div className="min-h-screen bg-background">
       <main className="max-w-[1280px] mx-auto px-6 lg:px-10 pt-10 pb-20">
         <section>
           <h1
-            className="text-[22px] font-extrabold tracking-[-0.03em]"
-            style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'var(--color-text-primary)' }}
+            className="text-[22px] font-extrabold tracking-[-0.03em] font-display text-text-primary"
           >
             {board.name} Jobs
           </h1>
-          <p className="mt-2 text-[13px]" style={{ color: 'var(--color-text-secondary)' }}>
+          <p className="mt-2 text-[13px] text-text-secondary">
             <span className="inline-flex items-center gap-1.5">
-              <span className="inline-block w-[7px] h-[7px] rounded-full" style={{ backgroundColor: 'var(--color-primary)' }} />
+              <span className="inline-block w-[7px] h-[7px] rounded-full bg-primary" />
               {pageStart}-{pageEnd} of {totalFilteredJobs} matching roles ({totalJobs} published total)
             </span>
           </p>
 
           <Form method="get" className="mt-5 flex flex-col md:flex-row gap-2.5">
             <div
-              className="flex-1 flex overflow-hidden rounded-xl border"
-              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}
+              className="flex-1 flex overflow-hidden rounded-xl border border-border bg-surface shadow-sm"
             >
               <input
                 name="q"
                 defaultValue={filters.q}
-                className="flex-1 bg-transparent border-0 outline-none px-4 py-3 text-sm"
-                style={{ color: 'var(--color-text-primary)' }}
+                className="flex-1 bg-transparent border-0 outline-none px-4 py-3 text-sm text-text-primary"
                 placeholder="Role, skill or company..."
                 aria-label="Search jobs"
               />
               <select
                 name="location"
                 defaultValue={filters.location}
-                className="border-0 outline-none px-3 text-xs font-semibold"
-                style={{ color: 'var(--color-text-secondary)', backgroundColor: 'transparent' }}
+                className="border-0 outline-none px-3 text-xs font-semibold text-text-secondary bg-transparent"
                 aria-label="Filter by location"
               >
                 <option value="">Anywhere</option>
@@ -180,7 +176,7 @@ export default function BoardJobsPage() {
                   </option>
                 ))}
               </select>
-              <button type="submit" className="px-5 text-sm font-bold" style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-primary-fg)' }}>
+              <button type="submit" className="px-5 text-sm font-bold bg-primary text-primary-fg">
                 Search →
               </button>
             </div>
@@ -192,12 +188,7 @@ export default function BoardJobsPage() {
           <div className="flex flex-wrap gap-1.5">
             <Link
               to="/jobs"
-              className="px-3.5 py-1.5 text-xs font-bold rounded-full border"
-              style={{
-                borderColor: !filters.category ? 'var(--color-text-primary)' : 'var(--color-border)',
-                backgroundColor: !filters.category ? 'var(--color-text-primary)' : 'var(--color-surface)',
-                color: !filters.category ? 'var(--color-background)' : 'var(--color-text-secondary)',
-              }}
+              className={`pill ${!filters.category ? 'pill-active' : 'pill-inactive'}`}
             >
               All roles
             </Link>
@@ -205,12 +196,7 @@ export default function BoardJobsPage() {
               <Link
                 key={item}
                 to={`/jobs/category/${item}`}
-                className="px-3.5 py-1.5 text-xs font-bold rounded-full border"
-                style={{
-                  borderColor: filters.category === item ? 'var(--color-text-primary)' : 'var(--color-border)',
-                  backgroundColor: filters.category === item ? 'var(--color-text-primary)' : 'var(--color-surface)',
-                  color: filters.category === item ? 'var(--color-background)' : 'var(--color-text-secondary)',
-                }}
+                className={`pill ${filters.category === item ? 'pill-active' : 'pill-inactive'}`}
               >
                 {titleCaseCategory(item)}
               </Link>
@@ -220,18 +206,18 @@ export default function BoardJobsPage() {
 
         <section className="mt-4">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-[12px] font-bold tracking-[0.02em]" style={{ color: 'var(--color-text-primary)' }}>
+            <span className="text-[12px] font-bold tracking-[0.02em] text-text-primary">
               {totalFilteredJobs} role{totalFilteredJobs === 1 ? '' : 's'}
             </span>
-            <span className="text-xs px-2.5 py-1.5 rounded-md border" style={{ color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
+            <span className="text-xs px-2.5 py-1.5 rounded-md border border-border bg-surface text-text-secondary">
               Most recent
             </span>
           </div>
 
         {filteredJobs.length === 0 ? (
-          <div className="rounded-xl border p-10 text-center" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-            <p className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>No matching roles</p>
-            <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>Try changing your search terms or category.</p>
+          <div className="rounded-xl border border-border bg-surface p-10 text-center">
+            <p className="text-lg font-semibold text-text-primary">No matching roles</p>
+            <p className="text-sm mt-1 text-text-muted">Try changing your search terms or category.</p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -244,28 +230,25 @@ export default function BoardJobsPage() {
                   <Link
                     key={job.id}
                     to={publicJobPath(job)}
-                    className="block rounded-[14px] border px-5 py-[18px] no-underline transition-transform duration-150 hover:-translate-y-[1px]"
-                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}
+                    className="block rounded-[14px] border border-border bg-surface px-5 py-[18px] no-underline transition-transform duration-150 hover:-translate-y-[1px]"
                   >
                     <div className="flex items-center justify-between gap-4">
                       <div className="min-w-0 flex items-center gap-4 flex-1">
                         <div
-                          className="w-[42px] h-[42px] rounded-[10px] border flex items-center justify-center text-xs font-extrabold shrink-0"
-                          style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-background)', color: 'var(--color-text-secondary)', fontFamily: "'Unbounded', var(--font-display), sans-serif" }}
+                          className="w-[42px] h-[42px] rounded-[10px] border border-border bg-background text-text-secondary font-display flex items-center justify-center text-xs font-extrabold shrink-0"
                         >
                           {companyInitials(job.company)}
                         </div>
 
                         <div className="min-w-0">
                           <h2
-                            className="text-sm font-bold leading-[1.25] truncate"
-                            style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'var(--color-text-primary)' }}
+                            className="text-sm font-bold leading-[1.25] truncate font-display text-text-primary"
                           >
                             {job.title}
                           </h2>
-                          <div className="mt-1 flex items-center gap-2 text-xs flex-wrap" style={{ color: 'var(--color-text-secondary)' }}>
-                            {job.company ? <span style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{job.company}</span> : null}
-                            <span className="inline-block w-[3px] h-[3px] rounded-full" style={{ backgroundColor: 'var(--color-border)' }} />
+                          <div className="mt-1 flex items-center gap-2 text-xs flex-wrap text-text-secondary">
+                            {job.company ? <span className="text-text-primary font-semibold">{job.company}</span> : null}
+                            <span className="inline-block w-[3px] h-[3px] rounded-full bg-border" />
                             <span>{job.location || 'Location flexible'}</span>
                             {category ? (
                               <span className="text-[10px] font-bold uppercase tracking-[0.04em] px-2 py-0.5 rounded-md" style={{ backgroundColor: cat.bg, color: cat.fg }}>
@@ -277,8 +260,7 @@ export default function BoardJobsPage() {
                       </div>
 
                       <div className="shrink-0 flex flex-col items-end gap-1.5">
-                        <span className="text-sm font-semibold whitespace-nowrap"
-                          style={{ color: 'var(--color-text-primary)' }}>
+                        <span className="text-sm font-semibold whitespace-nowrap text-text-primary">
                           {salaryLabel(job)}
                         </span>
                         <div className="flex items-center gap-1.5">
@@ -297,14 +279,7 @@ export default function BoardJobsPage() {
               <nav className="flex items-center justify-center gap-1.5 flex-wrap" aria-label="Pagination">
                 <Link
                   to={makePageHref(Math.max(1, pagination.page - 1))}
-                  className="px-3 py-1.5 text-xs font-bold rounded-full border"
-                  style={{
-                    opacity: pagination.page === 1 ? 0.5 : 1,
-                    pointerEvents: pagination.page === 1 ? 'none' : undefined,
-                    borderColor: 'var(--color-border)',
-                    backgroundColor: 'var(--color-surface)',
-                    color: 'var(--color-text-secondary)',
-                  }}
+                  className={`pill pill-inactive ${pagination.page === 1 ? 'pill-disabled' : ''}`}
                 >
                   Prev
                 </Link>
@@ -314,13 +289,10 @@ export default function BoardJobsPage() {
                   const showGap = prev && page - prev > 1
                   return (
                     <div key={page} className="flex items-center gap-1.5">
-                      {showGap ? <span className="px-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>…</span> : null}
+                      {showGap ? <span className="px-1 text-xs text-text-muted">…</span> : null}
                       <Link
                         to={makePageHref(page)}
-                        className="min-w-9 text-center px-3 py-1.5 text-xs font-bold rounded-full border"
-                        style={page === pagination.page
-                          ? { backgroundColor: 'var(--color-text-primary)', color: 'var(--color-background)', borderColor: 'var(--color-text-primary)' }
-                          : { borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', color: 'var(--color-text-secondary)' }}
+                        className={`pill min-w-9 text-center ${page === pagination.page ? 'pill-active' : 'pill-inactive'}`}
                       >
                         {page}
                       </Link>
@@ -330,14 +302,7 @@ export default function BoardJobsPage() {
 
                 <Link
                   to={makePageHref(Math.min(pagination.totalPages, pagination.page + 1))}
-                  className="px-3 py-1.5 text-xs font-bold rounded-full border"
-                  style={{
-                    opacity: pagination.page === pagination.totalPages ? 0.5 : 1,
-                    pointerEvents: pagination.page === pagination.totalPages ? 'none' : undefined,
-                    borderColor: 'var(--color-border)',
-                    backgroundColor: 'var(--color-surface)',
-                    color: 'var(--color-text-secondary)',
-                  }}
+                  className={`pill pill-inactive ${pagination.page === pagination.totalPages ? 'pill-disabled' : ''}`}
                 >
                   Next
                 </Link>
