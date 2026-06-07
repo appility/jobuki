@@ -108,15 +108,19 @@ export default function JobDetail() {
                 <span>Jobs</span>
                 <span className="text-border">›</span>
                 <span style={{ color: categoryBadge.fg }}>{categoryLabel || 'General'}</span>
-                <span className="text-border">›</span>
-                <span className="text-text-primary">{job.title}</span>
               </div>
 
               <div className="flex items-start gap-4 mb-4">
-                <div
-                  className="w-[52px] h-[52px] rounded-[12px] border border-border bg-background text-text-secondary font-display flex items-center justify-center text-sm font-extrabold shrink-0"
-                >
-                  {companyMark}
+                <div className="w-[52px] h-[52px] rounded-[12px] border border-border bg-background shrink-0 overflow-hidden flex items-center justify-center">
+                  {job.companyLogoUrl ? (
+                    <img
+                      src={job.companyLogoUrl}
+                      alt={job.company ?? ''}
+                      className="w-full h-full object-contain p-1.5"
+                      onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextSibling as HTMLElement).style.display = 'flex' }}
+                    />
+                  ) : null}
+                  <span className="text-sm font-extrabold font-display text-text-secondary" style={{ display: job.companyLogoUrl ? 'none' : 'flex' }}>{companyMark}</span>
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -157,12 +161,13 @@ export default function JobDetail() {
             {skillTags.length > 0 ? (
               <div className="px-8 py-4 border-b border-border bg-background flex gap-1.5 flex-wrap">
                 {skillTags.map((tag) => (
-                  <span
+                  <Link
                     key={tag}
-                    className="text-[11px] font-semibold px-2.5 py-1 rounded-[7px] border border-border bg-surface text-text-secondary"
+                    to={`/jobs/category/${encodeURIComponent(tag.toLowerCase())}`}
+                    className="text-[11px] font-semibold px-2.5 py-1 rounded-[7px] border border-border bg-surface text-text-secondary no-underline hover:border-primary hover:text-primary transition-colors"
                   >
                     {tag}
-                  </span>
+                  </Link>
                 ))}
               </div>
             ) : null}
@@ -199,14 +204,6 @@ export default function JobDetail() {
 
           <aside className="space-y-3 lg:sticky lg:top-20">
             <section className="rounded-[18px] border border-border bg-surface p-[22px]">
-              {compactSalary ? (
-                <p className="text-[28px] font-extrabold leading-[1.05] tracking-[-0.04em] font-display text-text-primary">
-                  {compactSalary}
-                </p>
-              ) : null}
-              <p className="text-xs mt-1 mb-4 text-text-secondary">
-                per year · {job.salaryCurrency}
-              </p>
               {externalApplyHref ? (
                 <a
                   href={externalApplyHref}
@@ -214,11 +211,11 @@ export default function JobDetail() {
                   rel="noreferrer noopener"
                   className="w-full btn-primary inline-flex justify-center py-3.5 text-sm font-bold mb-2 no-underline"
                 >
-                  Apply on original listing ↗
+                  Apply
                 </a>
               ) : (
                 <Link to={`/apply/${job.id}`} className="w-full btn-primary inline-flex justify-center py-3.5 text-sm font-bold mb-2">
-                  Apply now →
+                  Apply
                 </Link>
               )}
               <button className="w-full py-2.5 text-[13px] font-semibold rounded-xl border border-border text-text-secondary bg-transparent">

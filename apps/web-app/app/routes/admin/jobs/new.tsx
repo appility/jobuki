@@ -6,6 +6,7 @@ import { getDb, boards, jobs } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { resolveJobBoardThemeConfig } from '@jobuki/types'
 import { normalizeCategory, resolveBoardCategories, titleCaseCategory } from '../../../lib/board-categories'
+import { validateJobTitle } from '../../../lib/content-moderation.server'
 import { RichTextEditor } from '../../../components/rich-text/RichTextEditor'
 import {
   EMPTY_TIPTAP_DOC,
@@ -50,6 +51,8 @@ export async function action(args: ActionFunctionArgs) {
 
   if (!boardId) return { error: 'Select a board.' }
   if (!title) return { error: 'Job title is required.' }
+  const titleError = validateJobTitle(title)
+  if (titleError) return { error: titleError }
   if (!description) return { error: 'Job description is required.' }
 
   const db = getDb()

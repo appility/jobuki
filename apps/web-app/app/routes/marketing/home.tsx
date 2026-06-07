@@ -6,6 +6,7 @@ import { resolveJobBoardThemeConfig } from '@jobuki/types'
 import { resolveTheme, themeToCSS } from '../../lib/theme'
 import { deriveJobCategory, normalizeCategory, resolveBoardCategories, titleCaseCategory } from '../../lib/board-categories'
 import { publicJobPath } from '../../lib/public-job-path'
+import { PublicBoardHome } from '../../components/public-board-home'
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const boardSlug     = request.headers.get('x-board-slug')
@@ -116,116 +117,10 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
   ]
 }
 
-export type BoardLoaderData = Extract<Awaited<ReturnType<typeof loader>>, { mode: 'board' }>
-
 export default function Home() {
   const data = useLoaderData<typeof loader>()
-  if (data.mode === 'board') return <BoardHomeModern data={data} />
+  if (data.mode === 'board') return <PublicBoardHome data={data} />
   return <MarketingHome />
-}
-
-function BoardHomeModern({ data }: { data: BoardLoaderData }) {
-  const activeCategory = data.filters.category
-
-  return (
-    <div className="min-h-screen bg-background">
-      <style dangerouslySetInnerHTML={{ __html: data.css }} />
-      <main className="max-w-[1280px] mx-auto px-6 lg:px-10 pt-10 pb-20">
-        <section className="rounded-2xl border border-border bg-surface p-7 md:p-10">
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-text-muted">
-            {data.totalOpen} open role{data.totalOpen === 1 ? '' : 's'}
-          </p>
-          <h1 className="mt-2 text-3xl md:text-5xl font-extrabold leading-[1.04] tracking-[-0.03em] text-text-primary">
-            {data.board.name}
-          </h1>
-          <p className="mt-4 max-w-2xl text-sm md:text-base text-text-secondary">
-            {data.board.introText?.trim() || 'Discover open roles and apply in minutes.'}
-          </p>
-
-          <Form method="get" action="/jobs" className="mt-7 grid gap-2.5 md:grid-cols-[1fr_220px_160px]">
-            <input
-              name="q"
-              defaultValue={data.filters.q}
-              className="input"
-              placeholder="Role, company or skill"
-              aria-label="Search jobs"
-            />
-            <select name="category" defaultValue={data.filters.category} className="input" aria-label="Filter by category">
-              <option value="">All categories</option>
-              {data.filterOptions.categories.map((item) => (
-                <option key={item.value} value={item.value}>{item.label}</option>
-              ))}
-            </select>
-            <button type="submit" className="btn-primary w-full">Search roles</button>
-          </Form>
-        </section>
-
-        {data.filterOptions.categories.length > 0 ? (
-          <section className="mt-4 flex flex-wrap gap-2">
-            <Link
-              to="/"
-              className={`pill ${!activeCategory ? 'pill-active' : 'pill-inactive'}`}
-            >
-              All
-            </Link>
-            {data.filterOptions.categories.map((item) => (
-              <Link
-                key={item.value}
-                to={`/?category=${encodeURIComponent(item.value)}`}
-                className={`pill ${activeCategory === item.value ? 'pill-active' : 'pill-inactive'}`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </section>
-        ) : null}
-
-        <section className="mt-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-bold text-text-primary">Latest opportunities</h2>
-            <Link to="/jobs" className="text-xs font-semibold text-primary">
-              View all roles →
-            </Link>
-          </div>
-
-          {data.jobs.length === 0 ? (
-            <div className="rounded-xl border border-border bg-surface p-8 text-center">
-              <p className="text-base font-semibold text-text-primary">No matching roles yet</p>
-              <p className="text-sm mt-1 text-text-muted">
-                Try another category or browse all roles.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3">
-              {data.jobs.slice(0, 8).map((job) => {
-                const category = titleCaseCategory(deriveJobCategory(job, data.filterOptions.categories.map((item) => item.value)))
-                return (
-                  <Link key={job.id} to={publicJobPath(job)} className="job-card no-underline">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold truncate text-text-primary">{job.title}</p>
-                        <p className="text-xs mt-1 text-text-secondary">
-                          {[job.company, job.location].filter(Boolean).join(' · ') || 'Location flexible'}
-                        </p>
-                      </div>
-                      <div className="shrink-0 flex items-center gap-2">
-                        {category ? (
-                          <span className="text-[10px] font-bold uppercase tracking-[0.04em] px-2 py-0.5 rounded-md bg-badge-category-1-bg text-badge-category-1-fg">
-                            {category}
-                          </span>
-                        ) : null}
-                        <span className="text-xs font-semibold text-text-primary">View →</span>
-                      </div>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-          )}
-        </section>
-      </main>
-    </div>
-  )
 }
 
 // ── Marketing home ────────────────────────────────────────────────────

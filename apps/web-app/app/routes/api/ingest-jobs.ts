@@ -3,6 +3,8 @@ import { getDb, boards, jobs } from '@jobuki/db'
 import { and, inArray } from 'drizzle-orm'
 
 type FeedSource =
+  | 'reed_json'
+  | 'adzuna_json'
   | 'cryptojobslist_api_rss'
   | 'cryptojobslist_remote_rss'
   | 'hireweb3_rss'
@@ -19,8 +21,15 @@ type FeedSource =
   | 'hireweb3'
   | 'remoteok'
   | 'jobicy'
+  | 'remotive_json'
+  | 'arbeitnow_json'
+  | 'himalayas_json'
+  | 'weworkremotely_rss'
+  | 'workingnomads_rss'
 type SourceSelection = FeedSource | 'all'
 const FEED_SOURCES: FeedSource[] = [
+  'reed_json',
+  'adzuna_json',
   'cryptojobslist_api_rss',
   'cryptojobslist_remote_rss',
   'hireweb3_rss',
@@ -33,6 +42,11 @@ const FEED_SOURCES: FeedSource[] = [
   'jobicy_json_crypto',
   'jobicy_json_blockchain',
   'jobicy_json_web3',
+  'remotive_json',
+  'arbeitnow_json',
+  'himalayas_json',
+  'weworkremotely_rss',
+  'workingnomads_rss',
 ]
 
 type IncomingJob = {
@@ -290,11 +304,12 @@ function inferCategories(job: IncomingJob, context: IngestNormalizationContext):
   return { primaryCategory, categoryTags }
 }
 
-async function fetchText(url: string): Promise<string> {
+async function fetchText(url: string, extraHeaders?: Record<string, string>): Promise<string> {
   const response = await fetch(url, {
     headers: {
       accept: 'application/rss+xml, application/xml, application/json, text/xml, text/plain, */*',
       'user-agent': 'JobukiIngestBot/1.0 (+https://jobuki.com)',
+      ...extraHeaders,
     },
   })
   if (!response.ok) {
@@ -626,6 +641,134 @@ async function fetchJobicyJson({ limit, tags }: FetchSourceOptions): Promise<Inc
   return []
 }
 
+async function fetchReedJson({ limit }: FetchSourceOptions): Promise<IncomingJob[]> {
+  const key = process.env.REED_API_KEY
+  if (!key) return []
+  const credentials = Buffer.from(`${key}:`).toString('base64')
+  const terms = ['software engineer', 'developer', 'devops', 'data engineer', 'product manager', 'designer']
+  const all: IncomingJob[] = []
+  for (const term of terms) {
+    try {
+      const url = `https://www.reed.co.uk/api/1.0/search?keywords=${encodeURIComponent(term)}&resultsToTake=${Math.ceil(limit / terms.length)}`
+      const text = await fetchText(url, { Authorization: `Basic ${credentials}` })
+      const data = JSON.parse(text)
+      for (const j of data.results ?? []) {
+        all.push({
+          title: j.jobTitle,
+          company: j.employerName,
+          location: j.locationName || 'United Kingdom',
+          remotePolicy: (j.locationName ?? '').toLowerCase().includes('remote') ? 'remote' : 'onsite',
+          employmentType: 'full-time',
+          salaryMin: j.minimumSalary ?? null,
+          salaryMax: j.maximumSalary ?? null,
+          salaryCurrency: 'GBP',
+          description: j.jobDescription ?? j.description ?? '',
+          applyLink: j.jobUrl,
+          externalSource: 'reed.co.uk',
+        })
+      }
+    } catch { /* skip failed term */ }
+  }
+  return all.slice(0, limit)
+}
+
+async function fetchAdzunaJson({ limit }: FetchSourceOptions): Promise<IncomingJob[]> {
+  const appId = process.env.ADZUNA_APPLICATION_ID
+  const appKey = process.env.ADZUNA_API_KEY
+  if (!appId || !appKey) return []
+  const terms = ['software+engineer', 'developer', 'devops', 'data+engineer', 'product+manager']
+  const all: IncomingJob[] = []
+  for (const term of terms) {
+    try {
+      const url = `https://api.adzuna.com/v1/api/jobs/gb/search/1?app_id=${appId}&app_key=${appKey}&results_per_page=${Math.ceil(limit / terms.length)}&what=${term}&content-type=application/json`
+      const text = await fetchText(url)
+      const data = JSON.parse(text)
+      for (const j of data.results ?? []) {
+        all.push({
+          title: j.title,
+          company: j.company?.display_name ?? null,
+          location: j.location?.display_name || 'United Kingdom',
+          remotePolicy: (j.location?.display_name ?? '').toLowerCase().includes('remote') ? 'remote' : 'onsite',
+          employmentType: j.contract_time === 'part_time' ? 'part-time' : j.contract_type === 'contract' ? 'contract' : 'full-time',
+          salaryMin: j.salary_min ?? null,
+          salaryMax: j.salary_max ?? null,
+          salaryCurrency: 'GBP',
+          description: j.description ?? '',
+          applyLink: j.redirect_url,
+          externalSource: 'adzuna.com',
+        })
+      }
+    } catch { /* skip failed term */ }
+  }
+  return all.slice(0, limit)
+}
+
+async function fetchRemotiveJson({ limit }: FetchSourceOptions): Promise<IncomingJob[]> {
+  const categories = ['software-dev', 'devops-sysadmin', 'product', 'design', 'data', 'qa', 'backend', 'frontend']
+  const all: IncomingJob[] = []
+  for (const cat of categories) {
+    try {
+      const text = await fetchText(`https://remotive.com/api/remote-jobs?category=${cat}&limit=50`)
+      const data = JSON.parse(text)
+      const jobs = Array.isArray(data.jobs) ? data.jobs : []
+      for (const j of jobs.slice(0, Math.ceil(limit / categories.length))) {
+        all.push({
+          title: j.title,
+          company: j.company_name,
+          location: j.candidate_required_location || 'Remote',
+          remotePolicy: 'remote',
+          employmentType: j.job_type?.includes('contract') ? 'contract' : 'full-time',
+          description: j.description ?? '',
+          applyLink: j.url,
+          externalSource: 'remotive.com',
+        })
+      }
+    } catch { /* skip failed category */ }
+  }
+  return all.slice(0, limit)
+}
+
+async function fetchArbeitnowJson({ limit }: FetchSourceOptions): Promise<IncomingJob[]> {
+  const all: IncomingJob[] = []
+  let page = 1
+  while (all.length < limit && page <= 3) {
+    const text = await fetchText(`https://www.arbeitnow.com/api/job-board-api?page=${page}`)
+    const data = JSON.parse(text)
+    const jobs = Array.isArray(data.data) ? data.data : []
+    if (jobs.length === 0) break
+    for (const j of jobs) {
+      all.push({
+        title: j.title,
+        company: j.company_name,
+        location: j.location || 'Remote',
+        remotePolicy: j.remote ? 'remote' : 'onsite',
+        employmentType: 'full-time',
+        description: j.description ?? '',
+        applyLink: j.url,
+        externalSource: 'arbeitnow.com',
+      })
+    }
+    page++
+  }
+  return all.slice(0, limit)
+}
+
+async function fetchHimalayasJson({ limit }: FetchSourceOptions): Promise<IncomingJob[]> {
+  const text = await fetchText(`https://himalayas.app/jobs/api?limit=${Math.min(limit, 100)}`)
+  const data = JSON.parse(text)
+  const jobs = Array.isArray(data.jobs) ? data.jobs : []
+  return jobs.map((j: Record<string, unknown>) => ({
+    title: j.title as string,
+    company: j.companyName as string,
+    location: (j.location as string) || 'Remote',
+    remotePolicy: 'remote',
+    employmentType: j.jobType === 'contract' ? 'contract' : 'full-time',
+    description: (j.description as string) ?? '',
+    applyLink: j.applicationLink as string,
+    externalSource: 'himalayas.app',
+  }))
+}
+
 const SOURCE_FETCHERS: Record<FeedSource, SourceFetcher> = {
   cryptojobslist_api_rss: ({ limit }) =>
     fetchRssEndpoint('https://api.cryptojobslist.com/jobs.rss', limit, 'api.cryptojobslist.com', 'remote'),
@@ -657,6 +800,15 @@ const SOURCE_FETCHERS: Record<FeedSource, SourceFetcher> = {
   hireweb3: fetchHireWeb3Rss,
   remoteok: fetchRemoteOkJson,
   jobicy: fetchJobicyJson,
+  reed_json: fetchReedJson,
+  adzuna_json: fetchAdzunaJson,
+  remotive_json: fetchRemotiveJson,
+  arbeitnow_json: fetchArbeitnowJson,
+  himalayas_json: fetchHimalayasJson,
+  weworkremotely_rss: ({ limit }) =>
+    fetchRssEndpoint('https://weworkremotely.com/remote-jobs.rss', limit, 'weworkremotely.com', 'remote'),
+  workingnomads_rss: ({ limit }) =>
+    fetchRssEndpoint('https://www.workingnomads.com/jobs?category=development&format=rss', limit, 'workingnomads.com', 'remote'),
 }
 
 function applyLookbackFilter(jobsToFilter: IncomingJob[], lookbackDays?: number): IncomingJob[] {
@@ -678,6 +830,19 @@ function classifySourceError(error: unknown): SourceHealthEntry {
     return { status: 'blocked', count: 0, error: message }
   }
   return { status: 'error', count: 0, error: message }
+}
+
+function guessCompanyLogoUrl(company: string | null | undefined): string | null {
+  if (!company) return null
+  const domain = company
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+(inc|ltd|llc|corp|co|group|labs|technologies|tech|protocol|network|networks|foundation|dao|finance|capital|ventures|studio|studios|digital|solutions|services|platform|platforms|systems)$/i, '')
+    .trim()
+    .replace(/\s+/g, '')
+  if (!domain || domain.length < 2) return null
+  return `https://logo.clearbit.com/${domain}.com`
 }
 
 function normalizeExternalUrl(value: string | null | undefined): string | null {
@@ -907,6 +1072,7 @@ export async function action({ request }: ActionFunctionArgs) {
         primaryCategory: job.primaryCategory,
         categoryTags: job.categoryTags,
         company: job.company,
+        companyLogoUrl: guessCompanyLogoUrl(job.company),
         location: job.location,
         remotePolicy: job.remotePolicy,
         employmentType: job.employmentType,

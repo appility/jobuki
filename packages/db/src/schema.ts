@@ -125,6 +125,7 @@ export const jobs = pgTable('jobs', {
   primaryCategory:     text('primary_category'),
   categoryTags:        text('category_tags').array(),
   company:             text('company'),
+  companyLogoUrl:      text('company_logo_url'),
   location:            text('location'),
   remotePolicy:        remotePolicyEnum('remote_policy').notNull().default('onsite'),
   employmentType:      employmentTypeEnum('employment_type').notNull().default('full-time'),

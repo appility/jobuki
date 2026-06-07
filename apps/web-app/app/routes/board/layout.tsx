@@ -4,6 +4,7 @@ import { getDb, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { themeToCSS, resolveTheme } from '../../lib/theme'
 import { resolveJobBoardThemeConfig } from '@jobuki/types'
+import { getGoogleFontsImport } from '../../lib/fonts'
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const boardSlug     = request.headers.get('x-board-slug')
@@ -41,11 +42,14 @@ export default function BoardLayout() {
   })
   const theme = resolveTheme(board.theme ?? {})
   const css = themeToCSS(theme, ':root', boardConfig.cssVariables)
+  const fontImport = getGoogleFontsImport(theme.fontDisplay, theme.fontBody)
   const logoUrl = (boardConfig.logoUrl ?? '').trim()
   const hasLogo = logoUrl.length > 0
 
   return (
     <>
+      {/* Per-board font injection — applies to all pages on this board */}
+      <style dangerouslySetInnerHTML={{ __html: fontImport }} />
       {/* Per-board CSS variable injection — this is the entire theming system */}
       <style dangerouslySetInnerHTML={{ __html: css }} />
 
@@ -68,7 +72,7 @@ export default function BoardLayout() {
                 height={36}
                 loading="eager"
                 decoding="async"
-                className="h-9 w-auto max-w-[156px] object-contain shrink-0"
+                style={{ height: 36, width: 'auto', display: 'block', objectFit: 'contain' }}
               />
             ) : (
               <>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLoaderData, useActionData, Form, useNavigation } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
 import { getDb, boards } from '@jobuki/db'
@@ -9,6 +9,7 @@ import { suggestAccents, readableFg, isValidHex } from '../../lib/color'
 import { addCustomDomain, isValidDomain, removeCustomDomain } from '../../lib/railway'
 import { ALLOWED_IMAGE_MIME_TYPES, createBoardAssetUploadUrl, MAX_UPLOAD_BYTES } from '../../lib/r2.server'
 import { parseBoardCategories, titleCaseCategory } from '../../lib/board-categories'
+import { HeroHeadlineEditor } from '../../components/rich-text/HeroHeadlineEditor'
 import {
   resolveJobBoardThemeConfig,
   type BoardTheme,
@@ -138,6 +139,7 @@ export async function action(args: ActionFunctionArgs) {
         boardName: (form.get('boardConfigBoardName') as string)?.trim(),
         categories: parseBoardCategories(form.get('boardConfigCategories') as string),
         tagline: (form.get('boardConfigTagline') as string)?.trim(),
+        heroHeadline: (form.get('boardConfigHeroHeadline') as string)?.trim() || undefined,
         logoUrl: (form.get('boardConfigLogoUrl') as string)?.trim(),
         headerImageUrl: (form.get('boardConfigHeaderImageUrl') as string)?.trim(),
         brandColor: (form.get('boardConfigBrandColor') as string)?.trim(),
@@ -261,6 +263,7 @@ export async function action(args: ActionFunctionArgs) {
 // ── Component ─────────────────────────────────────────────────────────
 const DISPLAY_FONT_OPTIONS = [
   { label: 'Plus Jakarta Sans', value: "'Plus Jakarta Sans', sans-serif" },
+  { label: 'Unbounded',         value: "'Unbounded', sans-serif" },
   { label: 'Sora',              value: "'Sora', sans-serif" },
   { label: 'Space Grotesk',     value: "'Space Grotesk', sans-serif" },
   { label: 'Manrope',           value: "'Manrope', sans-serif" },
@@ -296,9 +299,9 @@ const FONT_PAIR_PRESETS = [
     body: "'Inter', sans-serif",
   },
   {
-    label: 'Inter + Inter',
-    display: "'Inter', sans-serif",
-    body: "'Inter', sans-serif",
+    label: 'Unbounded + DM Sans',
+    display: "'Unbounded', sans-serif",
+    body: "'DM Sans', sans-serif",
   },
 ]
 
@@ -351,7 +354,9 @@ export default function AppearancePage() {
   const [configCssVarPillDisabledOpacity, setConfigCssVarPillDisabledOpacity] = useState(boardConfig.cssVariables?.pillDisabledOpacity ?? '')
   const [uploadingKind, setUploadingKind] = useState<'logo' | 'header' | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'brand' | 'theme' | 'board' | 'content'>('brand')
+  const [activeTab, setActiveTab] = useState<'brand' | 'theme' | 'hero' | 'content'>('brand')
+  const [configHeroHeadline, setConfigHeroHeadline] = useState(boardConfig.heroHeadline ?? '')
+  const heroHeadlineRef = useRef(boardConfig.heroHeadline ?? '')
   const [toasts, setToasts] = useState<Array<{ id: number; type: 'success' | 'error'; message: string }>>([])
   const [logoDimensions, setLogoDimensions] = useState<{ width: number; height: number } | null>(null)
 
@@ -501,7 +506,7 @@ export default function AppearancePage() {
             {([
               { key: 'brand', label: 'Brand' },
               { key: 'theme', label: 'Theme' },
-              { key: 'board', label: 'Board' },
+              { key: 'hero', label: 'Hero' },
               { key: 'content', label: 'Content' },
             ] as const).map(tab => (
               <button
@@ -531,6 +536,7 @@ export default function AppearancePage() {
             <input type="hidden" name="boardConfigBoardName" value={configBoardName} />
             <input type="hidden" name="boardConfigCategories" value={configCategoriesText} />
             <input type="hidden" name="boardConfigTagline" value={configTagline} />
+            <input type="hidden" name="boardConfigHeroHeadline" value={configHeroHeadline} />
             <input type="hidden" name="boardConfigLogoUrl" value={configLogoUrl} />
             <input type="hidden" name="boardConfigHeaderImageUrl" value={configHeaderImageUrl} />
             <input type="hidden" name="boardConfigBrandColor" value={configBrandColor} />
@@ -1010,7 +1016,7 @@ export default function AppearancePage() {
             )}
 
             {/* Hero image */}
-            {activeTab === 'brand' && (
+            {activeTab === 'hero' && (
             <Section label="HERO BACKGROUND IMAGE">
               <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
                 Header background image used on the public board.
@@ -1085,8 +1091,9 @@ export default function AppearancePage() {
             </Section>
             )}
 
-            {activeTab === 'board' && (
-            <Section label="BOARD CONFIG NAME & TAGLINE">
+            {/* Board name + tagline moved to Brand tab */}
+            {activeTab === 'brand' && (
+            <Section label="BOARD NAME & TAGLINE">
               <input
                 value={configBoardName}
                 onChange={e => setConfigBoardName(e.target.value)}
@@ -1104,50 +1111,23 @@ export default function AppearancePage() {
             </Section>
             )}
 
-            {activeTab === 'board' && (
-            <Section label="CONFIG BRAND COLOURS">
-              <div className="grid grid-cols-1 gap-2">
-                <input
-                  value={configBrandColor}
-                  onChange={e => setConfigBrandColor(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
-                  placeholder="#3730A3"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-                />
-                <input
-                  value={configAccentColor}
-                  onChange={e => setConfigAccentColor(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
-                  placeholder="#F97316"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-                />
-                <input
-                  value={configBackgroundColor}
-                  onChange={e => setConfigBackgroundColor(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
-                  placeholder="#FAFAF8"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-                />
-              </div>
-            </Section>
-            )}
-
-            {activeTab === 'board' && (
-            <Section label="CONFIG HEADER & PRESET">
+            {/* Header & preset moved to Theme tab */}
+            {activeTab === 'theme' && (
+            <Section label="LAYOUT & PRESET">
               <select
                 value={configHeaderStyle}
                 onChange={e => setConfigHeaderStyle(e.target.value as JobBoardHeaderStyle)}
                 className="w-full px-2.5 py-2 rounded-lg text-xs border mb-2"
                 style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
               >
-                <option value="solid">Solid</option>
-                <option value="gradient">Gradient</option>
-                <option value="image">Image</option>
+                <option value="solid">Solid header</option>
+                <option value="gradient">Gradient header</option>
+                <option value="image">Image header</option>
               </select>
               <select
                 value={configThemePreset}
                 onChange={e => setConfigThemePreset(e.target.value as JobBoardThemePreset)}
-                className="w-full px-2.5 py-2 rounded-lg text-xs border"
+                className="w-full px-2.5 py-2 rounded-lg text-xs border mb-2"
                 style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
               >
                 <option value="minimal">Minimal</option>
@@ -1156,25 +1136,7 @@ export default function AppearancePage() {
                 <option value="bold">Bold</option>
                 <option value="dark">Dark</option>
               </select>
-            </Section>
-            )}
-
-            {activeTab === 'board' && (
-            <Section label="CONFIG TOGGLES">
-              <label className="block text-[11px] font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
-                Jobs layout
-              </label>
-              <select
-                value={configJobsLayout}
-                onChange={e => setConfigJobsLayout(e.target.value as JobBoardJobsLayout)}
-                className="w-full px-2.5 py-2 rounded-lg text-xs border mb-3"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-              >
-                <option value="list">List</option>
-                <option value="boxes">Boxes</option>
-                <option value="bento">Bento</option>
-              </select>
-
+              <LayoutPicker value={configJobsLayout} onChange={setConfigJobsLayout} />
               <label className="flex items-center gap-2 text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
                 <input type="checkbox" checked={configShowSearch} onChange={e => setConfigShowSearch(e.target.checked)} />
                 Show search
@@ -1183,21 +1145,43 @@ export default function AppearancePage() {
                 <input type="checkbox" checked={configShowFilters} onChange={e => setConfigShowFilters(e.target.checked)} />
                 Show filters
               </label>
+            </Section>
+            )}
 
-              <label className="block text-[11px] font-semibold mt-4 mb-1" style={{ color: 'var(--color-text-muted)' }}>
-                Board categories
-              </label>
+            {activeTab === 'hero' && (
+            <Section label="JOBS LAYOUT">
+              <LayoutPicker value={configJobsLayout} onChange={setConfigJobsLayout} />
+            </Section>
+            )}
+
+            {/* Hero tab */}
+            {activeTab === 'hero' && (
+            <Section label="HERO HEADLINE">
+              <p className="text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>
+                The big headline on your public board home page. Select text and pick a colour to highlight words.
+              </p>
+              <HeroHeadlineEditor
+                value={configHeroHeadline}
+                onChange={html => { setConfigHeroHeadline(html); heroHeadlineRef.current = html }}
+                primaryColor={t.colorPrimary}
+                accentColor={t.colorAccent}
+              />
+            </Section>
+            )}
+
+            {activeTab === 'hero' && (
+            <Section label="CATEGORY TAGS">
+              <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                One per line. These appear as clickable tags on your home page and drive job filters.
+              </p>
               <textarea
                 value={configCategoriesText}
                 onChange={e => setConfigCategoriesText(e.target.value)}
-                rows={5}
+                rows={6}
                 className="w-full px-3 py-2 rounded-xl text-xs border leading-relaxed resize-y"
-                placeholder={'Engineering\nProduct\nDesign'}
+                placeholder={'Engineering\nProduct\nDesign\nCrypto\nWeb3\nBlockchain'}
                 style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)', boxSizing: 'border-box' }}
               />
-              <p className="text-[11px] mt-2" style={{ color: 'var(--color-text-muted)' }}>
-                One category per line. These drive the public filters, sitemap, and job category picker.
-              </p>
             </Section>
             )}
 
@@ -1462,6 +1446,71 @@ export default function AppearancePage() {
 }
 
 // ── Small helper ──────────────────────────────────────────────────────
+const LAYOUT_OPTIONS: { value: JobBoardJobsLayout; label: string; icon: React.ReactNode }[] = [
+  {
+    value: 'list',
+    label: 'List',
+    icon: (
+      <svg width="28" height="22" viewBox="0 0 28 22" fill="none">
+        <rect x="0" y="0" width="28" height="5" rx="1.5" fill="currentColor" opacity=".9"/>
+        <rect x="0" y="8.5" width="28" height="5" rx="1.5" fill="currentColor" opacity=".6"/>
+        <rect x="0" y="17" width="28" height="5" rx="1.5" fill="currentColor" opacity=".35"/>
+      </svg>
+    ),
+  },
+  {
+    value: 'boxes',
+    label: 'Grid',
+    icon: (
+      <svg width="28" height="22" viewBox="0 0 28 22" fill="none">
+        <rect x="0" y="0" width="12" height="10" rx="1.5" fill="currentColor" opacity=".9"/>
+        <rect x="16" y="0" width="12" height="10" rx="1.5" fill="currentColor" opacity=".6"/>
+        <rect x="0" y="12" width="12" height="10" rx="1.5" fill="currentColor" opacity=".6"/>
+        <rect x="16" y="12" width="12" height="10" rx="1.5" fill="currentColor" opacity=".35"/>
+      </svg>
+    ),
+  },
+  {
+    value: 'bento',
+    label: 'Bento',
+    icon: (
+      <svg width="28" height="22" viewBox="0 0 28 22" fill="none">
+        <rect x="0" y="0" width="17" height="13" rx="1.5" fill="currentColor" opacity=".9"/>
+        <rect x="19" y="0" width="9" height="6" rx="1.5" fill="currentColor" opacity=".6"/>
+        <rect x="19" y="7" width="9" height="6" rx="1.5" fill="currentColor" opacity=".35"/>
+        <rect x="0" y="15" width="8" height="7" rx="1.5" fill="currentColor" opacity=".5"/>
+        <rect x="10" y="15" width="18" height="7" rx="1.5" fill="currentColor" opacity=".35"/>
+      </svg>
+    ),
+  },
+]
+
+function LayoutPicker({ value, onChange }: { value: JobBoardJobsLayout; onChange: (v: JobBoardJobsLayout) => void }) {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {LAYOUT_OPTIONS.map(opt => {
+        const active = value === opt.value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className="flex flex-col items-center gap-1.5 py-3 rounded-xl border transition-all"
+            style={{
+              backgroundColor: active ? 'color-mix(in srgb, var(--color-primary) 10%, var(--color-surface))' : 'var(--color-surface-subtle)',
+              borderColor: active ? 'var(--color-primary)' : 'var(--color-border)',
+              color: active ? 'var(--color-primary)' : 'var(--color-text-muted)',
+            }}
+          >
+            {opt.icon}
+            <span className="text-[10px] font-bold">{opt.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="mb-5">

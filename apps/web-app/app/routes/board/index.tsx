@@ -145,12 +145,6 @@ export default function BoardJobsPage() {
           >
             {board.name} Jobs
           </h1>
-          <p className="mt-2 text-[13px] text-text-secondary">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="inline-block w-[7px] h-[7px] rounded-full bg-primary" />
-              {pageStart}-{pageEnd} of {totalFilteredJobs} matching roles ({totalJobs} published total)
-            </span>
-          </p>
 
           <Form method="get" className="mt-5 flex flex-col md:flex-row gap-2.5">
             <div
@@ -234,10 +228,16 @@ export default function BoardJobsPage() {
                   >
                     <div className="flex items-center justify-between gap-4">
                       <div className="min-w-0 flex items-center gap-4 flex-1">
-                        <div
-                          className="w-[42px] h-[42px] rounded-[10px] border border-border bg-background text-text-secondary font-display flex items-center justify-center text-xs font-extrabold shrink-0"
-                        >
-                          {companyInitials(job.company)}
+                        <div className="w-[42px] h-[42px] rounded-[10px] border border-border bg-background shrink-0 overflow-hidden flex items-center justify-center">
+                          {job.companyLogoUrl ? (
+                            <img
+                              src={job.companyLogoUrl}
+                              alt={job.company ?? ''}
+                              className="w-full h-full object-contain p-1"
+                              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextSibling as HTMLElement).style.display = 'flex' }}
+                            />
+                          ) : null}
+                          <span className="text-xs font-extrabold font-display text-text-secondary" style={{ display: job.companyLogoUrl ? 'none' : 'flex' }}>{companyInitials(job.company)}</span>
                         </div>
 
                         <div className="min-w-0">
@@ -250,24 +250,14 @@ export default function BoardJobsPage() {
                             {job.company ? <span className="text-text-primary font-semibold">{job.company}</span> : null}
                             <span className="inline-block w-[3px] h-[3px] rounded-full bg-border" />
                             <span>{job.location || 'Location flexible'}</span>
-                            {category ? (
-                              <span className="text-[10px] font-bold uppercase tracking-[0.04em] px-2 py-0.5 rounded-md" style={{ backgroundColor: cat.bg, color: cat.fg }}>
-                                {titleCaseCategory(category)}
-                              </span>
-                            ) : null}
                           </div>
                         </div>
                       </div>
 
                       <div className="shrink-0 flex flex-col items-end gap-1.5">
-                        <span className="text-sm font-semibold whitespace-nowrap text-text-primary">
-                          {salaryLabel(job)}
+                        <span className="text-[10px] font-bold uppercase tracking-[0.04em] px-2 py-0.5 rounded-md" style={{ backgroundColor: remote.bg, color: remote.fg }}>
+                          {remote.label}
                         </span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-bold uppercase tracking-[0.04em] px-2 py-0.5 rounded-md" style={{ backgroundColor: remote.bg, color: remote.fg }}>
-                            {remote.label}
-                          </span>
-                        </div>
                       </div>
                     </div>
                   </Link>

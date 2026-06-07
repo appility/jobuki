@@ -6,6 +6,7 @@ import { getDb, jobs, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { resolveJobBoardThemeConfig } from '@jobuki/types'
 import { normalizeCategory, resolveBoardCategories, titleCaseCategory } from '../../../lib/board-categories'
+import { validateJobTitle } from '../../../lib/content-moderation.server'
 import { RichTextEditor } from '../../../components/rich-text/RichTextEditor'
 import {
   isTiptapDoc,
@@ -69,6 +70,8 @@ export async function action(args: ActionFunctionArgs) {
   const plainDescriptionFallback = (form.get('description') as string | null)?.trim() ?? ''
   const description = plainDescriptionFromJson || plainDescriptionFallback
   if (!title) return { error: 'Title is required.' }
+  const titleError = validateJobTitle(title)
+  if (titleError) return { error: titleError }
   if (!description) return { error: 'Description is required.' }
   const primaryCategory = normalizeCategory(form.get('primaryCategory') as string)
   if (primaryCategory && boardCategories.length > 0 && !boardCategories.includes(primaryCategory)) {

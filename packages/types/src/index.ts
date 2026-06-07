@@ -32,6 +32,7 @@ export interface JobBoardThemeConfig {
   categories?: string[]
   cssVariables?: JobBoardCssVariables
   tagline?: string
+  heroHeadline?: string
   logoUrl?: string
   headerImageUrl?: string
   brandColor: string
@@ -142,6 +143,7 @@ export interface Job {
   externalListingUrl: string | null
   externalSource: string | null
   company: string | null
+  companyLogoUrl: string | null
   location: string | null
   remotePolicy: RemotePolicy
   employmentType: EmploymentType

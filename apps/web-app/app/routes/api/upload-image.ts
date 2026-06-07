@@ -2,6 +2,7 @@ import type { ActionFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess, requireBoardInWorkspace } from '../../lib/auth.server'
 import { ALLOWED_IMAGE_MIME_TYPES, MAX_UPLOAD_BYTES, uploadBoardAsset } from '../../lib/r2.server'
 import sharp from 'sharp'
+import { checkImageModeration } from '../../lib/image-moderation.server'
 
 const WEBP_QUALITY = 82
 
@@ -87,6 +88,12 @@ export async function action(args: ActionFunctionArgs) {
     }
 
     const buffer = new Uint8Array(await file.arrayBuffer())
+
+    const moderationError = await checkImageModeration(buffer, contentType)
+    if (moderationError) {
+      return Response.json({ ok: false, error: moderationError }, { status: 400 })
+    }
+
     const optimized = await optimizeUploadImage({
       kind,
       contentType,

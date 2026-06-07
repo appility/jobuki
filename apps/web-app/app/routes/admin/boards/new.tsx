@@ -6,6 +6,7 @@ import { getDb, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { DEFAULT_THEME, DEFAULT_JOB_BOARD_THEME_CONFIG, type BoardOwnerType } from '@jobuki/types'
 import { canCreateBoard, canMonetize, getBoardCreationLimit } from '../../../lib/creator-tier'
+import { validateBoardName, validateBoardSlug } from '../../../lib/content-moderation.server'
 
 // ── Shared slug/name helpers (used client + server) ───────────────────
 
@@ -68,11 +69,17 @@ export async function action(args: ActionFunctionArgs) {
   if (!name) return { error: 'Board name is required.' }
   if (name.length > 80) return { error: 'Board name must be 80 characters or fewer.' }
 
+  const nameError = validateBoardName(name)
+  if (nameError) return { error: nameError }
+
   const slug = rawSlug ? toSlug(rawSlug) : toSlug(name)
 
   if (!isValidSlug(slug)) {
     return { error: 'Slug must be 3–60 characters, lowercase letters and numbers only, hyphens allowed between words (e.g. acme-jobs).' }
   }
+
+  const slugError = validateBoardSlug(slug)
+  if (slugError) return { error: slugError }
 
   if (!['recruiter', 'company', 'community'].includes(ownerType)) {
     return { error: 'Invalid board type selected.' }
