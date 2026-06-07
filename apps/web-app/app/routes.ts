@@ -49,6 +49,7 @@ export default [
   layout('routes/board/layout.tsx', [
     route('jobs',        'routes/board/index.tsx'),
     route('jobs/category/:category', 'routes/board/category.tsx'),
+    route('jobs/:jobId', 'routes/board/job-legacy.tsx'),
     route('jobs/:jobId/:jobTitle',  'routes/board/job.tsx'),
     route('apply/:jobId', 'routes/board/apply.tsx'),
   ]),
