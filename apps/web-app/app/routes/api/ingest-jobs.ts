@@ -645,7 +645,13 @@ async function fetchReedJson({ limit }: FetchSourceOptions): Promise<IncomingJob
   const key = process.env.REED_API_KEY
   if (!key) return []
   const credentials = Buffer.from(`${key}:`).toString('base64')
-  const terms = ['software engineer', 'developer', 'devops', 'data engineer', 'product manager', 'designer']
+  const terms = [
+    'software engineer', 'software developer', 'backend developer', 'frontend developer',
+    'full stack developer', 'devops engineer', 'data engineer', 'data scientist',
+    'product manager', 'ux designer', 'ui designer', 'mobile developer',
+    'cloud engineer', 'machine learning', 'blockchain developer', 'web3',
+    'platform engineer', 'site reliability', 'security engineer',
+  ]
   const all: IncomingJob[] = []
   for (const term of terms) {
     try {
@@ -676,7 +682,12 @@ async function fetchAdzunaJson({ limit }: FetchSourceOptions): Promise<IncomingJ
   const appId = process.env.ADZUNA_APPLICATION_ID
   const appKey = process.env.ADZUNA_API_KEY
   if (!appId || !appKey) return []
-  const terms = ['software+engineer', 'developer', 'devops', 'data+engineer', 'product+manager']
+  const terms = [
+    'software+engineer', 'software+developer', 'backend+developer', 'frontend+developer',
+    'full+stack', 'devops+engineer', 'data+engineer', 'data+scientist',
+    'product+manager', 'ux+designer', 'mobile+developer', 'cloud+engineer',
+    'machine+learning', 'blockchain', 'web3', 'platform+engineer', 'security+engineer',
+  ]
   const all: IncomingJob[] = []
   for (const term of terms) {
     try {
@@ -704,7 +715,7 @@ async function fetchAdzunaJson({ limit }: FetchSourceOptions): Promise<IncomingJ
 }
 
 async function fetchRemotiveJson({ limit }: FetchSourceOptions): Promise<IncomingJob[]> {
-  const categories = ['software-dev', 'devops-sysadmin', 'product', 'design', 'data', 'qa', 'backend', 'frontend']
+  const categories = ['software-dev', 'devops-sysadmin', 'product', 'design', 'data', 'qa', 'backend', 'frontend', 'mobile', 'security', 'finance', 'marketing']
   const all: IncomingJob[] = []
   for (const cat of categories) {
     try {
@@ -919,7 +930,7 @@ export async function action({ request }: ActionFunctionArgs) {
   let sourceUsed = source
   let sourceBreakdown: Partial<Record<FeedSource, number>> | null = null
   let sourceHealth: Partial<Record<FeedSource, SourceHealthEntry>> | null = null
-  const limit = Math.max(1, Math.min(500, Number(body.limit ?? 100) || 100))
+  const limit = Math.max(1, Math.min(2000, Number(body.limit ?? 500) || 500))
   const lookbackDays = Number(body.lookbackDays)
   const requestSearchTerms = parseSearchTerms(body.searchTerm)
   const requestTags = uniqueTags([...(body.tags ?? []), ...requestSearchTerms])
