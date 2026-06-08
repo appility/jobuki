@@ -99,6 +99,11 @@ const V6_STYLES_BASE = `
 }
 
 .v6-hero {
+  width: 100%;
+}
+.v6-hero-inner {
+  max-width: 1280px;
+  margin: 0 auto;
   padding: 60px 40px 48px;
   display: grid;
   grid-template-columns: 1fr 420px;
@@ -439,8 +444,8 @@ const V6_STYLES_BASE = `
 .v6-f-copy { font-size: 11px; font-weight: 600; color: var(--rule); }
 
 @media (max-width: 960px) {
-  .v6-nav-inner, .v6-hero, .v6-filters, .v6-bento, .v6-load, .v6-footer { padding-left: 20px; padding-right: 20px; }
-  .v6-hero { grid-template-columns: 1fr; }
+  .v6-nav-inner, .v6-hero-inner, .v6-filters, .v6-bento, .v6-load, .v6-footer { padding-left: 20px; padding-right: 20px; }
+  .v6-hero-inner { grid-template-columns: 1fr; }
   .v6-panel { display: none; }
   .v6-grid { grid-template-columns: repeat(6, 1fr); }
   .v6-boxes { grid-template-columns: repeat(1, 1fr); }
@@ -593,9 +598,7 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
       </div>
       </nav>
 
-      <div className="v6-shell">
-        
-        <section
+      <section
           className="v6-hero"
           style={boardConfig.headerImageUrl ? {
             backgroundImage: `url(${boardConfig.headerImageUrl})`,
@@ -604,6 +607,7 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
             position: 'relative',
           } : undefined}
         >
+          <div className="v6-hero-inner">
           {boardConfig.headerImageUrl && (
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom right, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.3) 100%)', pointerEvents: 'none' }} />
           )}
@@ -684,8 +688,11 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
               <div className="v6-stat"><div className="v6-stat-n">{Math.min(48, totalOpen)}</div><div className="v6-stat-l">New today</div></div>
             </div>
           </aside>
-        </section>
+          </div>
+          </div>
+      </section>
 
+      <div className="v6-shell">
         <div className="v6-filters">
           <Link className={`v6-chip ${!filters.category ? 'v6-chip-on' : ''}`} to="?">All roles</Link>
           {filterOptions.categories.slice(0, 6).map((option) => {
