@@ -689,7 +689,6 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
             </div>
           </aside>
           </div>
-          </div>
       </section>
 
       <div className="v6-shell">
