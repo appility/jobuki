@@ -79,17 +79,19 @@ const V6_STYLES_BASE = `
 }
 .v6-nl:hover { background: var(--bg); color: var(--ink); }
 .v6-ncta {
-  margin-left: 8px;
+  margin-left: 6px;
   border: none;
-  border-radius: 10px;
-  padding: 9px 20px;
+  border-radius: 8px;
+  padding: 7px 14px;
   background: var(--color-primary);
   color: var(--color-primary-fg);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   transition: filter 0.15s, transform 0.15s;
   text-decoration: none;
+  white-space: nowrap;
 }
+.v6-ncta-short { display: none; }
 .v6-ncta:visited { color: var(--color-primary-fg); text-decoration: none; }
 .v6-ncta:hover, .v6-ncta:focus-visible {
   filter: brightness(1.12);
@@ -252,7 +254,7 @@ const V6_STYLES_BASE = `
 }
 .v6-mj-b { flex: 1; min-width: 0; }
 .v6-mj-t { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.v6-mj-m { font-size: 11px; font-weight: 500; color: var(--mid); }
+.v6-mj-m { font-size: 11px; font-weight: 500; color: var(--mid); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
 .v6-mj-r { text-align: right; }
 .v6-mj-s { font-size: 13px; font-weight: 600; }
 .v6-badge {
@@ -353,8 +355,10 @@ const V6_STYLES_BASE = `
 }
 .v6-cj-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--vio); }
 .v6-cj-t { font-family: var(--font-display), sans-serif; font-size: 16px; font-weight: 700; line-height: 1.2; margin-bottom: 8px; }
-.v6-cj-m { font-size: 12px; color: var(--mid); margin-bottom: 14px; display: flex; gap: 6px; flex-wrap: wrap; }
+.v6-cj-m { font-size: 12px; color: var(--mid); margin-bottom: 14px; display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 .v6-cj-m strong { color: var(--ink); font-weight: 600; }
+.v6-loc { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; }
+.v6-loc svg { flex-shrink: 0; opacity: 0.6; }
 .v6-cj-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
 .v6-cj-tag {
   font-size: 11px;
@@ -450,6 +454,10 @@ const V6_STYLES_BASE = `
   .v6-grid { grid-template-columns: repeat(6, 1fr); }
   .v6-boxes { grid-template-columns: repeat(1, 1fr); }
   .v6-s3, .v6-s4, .v6-s5, .v6-s7, .v6-s8, .v6-s12 { grid-column: span 6; }
+  .v6-nl { display: none; }
+  .v6-ncta-full { display: none; }
+  .v6-ncta-short { display: inline; }
+  .v6-ncta { padding: 7px 12px; font-size: 11px; }
 }
 `
 
@@ -482,9 +490,15 @@ function toCategoryLabel(value: string) {
     .join(' ')
 }
 
+function shortLocation(location: string | null): string {
+  const loc = location?.trim() || 'Flexible'
+  // Take just the first city/word before comma, slash, or "Worldwide"
+  return loc.split(/[/,]/)[0].trim().replace(/^worldwide$/i, 'Remote').slice(0, 20)
+}
+
 function shortMeta(company: string | null, location: string | null) {
   const left = company?.trim() || 'Direct'
-  const right = location?.trim() || 'Flexible'
+  const right = shortLocation(location)
   return `${left} · ${right}`
 }
 
@@ -581,19 +595,15 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
               style={{ height: 36, width: 'auto', display: 'block', objectFit: 'contain' }}
             />
           ) : (
-            <>
-              <svg className="v6-logo-icon" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-                <circle cx="14" cy="14" r="3" fill="var(--vio)" />
-                <circle cx="14" cy="14" r="7" stroke="var(--vio)" strokeWidth="2" fill="none" strokeDasharray="3 2" />
-                <circle cx="14" cy="14" r="12" stroke="var(--rule)" strokeWidth="1.5" fill="none" />
-              </svg>
-              {boardConfig.boardName}
-            </>
+            <span>{boardConfig.boardName}</span>
           )}
         </div>
         <div className="v6-nav-r">
           <Link className="v6-nl" to="/jobs">Browse</Link>
-          <a className="v6-ncta" href={boardConfig.emptyState.ctaUrl || '#'} target="_blank" rel="noreferrer">Post a role ↗</a>
+          <a className="v6-ncta" href={boardConfig.emptyState.ctaUrl || '#'} target="_blank" rel="noreferrer">
+            <span className="v6-ncta-full">Post a role ↗</span>
+            <span className="v6-ncta-short">Post ↗</span>
+          </a>
         </div>
       </div>
       </nav>
@@ -730,7 +740,7 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
                     <div className="v6-list-meta">
                       <strong>{job.company || boardConfig.boardName}</strong>
                       <span>·</span>
-                      <span>{job.location || 'Flexible'}</span>
+                      <span className="v6-loc"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>{shortLocation(job.location)}</span>
                       <span>·</span>
                       <span>{TYPE_LABEL[job.employmentType] ?? job.employmentType}</span>
                     </div>
@@ -757,7 +767,7 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
                 >
                   <div className="v6-cj-cat"><span className="v6-cj-dot" />{TYPE_LABEL[job.employmentType] ?? job.employmentType}</div>
                   <div className="v6-cj-t">{job.title}</div>
-                  <div className="v6-cj-m"><strong>{job.company || boardConfig.boardName}</strong><span>·</span>{job.location || 'Flexible'}</div>
+                  <div className="v6-cj-m"><strong>{job.company || boardConfig.boardName}</strong><span>·</span><span className="v6-loc"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>{shortLocation(job.location)}</span></div>
                   <div className="v6-cj-tags">
                     <span className="v6-cj-tag">{job.remotePolicy}</span>
                     {job.salaryMin || job.salaryMax ? <span className="v6-cj-tag">{formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency)}</span> : null}
@@ -814,7 +824,7 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
                 <Link key={job.id} className="v6-card v6-cj v6-s4" to={publicJobPath(job)}>
                   <div className="v6-cj-cat"><span className="v6-cj-dot" />{TYPE_LABEL[job.employmentType] ?? job.employmentType}</div>
                   <div className="v6-cj-t">{job.title}</div>
-                  <div className="v6-cj-m"><strong>{job.company || boardConfig.boardName}</strong><span>·</span>{job.location || 'Flexible'}</div>
+                  <div className="v6-cj-m"><strong>{job.company || boardConfig.boardName}</strong><span>·</span><span className="v6-loc"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>{shortLocation(job.location)}</span></div>
                   <div className="v6-cj-tags">
                     <span className="v6-cj-tag">{job.remotePolicy}</span>
                     {job.salaryMin || job.salaryMax ? <span className="v6-cj-tag">{formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency)}</span> : null}
@@ -857,7 +867,7 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
                 <Link key={`tail-${job.id}`} className="v6-card v6-cj v6-s4" to={publicJobPath(job)}>
                   <div className="v6-cj-cat"><span className="v6-cj-dot" />{TYPE_LABEL[job.employmentType] ?? job.employmentType}</div>
                   <div className="v6-cj-t">{job.title}</div>
-                  <div className="v6-cj-m"><strong>{job.company || boardConfig.boardName}</strong><span>·</span>{job.location || 'Flexible'}</div>
+                  <div className="v6-cj-m"><strong>{job.company || boardConfig.boardName}</strong><span>·</span><span className="v6-loc"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>{shortLocation(job.location)}</span></div>
                   <div className="v6-cj-tags">
                     <span className="v6-cj-tag">{job.remotePolicy}</span>
                     {job.salaryMin || job.salaryMax ? <span className="v6-cj-tag">{formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency)}</span> : null}

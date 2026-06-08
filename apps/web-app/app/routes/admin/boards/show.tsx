@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLoaderData, useActionData, Link, Form, useNavigation, useSearchParams, redirect } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess, requireBoardInWorkspace, userHasWorkspaceFeature } from '../../../lib/auth.server'
@@ -335,14 +335,7 @@ export default function BoardShow() {
             </div>
 
             {board.status === 'live' ? (
-              <iframe
-                title={`${board.name} preview`}
-                src={`${publicUrl}?preview=1`}
-                loading="lazy"
-                className="w-full rounded-xl pointer-events-none"
-                style={{ minHeight: 580, border: '1px solid var(--color-border)' }}
-                tabIndex={-1}
-              />
+              <ScaledIframePreview src={`${publicUrl}?preview=1`} title={`${board.name} preview`} />
             ) : (
               <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                 Publish the board to enable live iframe preview.
@@ -654,6 +647,54 @@ export default function BoardShow() {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+const MOBILE_WIDTH = 360
+const IFRAME_HEIGHT = 720
+
+function ScaledIframePreview({ src, title }: { src: string; title: string }) {
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+
+  useEffect(() => {
+    const el = wrapperRef.current
+    if (!el) return
+    const update = () => setScale(el.offsetWidth / MOBILE_WIDTH)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  return (
+    <div
+      ref={wrapperRef}
+      className="w-full rounded-xl overflow-hidden"
+      style={{
+        height: IFRAME_HEIGHT * scale,
+        border: '1px solid var(--color-border)',
+        position: 'relative',
+      }}
+    >
+      <iframe
+        title={title}
+        src={src}
+        loading="lazy"
+        tabIndex={-1}
+        style={{
+          width: MOBILE_WIDTH,
+          height: IFRAME_HEIGHT,
+          border: 'none',
+          transformOrigin: 'top left',
+          transform: `scale(${scale})`,
+          pointerEvents: 'none',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+        }}
+      />
     </div>
   )
 }

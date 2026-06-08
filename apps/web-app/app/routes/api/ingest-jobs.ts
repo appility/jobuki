@@ -5,6 +5,7 @@ import { and, inArray } from 'drizzle-orm'
 type FeedSource =
   | 'reed_json'
   | 'adzuna_json'
+  | 'govuk_atom'
   | 'cryptojobslist_api_rss'
   | 'cryptojobslist_remote_rss'
   | 'hireweb3_rss'
@@ -47,6 +48,7 @@ const FEED_SOURCES: FeedSource[] = [
   'himalayas_json',
   'weworkremotely_rss',
   'workingnomads_rss',
+  'govuk_atom',
 ]
 
 type IncomingJob = {
@@ -652,28 +654,42 @@ async function fetchReedJson({ limit }: FetchSourceOptions): Promise<IncomingJob
     'cloud engineer', 'machine learning', 'blockchain developer', 'web3',
     'platform engineer', 'site reliability', 'security engineer',
   ]
+  const perTerm = Math.ceil(limit / terms.length)
+  const pageSize = 100 // Reed max per request
   const all: IncomingJob[] = []
+
   for (const term of terms) {
-    try {
-      const url = `https://www.reed.co.uk/api/1.0/search?keywords=${encodeURIComponent(term)}&resultsToTake=${Math.ceil(limit / terms.length)}`
-      const text = await fetchText(url, { Authorization: `Basic ${credentials}` })
-      const data = JSON.parse(text)
-      for (const j of data.results ?? []) {
-        all.push({
-          title: j.jobTitle,
-          company: j.employerName,
-          location: j.locationName || 'United Kingdom',
-          remotePolicy: (j.locationName ?? '').toLowerCase().includes('remote') ? 'remote' : 'onsite',
-          employmentType: 'full-time',
-          salaryMin: j.minimumSalary ?? null,
-          salaryMax: j.maximumSalary ?? null,
-          salaryCurrency: 'GBP',
-          description: j.jobDescription ?? j.description ?? '',
-          applyLink: j.jobUrl,
-          externalSource: 'reed.co.uk',
-        })
-      }
-    } catch { /* skip failed term */ }
+    let skip = 0
+    let fetched = 0
+    while (fetched < perTerm) {
+      try {
+        const take = Math.min(pageSize, perTerm - fetched)
+        const url = `https://www.reed.co.uk/api/1.0/search?keywords=${encodeURIComponent(term)}&resultsToTake=${take}&resultsToSkip=${skip}`
+        const text = await fetchText(url, { Authorization: `Basic ${credentials}` })
+        const data = JSON.parse(text)
+        const results = data.results ?? []
+        if (results.length === 0) break
+        for (const j of results) {
+          all.push({
+            title: j.jobTitle,
+            company: j.employerName,
+            location: j.locationName || 'United Kingdom',
+            remotePolicy: (j.locationName ?? '').toLowerCase().includes('remote') ? 'remote' : 'onsite',
+            employmentType: 'full-time',
+            salaryMin: j.minimumSalary ?? null,
+            salaryMax: j.maximumSalary ?? null,
+            salaryCurrency: 'GBP',
+            description: j.jobDescription ?? j.description ?? '',
+            applyLink: j.jobUrl,
+            externalSource: 'reed.co.uk',
+          })
+        }
+        fetched += results.length
+        skip += results.length
+        if (results.length < take) break // no more pages
+        await new Promise(r => setTimeout(r, 300)) // ~1 req/sec as spec says
+      } catch { break }
+    }
   }
   return all.slice(0, limit)
 }
@@ -691,7 +707,7 @@ async function fetchAdzunaJson({ limit }: FetchSourceOptions): Promise<IncomingJ
   const all: IncomingJob[] = []
   for (const term of terms) {
     try {
-      const url = `https://api.adzuna.com/v1/api/jobs/gb/search/1?app_id=${appId}&app_key=${appKey}&results_per_page=${Math.ceil(limit / terms.length)}&what=${term}&content-type=application/json`
+      const url = `https://api.adzuna.com/v1/api/jobs/gb/search/1?app_id=${appId}&app_key=${appKey}&results_per_page=${Math.ceil(limit / terms.length)}&what=${term}&category=it-jobs&content-type=application/json`
       const text = await fetchText(url)
       const data = JSON.parse(text)
       for (const j of data.results ?? []) {
@@ -780,6 +796,32 @@ async function fetchHimalayasJson({ limit }: FetchSourceOptions): Promise<Incomi
   }))
 }
 
+async function fetchGovUkAtom({ limit }: FetchSourceOptions): Promise<IncomingJob[]> {
+  // Category 4 = IT / Computer on GOV.UK Find a Job
+  const xml = await fetchText('https://findajob.dwp.gov.uk/jobs.atom?cat=4')
+  const entries = xml.match(/<entry\b[^>]*>[\s\S]*?<\/entry>/gi) ?? []
+  return entries.slice(0, limit).map(entry => {
+    const title = extractTag(entry, 'title')
+    const link = entry.match(/<link\b[^>]*href=["']([^"']+)["']/i)?.[1] ?? null
+    const summary = extractTag(entry, 'summary') ?? ''
+    const published = extractTag(entry, 'published') ?? extractTag(entry, 'updated')
+    // Company name is usually the last line of the summary after a hyphen or newline
+    const companyMatch = summary.replace(/<[^>]+>/g, ' ').match(/[-–]\s*([^-–\n]+?)\s*$/)
+    const company = companyMatch?.[1]?.trim() ?? null
+    return {
+      title: title ?? undefined,
+      company,
+      location: 'United Kingdom',
+      remotePolicy: summary.toLowerCase().includes('remote') ? 'remote' : 'onsite',
+      employmentType: 'full-time',
+      description: summary.replace(/<[^>]+>/g, ' ').trim().slice(0, 500),
+      applyLink: link,
+      externalSource: 'findajob.dwp.gov.uk',
+      publishedAt: published ?? null,
+    }
+  }).filter(j => Boolean(j.title))
+}
+
 const SOURCE_FETCHERS: Record<FeedSource, SourceFetcher> = {
   cryptojobslist_api_rss: ({ limit }) =>
     fetchRssEndpoint('https://api.cryptojobslist.com/jobs.rss', limit, 'api.cryptojobslist.com', 'remote'),
@@ -820,6 +862,7 @@ const SOURCE_FETCHERS: Record<FeedSource, SourceFetcher> = {
     fetchRssEndpoint('https://weworkremotely.com/remote-jobs.rss', limit, 'weworkremotely.com', 'remote'),
   workingnomads_rss: ({ limit }) =>
     fetchRssEndpoint('https://www.workingnomads.com/jobs?category=development&format=rss', limit, 'workingnomads.com', 'remote'),
+  govuk_atom: fetchGovUkAtom,
 }
 
 function applyLookbackFilter(jobsToFilter: IncomingJob[], lookbackDays?: number): IncomingJob[] {
