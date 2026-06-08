@@ -1,6 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require('pdf-parse') as (buf: Buffer) => Promise<{ text: string }>
-
 export async function parseCvFromUrl(url: string): Promise<string | null> {
   if (!url?.trim()) return null
 
@@ -15,6 +12,7 @@ export async function parseCvFromUrl(url: string): Promise<string | null> {
     const bytes = Buffer.from(await res.arrayBuffer())
 
     if (contentType.includes('pdf') || url.toLowerCase().endsWith('.pdf')) {
+      const { default: pdfParse } = await import('pdf-parse')
       const parsed = await pdfParse(bytes)
       return parsed.text?.slice(0, 6000) || null
     }
