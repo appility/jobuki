@@ -228,20 +228,12 @@ export default function JobDetail() {
 
           <aside className="space-y-3 lg:sticky lg:top-20">
             <section className="rounded-[18px] border border-border bg-surface p-[22px]">
-              {externalApplyHref ? (
-                <a
-                  href={externalApplyHref}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="w-full btn-primary inline-flex justify-center py-3.5 text-sm font-bold mb-2 no-underline"
-                >
-                  Apply
-                </a>
-              ) : (
-                <Link to={`/apply/${job.id}`} className="w-full btn-primary inline-flex justify-center py-3.5 text-sm font-bold mb-2">
-                  Apply
-                </Link>
-              )}
+              <Link
+                to={`/apply/${job.id}`}
+                className="w-full btn-primary inline-flex justify-center py-3.5 text-sm font-bold mb-2"
+              >
+                Apply
+              </Link>
               <button
                 type="button"
                 onClick={toggleSave}

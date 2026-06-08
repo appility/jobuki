@@ -1,4 +1,4 @@
-import { useLoaderData, useOutletContext, Link } from 'react-router'
+import { useLoaderData, useOutletContext, Link, useNavigate } from 'react-router'
 import { useState, useRef } from 'react'
 import type { LoaderFunctionArgs } from 'react-router'
 import { getDb, jobs, savedJobs, candidateProfiles } from '@jobuki/db'
@@ -103,7 +103,9 @@ export default function ApplyPrep() {
   const [coverLetter, setCoverLetter] = useState(aiContent?.coverLetter ?? '')
   const [copied, setCopied] = useState(false)
   const [checklist, setChecklist] = useState({ cv: false, linkedin: false, coverLetter: false })
+  const [applying, setApplying] = useState(false)
   const coverLetterRef = useRef<HTMLTextAreaElement>(null)
+  const navigate = useNavigate()
 
   const interviewLinks = (category && INTERVIEW_LINKS[category as keyof typeof INTERVIEW_LINKS])
     ? INTERVIEW_LINKS[category as keyof typeof INTERVIEW_LINKS]
@@ -125,8 +127,16 @@ export default function ApplyPrep() {
     }
   }
 
-  function handleApply() {
-    if (externalUrl) window.open(externalUrl, '_blank', 'noopener,noreferrer')
+  async function handleApply() {
+    if (!externalUrl) return
+    setApplying(true)
+    // Log the application (non-blocking — open URL regardless of result)
+    const fd = new FormData()
+    fd.set('jobId', job.id)
+    fd.set('boardId', job.boardId)
+    fetch('/api/log-apply', { method: 'POST', body: fd, credentials: 'include' }).catch(() => {})
+    window.open(externalUrl, '_blank', 'noopener,noreferrer')
+    navigate(`/apply/${job.id}/success`)
   }
 
   function copyLetter() {
@@ -339,13 +349,14 @@ export default function ApplyPrep() {
                 <button
                   type="button"
                   onClick={handleApply}
+                  disabled={applying}
                   className="w-full btn-primary py-3.5 text-sm font-bold"
                 >
-                  Apply now ↗
+                  {applying ? 'Opening…' : 'Apply'}
                 </button>
               ) : (
                 <Link to={applyHref!} className="w-full btn-primary inline-flex justify-center py-3.5 text-sm font-bold">
-                  Apply now →
+                  Apply
                 </Link>
               )}
               {!user && (
