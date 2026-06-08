@@ -30,6 +30,18 @@ export async function getAuthUser(args: Args) {
 }
 
 // Syncs Clerk user → local users row; redirects to /sign-in if not authed
+// Returns the user if signed in, null otherwise — never redirects
+export async function getOptionalUser(request: Request) {
+  try {
+    const { userId } = await getAuth({ request } as any)
+    if (!userId) return null
+    const db = getDb()
+    return await db.query.users.findFirst({ where: eq(users.clerkUserId, userId) }) ?? null
+  } catch {
+    return null
+  }
+}
+
 export async function requireUser(args: Args) {
   const clerkUserId = await getAuthUser(args)
   if (!clerkUserId) throw redirect('/sign-in')

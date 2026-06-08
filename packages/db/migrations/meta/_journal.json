@@ -99,6 +99,13 @@
       "when": 1781305343791,
       "tag": "0013_company_logo_url",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1781391743791,
+      "tag": "0014_flashy_slyde",
+      "breakpoints": true
     }
   ]
 }

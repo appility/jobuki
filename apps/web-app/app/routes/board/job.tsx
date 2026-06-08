@@ -1,7 +1,9 @@
 import { useLoaderData, useOutletContext, Link } from 'react-router'
+import { useState } from 'react'
 import type { LoaderFunctionArgs, MetaFunction } from 'react-router'
-import { getDb, jobs, boards } from '@jobuki/db'
+import { getDb, jobs, boards, savedJobs } from '@jobuki/db'
 import { and, desc, eq, ne } from 'drizzle-orm'
+import { getOptionalUser } from '../../lib/auth.server'
 import { marked } from 'marked'
 import { repairMojibake, sanitizeFeedHtml } from '../../lib/feed-html'
 import { resolveJobBoardThemeConfig, type Board } from '@jobuki/types'
@@ -29,6 +31,11 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   })
   const boardCategories = resolveBoardCategories(boardConfig.categories)
 
+  const user = await getOptionalUser(request)
+  const isSaved = user ? Boolean(await db.query.savedJobs.findFirst({
+    where: and(eq(savedJobs.userId, user.id), eq(savedJobs.jobId, job.id)),
+  })) : false
+
   const similarJobs = await db.query.jobs.findMany({
     where: and(
       eq(jobs.boardId, board.id),
@@ -39,7 +46,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     limit: 3,
   })
 
-  return { job, board, similarJobs, isPreviewMode, boardCategories }
+  return { job, board, similarJobs, isPreviewMode, boardCategories, isSaved, isSignedIn: Boolean(user) }
 }
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
@@ -66,8 +73,25 @@ const TYPE_LABEL: Record<string, string> = {
 }
 
 export default function JobDetail() {
-  const { job, board, similarJobs, isPreviewMode, boardCategories } = useLoaderData<typeof loader>()
+  const { job, board, similarJobs, isPreviewMode, boardCategories, isSaved: initialSaved, isSignedIn } = useLoaderData<typeof loader>()
   const { board: layoutBoard } = useOutletContext<{ board: Board }>()
+  const [saved, setSaved] = useState(initialSaved)
+  const [savePending, setSavePending] = useState(false)
+
+  async function toggleSave() {
+    if (!isSignedIn) { window.location.href = '/candidate/start'; return }
+    setSavePending(true)
+    try {
+      const fd = new FormData()
+      fd.set('jobId', job.id)
+      fd.set('boardId', job.boardId)
+      fd.set('intent', saved ? 'unsave' : 'save')
+      await fetch('/api/save-job', { method: 'POST', body: fd, credentials: 'include' })
+      setSaved(s => !s)
+    } finally {
+      setSavePending(false)
+    }
+  }
 
   const salary = (job.salaryMin || job.salaryMax)
     ? [
@@ -218,8 +242,18 @@ export default function JobDetail() {
                   Apply
                 </Link>
               )}
-              <button className="w-full py-2.5 text-[13px] font-semibold rounded-xl border border-border text-text-secondary bg-transparent">
-                Save role
+              <button
+                type="button"
+                onClick={toggleSave}
+                disabled={savePending}
+                className="w-full py-2.5 text-[13px] font-semibold rounded-xl border transition-all"
+                style={{
+                  borderColor: saved ? 'var(--color-primary)' : 'var(--color-border)',
+                  color: saved ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                  backgroundColor: saved ? 'color-mix(in srgb, var(--color-primary) 8%, var(--color-surface))' : 'transparent',
+                }}
+              >
+                {saved ? '♥ Saved' : '♡ Save role'}
               </button>
             </section>
 

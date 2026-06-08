@@ -1,5 +1,5 @@
 import {
-  pgTable, text, timestamp, jsonb, integer, pgEnum, uniqueIndex, boolean,
+  pgTable, text, timestamp, jsonb, integer, pgEnum, uniqueIndex, boolean, index,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import { createId } from '@paralleldrive/cuid2'
@@ -138,10 +138,40 @@ export const jobs = pgTable('jobs', {
   requirements:        text('requirements'),
   benefits:            text('benefits'),
   applicationDeadline: timestamp('application_deadline'),
+  applicationTips:     jsonb('application_tips').$type<{ tips: string[]; generatedAt: string } | null>(),
   status:              jobStatusEnum('status').notNull().default('draft'),
   createdAt:           timestamp('created_at').notNull().defaultNow(),
   updatedAt:           timestamp('updated_at').notNull().defaultNow(),
 })
+
+// ── Saved Jobs ───────────────────────────────────────────────────────
+export const savedJobs = pgTable('saved_jobs', {
+  id:      text('id').primaryKey().$defaultFn(() => createId()),
+  userId:  text('user_id').notNull(),
+  jobId:   text('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
+  boardId: text('board_id').notNull().references(() => boards.id, { onDelete: 'cascade' }),
+  savedAt: timestamp('saved_at').notNull().defaultNow(),
+}, (t) => ({
+  uniqueUserJob: uniqueIndex('saved_jobs_user_job_idx').on(t.userId, t.jobId),
+  userIdx:       index('saved_jobs_user_idx').on(t.userId),
+}))
+
+// ── Candidate Profiles ───────────────────────────────────────────────
+export const candidateProfiles = pgTable('candidate_profiles', {
+  id:          text('id').primaryKey().$defaultFn(() => createId()),
+  userId:      text('user_id').notNull(),
+  name:        text('name'),
+  headline:    text('headline'),
+  location:    text('location'),
+  bio:         text('bio'),
+  skills:      text('skills').array(),
+  cvUrl:       text('cv_url'),
+  linkedinUrl: text('linkedin_url'),
+  createdAt:   timestamp('created_at').notNull().defaultNow(),
+  updatedAt:   timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ({
+  uniqueUser: uniqueIndex('candidate_profiles_user_idx').on(t.userId),
+}))
 
 // ── Applications ─────────────────────────────────────────────────────
 export const applications = pgTable('applications', {

@@ -14,13 +14,19 @@ export default [
   route('api/upload-sign', 'routes/api/upload-sign.ts'),
   route('api/upload-image', 'routes/api/upload-image.ts'),
   route('api/ingest-jobs', 'routes/api/ingest-jobs.ts'),
+  route('api/save-job', 'routes/api/save-job.ts'),
   route('health', 'routes/health.ts'),
   route('admin', 'routes/platform-admin/index.tsx'),
 
   // ── Onboarding (auth required, no workspace needed) ────────────────
   route('dashboard/onboarding', 'routes/admin/onboarding.tsx'),
-  route('candidate',            'routes/candidate/index.tsx'),
-  route('candidate/start',      'routes/candidate/start.tsx'),
+  route('candidate/start', 'routes/candidate/start.tsx'),
+  layout('routes/candidate/layout.tsx', [
+    route('candidate',                  'routes/candidate/overview.tsx'),
+    route('candidate/saved',            'routes/candidate/saved.tsx'),
+    route('candidate/applications',     'routes/candidate/applications.tsx'),
+    route('candidate/profile',          'routes/candidate/profile.tsx'),
+  ]),
   route('posters/start',        'routes/posters/start.tsx'),
   layout('routes/posters/layout.tsx', [
     route('posters',          'routes/posters/index.tsx'),
@@ -52,6 +58,7 @@ export default [
     route('jobs/:jobId', 'routes/board/job-legacy.tsx'),
     route('jobs/:jobId/:jobTitle',  'routes/board/job.tsx'),
     route('apply/:jobId', 'routes/board/apply.tsx'),
+    route('apply/:jobId/form', 'routes/board/apply-form.tsx'),
     route('apply/:jobId/success', 'routes/board/apply-success.tsx'),
   ]),
 ] satisfies RouteConfig

@@ -1,110 +1,392 @@
-import { useLoaderData, useOutletContext, Form, useActionData, useNavigation } from 'react-router'
-import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
-import { redirect } from 'react-router'
-import { getDb, jobs, applications } from '@jobuki/db'
-import { eq } from 'drizzle-orm'
+import { useLoaderData, useOutletContext, Link } from 'react-router'
+import { useState, useRef } from 'react'
+import type { LoaderFunctionArgs } from 'react-router'
+import { getDb, jobs, savedJobs, candidateProfiles } from '@jobuki/db'
+import { and, eq } from 'drizzle-orm'
 import type { Board } from '@jobuki/types'
+import { getOptionalUser } from '../../lib/auth.server'
+import { parseCvFromUrl } from '../../lib/cv-parser.server'
+import { generateApplyContent } from '../../lib/apply-ai.server'
+import { deriveJobCategory } from '../../lib/board-categories'
 
-export async function loader({ params }: LoaderFunctionArgs) {
+export async function loader({ params, request }: LoaderFunctionArgs) {
   const db = getDb()
   const job = await db.query.jobs.findFirst({ where: eq(jobs.id, params.jobId!) })
   if (!job || job.status !== 'published') throw new Response('Not found', { status: 404 })
-  const externalApplyHref = job.externalApplyUrl || job.externalListingUrl
-  if (externalApplyHref) return redirect(externalApplyHref, 302)
-  return { job }
+
+  const externalUrl = job.externalApplyUrl || job.externalListingUrl || null
+  const isExternal = Boolean(externalUrl)
+
+  let user = null
+  let profile = null
+  let isSaved = false
+  let aiContent = null
+
+  try {
+    user = await getOptionalUser(request)
+  } catch { /* not signed in */ }
+
+  if (user) {
+    const [savedRow, profileRow] = await Promise.all([
+      db.query.savedJobs.findFirst({
+        where: and(eq(savedJobs.userId, user.id), eq(savedJobs.jobId, job.id)),
+      }),
+      db.query.candidateProfiles.findFirst({
+        where: eq(candidateProfiles.userId, user.id),
+      }),
+    ])
+    isSaved = Boolean(savedRow)
+    profile = profileRow ?? null
+  }
+
+  // Generate AI content — use cached tips if no profile, otherwise always personalise
+  const cvText = profile?.cvUrl ? await parseCvFromUrl(profile.cvUrl) : null
+
+  if (!profile && job.applicationTips) {
+    aiContent = { tips: job.applicationTips.tips, coverLetter: undefined, matchSummary: undefined }
+  } else {
+    aiContent = await generateApplyContent(
+      {
+        title: job.title,
+        company: job.company,
+        description: job.description,
+        requirements: job.requirements,
+        category: deriveJobCategory(job, []),
+      },
+      profile ? {
+        name: profile.name,
+        headline: profile.headline,
+        bio: profile.bio,
+        skills: profile.skills ?? [],
+        cvText,
+      } : undefined
+    )
+
+    // Cache generic tips on the job row (no profile = not personalised)
+    if (!profile && aiContent.tips.length > 0) {
+      await db.update(jobs)
+        .set({ applicationTips: { tips: aiContent.tips, generatedAt: new Date().toISOString() } })
+        .where(eq(jobs.id, job.id))
+    }
+  }
+
+  const category = deriveJobCategory(job, [])
+
+  return { job, user, profile, isSaved, aiContent, externalUrl, isExternal, category, cvText: cvText ? true : false }
 }
 
-export async function action({ params, request }: ActionFunctionArgs) {
-  const db = getDb()
-  const job = await db.query.jobs.findFirst({ where: eq(jobs.id, params.jobId!) })
-  if (!job || job.status !== 'published') throw new Response('Not found', { status: 404 })
-  const externalApplyHref = job.externalApplyUrl || job.externalListingUrl
-  if (externalApplyHref) return redirect(externalApplyHref, 302)
-
-  const form = await request.formData()
-  const candidateName  = (form.get('candidateName') as string).trim()
-  const candidateEmail = (form.get('candidateEmail') as string).trim()
-
-  if (!candidateName)  return { error: 'Name is required.' }
-  if (!candidateEmail) return { error: 'Email is required.' }
-
-  await db.insert(applications).values({
-    jobId:          job.id,
-    boardId:        job.boardId,
-    candidateName,
-    candidateEmail,
-    candidatePhone: (form.get('candidatePhone') as string).trim() || null,
-    coverLetter:    (form.get('coverLetter') as string).trim() || null,
-    cvUrl:          (form.get('cvUrl') as string).trim() || null,
-    linkedinUrl:    (form.get('linkedinUrl') as string).trim() || null,
-  })
-
-  return redirect(`/apply/${job.id}/success`)
+const INTERVIEW_LINKS = {
+  engineering: [
+    { label: 'LeetCode', url: 'https://leetcode.com', hint: 'Coding challenges' },
+    { label: 'System Design Primer', url: 'https://github.com/donnemartin/system-design-primer', hint: 'Architecture prep' },
+  ],
+  product: [
+    { label: 'Lenny\'s Newsletter', url: 'https://www.lennysnewsletter.com', hint: 'PM interview prep' },
+    { label: 'Product School', url: 'https://productschool.com/resources', hint: 'Free resources' },
+  ],
+  design: [
+    { label: 'Dribbble', url: 'https://dribbble.com', hint: 'Portfolio inspiration' },
+    { label: 'UX Portfolio Tips', url: 'https://www.nngroup.com/articles/ux-portfolio-study-guide/', hint: 'Nielsen Norman' },
+  ],
+  default: [
+    { label: 'Glassdoor', url: 'https://www.glassdoor.co.uk', hint: 'Company reviews & interview Q\'s' },
+    { label: 'LinkedIn', url: 'https://www.linkedin.com', hint: 'Research the team' },
+  ],
 }
 
-export default function Apply() {
-  const { job } = useLoaderData<typeof loader>()
+export default function ApplyPrep() {
+  const { job, user, profile, isSaved, aiContent, externalUrl, isExternal, category } = useLoaderData<typeof loader>()
   const { board } = useOutletContext<{ board: Board }>()
-  const actionData = useActionData<typeof action>()
-  const navigation = useNavigation()
-  const submitting  = navigation.state === 'submitting'
+
+  const [saved, setSaved] = useState(isSaved)
+  const [savePending, setSavePending] = useState(false)
+  const [coverLetter, setCoverLetter] = useState(aiContent?.coverLetter ?? '')
+  const [copied, setCopied] = useState(false)
+  const [checklist, setChecklist] = useState({ cv: false, linkedin: false, coverLetter: false })
+  const coverLetterRef = useRef<HTMLTextAreaElement>(null)
+
+  const interviewLinks = (category && INTERVIEW_LINKS[category as keyof typeof INTERVIEW_LINKS])
+    ? INTERVIEW_LINKS[category as keyof typeof INTERVIEW_LINKS]
+    : INTERVIEW_LINKS.default
+
+  const allChecked = checklist.cv && checklist.linkedin && checklist.coverLetter
+
+  async function toggleSave() {
+    setSavePending(true)
+    try {
+      const fd = new FormData()
+      fd.set('jobId', job.id)
+      fd.set('boardId', job.boardId)
+      fd.set('intent', saved ? 'unsave' : 'save')
+      await fetch('/api/save-job', { method: 'POST', body: fd, credentials: 'include' })
+      setSaved(s => !s)
+    } finally {
+      setSavePending(false)
+    }
+  }
+
+  function handleApply() {
+    if (externalUrl) window.open(externalUrl, '_blank', 'noopener,noreferrer')
+  }
+
+  function copyLetter() {
+    navigator.clipboard.writeText(coverLetter)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const applyHref = isExternal ? undefined : `/apply/${job.id}/form`
 
   return (
-    <div className="min-h-screen bg-background font-body">
+    <div className="min-h-screen bg-background">
+      <main className="max-w-[1100px] mx-auto px-6 lg:px-10 pt-8 pb-20">
 
-      <main className="board-container py-12">
-        <div className="max-w-lg">
-          <div className="mb-8">
-            <h1 className="text-2xl font-extrabold mb-1 font-display text-text-primary">
-              Apply for this role
-            </h1>
-            <p className="text-sm text-text-secondary">
-              {job.title}{job.company ? ` at ${job.company}` : ''}
-            </p>
+        <Link to="/jobs" className="inline-flex items-center gap-2 text-[13px] font-semibold rounded-[10px] px-4 py-2 border mb-7 text-text-secondary bg-surface border-border">
+          ← Back to all roles
+        </Link>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-6 items-start">
+
+          {/* ── Main column ── */}
+          <div className="space-y-6">
+
+            {/* Job header */}
+            <div className="rounded-[20px] border border-border bg-surface px-8 py-7">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-text-muted mb-1">
+                    {job.company ?? board.name}
+                  </p>
+                  <h1 className="text-2xl font-extrabold font-display text-text-primary leading-tight mb-2">
+                    {job.title}
+                  </h1>
+                  <p className="text-sm text-text-secondary">
+                    {[job.location, job.remotePolicy === 'remote' ? 'Remote' : job.remotePolicy === 'hybrid' ? 'Hybrid' : null]
+                      .filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={user ? toggleSave : undefined}
+                  disabled={savePending}
+                  title={user ? (saved ? 'Unsave job' : 'Save job') : 'Sign in to save'}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-semibold transition-all"
+                  style={{
+                    borderColor: saved ? 'var(--color-primary)' : 'var(--color-border)',
+                    color: saved ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                    backgroundColor: saved ? 'color-mix(in srgb, var(--color-primary) 8%, var(--color-surface))' : 'var(--color-surface)',
+                  }}
+                >
+                  {saved ? '♥ Saved' : '♡ Save'}
+                </button>
+              </div>
+            </div>
+
+            {/* Match summary */}
+            {aiContent?.matchSummary && (
+              <div className="rounded-[18px] border border-border bg-surface px-7 py-6">
+                <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-3 text-text-secondary">
+                  Profile Match
+                </h2>
+                <p className="text-sm leading-relaxed text-text-primary">{aiContent.matchSummary}</p>
+              </div>
+            )}
+
+            {/* AI Tips */}
+            {aiContent?.tips && aiContent.tips.length > 0 && (
+              <div className="rounded-[18px] border border-border bg-surface px-7 py-6">
+                <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-4 text-text-secondary">
+                  Application Tips
+                </h2>
+                <ul className="space-y-3">
+                  {aiContent.tips.map((tip: string, i: number) => (
+                    <li key={i} className="flex items-start gap-3 text-sm text-text-primary">
+                      <span className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold mt-0.5"
+                        style={{ backgroundColor: 'color-mix(in srgb, var(--color-primary) 12%, transparent)', color: 'var(--color-primary)' }}>
+                        {i + 1}
+                      </span>
+                      <span className="leading-relaxed">{tip}</span>
+                    </li>
+                  ))}
+                </ul>
+                {!profile && (
+                  <p className="mt-4 text-xs text-text-muted border-t border-border pt-4">
+                    <Link to="/candidate/profile" className="font-semibold" style={{ color: 'var(--color-primary)' }}>
+                      Complete your profile
+                    </Link>{' '}
+                    to get personalised tips and a cover letter tailored to your background.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Cover letter */}
+            {aiContent?.coverLetter && (
+              <div className="rounded-[18px] border border-border bg-surface px-7 py-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-text-secondary">
+                    Cover Letter Draft
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={copyLetter}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all"
+                    style={{ borderColor: 'var(--color-border)', color: copied ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}
+                  >
+                    {copied ? '✓ Copied' : 'Copy'}
+                  </button>
+                </div>
+                <textarea
+                  ref={coverLetterRef}
+                  value={coverLetter}
+                  onChange={e => setCoverLetter(e.target.value)}
+                  rows={14}
+                  className="w-full text-sm leading-relaxed rounded-xl border p-4 resize-y outline-none focus:ring-2 transition-all"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    backgroundColor: 'var(--color-surface-subtle)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                />
+                <p className="text-[11px] text-text-muted mt-2">Edit freely — this is your draft to customise.</p>
+              </div>
+            )}
+
+            {/* Interview prep */}
+            <div className="rounded-[18px] border border-border bg-surface px-7 py-6">
+              <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-4 text-text-secondary">
+                Interview Prep
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[...interviewLinks, ...INTERVIEW_LINKS.default].filter((v, i, a) =>
+                  a.findIndex(x => x.url === v.url) === i
+                ).slice(0, 4).map(link => (
+                  <a
+                    key={link.url}
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3 no-underline transition-all hover:-translate-y-px"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-text-primary">{link.label}</p>
+                      <p className="text-xs text-text-muted">{link.hint}</p>
+                    </div>
+                    <span className="text-text-muted text-sm">↗</span>
+                  </a>
+                ))}
+                {job.company && (
+                  <a
+                    href={`https://www.glassdoor.co.uk/Search/results.htm?keyword=${encodeURIComponent(job.company)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3 no-underline transition-all hover:-translate-y-px"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-text-primary">{job.company} on Glassdoor</p>
+                      <p className="text-xs text-text-muted">Reviews & interview questions</p>
+                    </div>
+                    <span className="text-text-muted text-sm">↗</span>
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Checklist */}
+            <div className="rounded-[18px] border border-border bg-surface px-7 py-6">
+              <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-4 text-text-secondary">
+                Before You Apply
+              </h2>
+              <div className="space-y-3">
+                {[
+                  { key: 'cv', label: 'CV is up to date', hint: profile?.cvUrl ? `Saved: ${profile.cvUrl.slice(0, 40)}…` : 'Add your CV URL to your profile' },
+                  { key: 'linkedin', label: 'LinkedIn profile is current', hint: profile?.linkedinUrl ? profile.linkedinUrl : 'Make sure your LinkedIn is up to date' },
+                  { key: 'coverLetter', label: 'Cover letter ready', hint: aiContent?.coverLetter ? 'Your draft is above — edit and copy it' : 'Prepare a tailored cover letter' },
+                ].map(item => (
+                  <label key={item.key} className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={checklist[item.key as keyof typeof checklist]}
+                      onChange={e => setChecklist(c => ({ ...c, [item.key]: e.target.checked }))}
+                      className="mt-0.5 shrink-0"
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-text-primary">{item.label}</p>
+                      <p className="text-xs text-text-muted">{item.hint}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
 
-          {actionData?.error && (
-            <div className="mb-6 px-4 py-3 rounded-xl text-sm bg-danger-bg text-danger">
-              {actionData.error}
+          {/* ── Sidebar ── */}
+          <aside className="space-y-4 lg:sticky lg:top-20">
+
+            {/* Apply CTA */}
+            <div className="rounded-[18px] border border-border bg-surface p-6">
+              <h2 className="text-[10px] font-extrabold uppercase tracking-[0.1em] mb-4 text-text-secondary">
+                Ready to apply?
+              </h2>
+              {!allChecked && (
+                <p className="text-xs text-text-muted mb-4">
+                  Tick the checklist when you're ready — or apply now if you're good to go.
+                </p>
+              )}
+              {isExternal ? (
+                <button
+                  type="button"
+                  onClick={handleApply}
+                  className="w-full btn-primary py-3.5 text-sm font-bold"
+                >
+                  Apply now ↗
+                </button>
+              ) : (
+                <Link to={applyHref!} className="w-full btn-primary inline-flex justify-center py-3.5 text-sm font-bold">
+                  Apply now →
+                </Link>
+              )}
+              {!user && (
+                <p className="text-xs text-text-muted mt-3 text-center">
+                  <Link to="/candidate/start" className="font-semibold" style={{ color: 'var(--color-primary)' }}>
+                    Sign in
+                  </Link>{' '}
+                  to save this job and get a personalised cover letter.
+                </p>
+              )}
             </div>
-          )}
 
-          <Form method="post" className="flex flex-col gap-5">
-            <FormField label="Full name" required>
-              <input name="candidateName" className="input w-full"
-                placeholder="Jane Smith" required autoFocus />
-            </FormField>
+            {/* Job details */}
+            <div className="rounded-[18px] border border-border bg-surface p-6">
+              <h2 className="text-[10px] font-extrabold uppercase tracking-[0.1em] mb-3 text-text-secondary">Details</h2>
+              {[
+                { label: 'Company', value: job.company },
+                { label: 'Location', value: job.location },
+                { label: 'Type', value: job.employmentType },
+                { label: 'Remote', value: job.remotePolicy },
+              ].filter(r => r.value).map(row => (
+                <div key={row.label} className="flex justify-between py-2 border-b border-border last:border-0">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-text-muted">{row.label}</span>
+                  <span className="text-sm text-text-primary capitalize">{row.value}</span>
+                </div>
+              ))}
+            </div>
 
-            <FormField label="Email address" required>
-              <input name="candidateEmail" type="email" className="input w-full"
-                placeholder="jane@example.com" required />
-            </FormField>
+            {/* Profile nudge */}
+            {user && !profile && (
+              <div className="rounded-[18px] border border-border p-5 text-center"
+                style={{ backgroundColor: 'color-mix(in srgb, var(--color-primary) 6%, var(--color-surface))' }}>
+                <p className="text-sm font-semibold text-text-primary mb-1">Complete your profile</p>
+                <p className="text-xs text-text-muted mb-3">Get a personalised cover letter and match analysis.</p>
+                <Link to="/candidate/profile" className="btn-primary text-xs px-4 py-2">
+                  Set up profile →
+                </Link>
+              </div>
+            )}
 
-            <FormField label="Phone number" hint="Optional">
-              <input name="candidatePhone" type="tel" className="input w-full"
-                placeholder="+44 7700 900000" />
-            </FormField>
-
-            <FormField label="CV / Resume" hint="Paste a link to your CV (Google Drive, Dropbox, etc.)">
-              <input name="cvUrl" type="url" className="input w-full"
-                placeholder="https://drive.google.com/..." />
-            </FormField>
-
-            <FormField label="LinkedIn" hint="Optional">
-              <input name="linkedinUrl" type="url" className="input w-full"
-                placeholder="https://linkedin.com/in/..." />
-            </FormField>
-
-            <FormField label="Cover letter" hint="Optional — tell us why you'd be a great fit">
-              <textarea name="coverLetter" className="input w-full" rows={6}
-                placeholder="I'm excited to apply because…" />
-            </FormField>
-
-            <button type="submit" disabled={submitting}
-              className="btn-primary w-full py-3 text-base mt-2">
-              {submitting ? 'Submitting…' : 'Submit application →'}
-            </button>
-          </Form>
+          </aside>
         </div>
       </main>
 
@@ -115,22 +397,6 @@ export default function Apply() {
           )}
         </p>
       </footer>
-    </div>
-  )
-}
-
-function FormField({ label, hint, required, children }: {
-  label: string; hint?: string; required?: boolean; children: React.ReactNode
-}) {
-  return (
-    <div>
-      <div className="flex items-baseline gap-2 mb-1.5">
-        <label className="text-sm font-semibold text-text-primary">
-          {label}{required && <span className="text-danger"> *</span>}
-        </label>
-        {hint && <span className="text-xs text-text-muted">{hint}</span>}
-      </div>
-      {children}
     </div>
   )
 }
