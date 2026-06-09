@@ -5,6 +5,8 @@ import { eq, and, desc } from 'drizzle-orm'
 import { resolveJobBoardThemeConfig } from '@jobuki/types'
 import { resolveTheme, themeToCSS } from '../../lib/theme'
 import { deriveJobCategory, normalizeCategory, resolveBoardCategories, titleCaseCategory } from '../../lib/board-categories'
+import { normalizeLocation, normalizeLocations } from '../../lib/normalize-location'
+import { cacheGet, cacheSet } from '../../lib/board-cache.server'
 import { publicJobPath } from '../../lib/public-job-path'
 import { PublicBoardHome } from '../../components/public-board-home'
 
@@ -43,10 +45,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
   })
   const boardCategories = resolveBoardCategories(boardConfig.categories)
 
-  const publishedJobs = await db.query.jobs.findMany({
-    where: and(eq(jobs.boardId, board.id), eq(jobs.status, 'published')),
-    orderBy: [desc(jobs.createdAt)],
-  })
+  const cacheKey = `board:${board.id}:publishedJobs`
+  let publishedJobs = cacheGet<typeof jobs.$inferSelect[]>(cacheKey)
+  if (!publishedJobs) {
+    publishedJobs = await db.query.jobs.findMany({
+      where: and(eq(jobs.boardId, board.id), eq(jobs.status, 'published')),
+      orderBy: [desc(jobs.createdAt)],
+    })
+    cacheSet(cacheKey, publishedJobs)
+  }
 
   const url = new URL(request.url)
   const q = (url.searchParams.get('q') ?? '').trim().toLowerCase()
@@ -60,20 +67,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
       (job.company ?? '').toLowerCase().includes(q) ||
       (job.location ?? '').toLowerCase().includes(q)
 
-    const locationMatch = !location || (job.location ?? '').toLowerCase() === location
+    const locationMatch = !location || normalizeLocation(job.location).toLowerCase() === location
     const jobCategory = deriveJobCategory(job, boardCategories)
     const categoryMatch = !category || jobCategory === category
 
     return qMatch && locationMatch && categoryMatch
   })
 
-  const locations = Array.from(
-    new Set(
-      publishedJobs
-        .map((job) => (job.location ?? '').trim())
-        .filter(Boolean)
-    )
-  ).sort((a, b) => a.localeCompare(b))
+  const locations = normalizeLocations(publishedJobs.map((job) => job.location))
 
   const derivedCategories = Array.from(
     new Set(
@@ -88,6 +89,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     label: titleCaseCategory(value),
   }))
 
+  const totalCompanies = new Set(publishedJobs.map(j => j.company).filter(Boolean)).size
+
   const css = themeToCSS(resolveTheme(board.theme ?? {}), ':root', boardConfig.cssVariables)
   return {
     mode: 'board' as const,
@@ -95,6 +98,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     css,
     jobs: filteredJobs,
     totalOpen: publishedJobs.length,
+    totalCompanies,
     filters: { q, location, category },
     filterOptions: { locations, categories },
   }

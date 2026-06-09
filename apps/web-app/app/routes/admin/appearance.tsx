@@ -10,6 +10,8 @@ import { addCustomDomain, isValidDomain, removeCustomDomain } from '../../lib/ra
 import { ALLOWED_IMAGE_MIME_TYPES, createBoardAssetUploadUrl, MAX_UPLOAD_BYTES } from '../../lib/r2.server'
 import { parseBoardCategories, titleCaseCategory } from '../../lib/board-categories'
 import { HeroHeadlineEditor } from '../../components/rich-text/HeroHeadlineEditor'
+import { PageContentEditor } from '../../components/rich-text/PageContentEditor'
+import { TEMPLATE_LABELS, type PrivacyTemplate } from '../../lib/privacy-templates'
 import {
   resolveJobBoardThemeConfig,
   type BoardTheme,
@@ -139,6 +141,20 @@ export async function action(args: ActionFunctionArgs) {
         boardName: (form.get('boardConfigBoardName') as string)?.trim(),
         categories: parseBoardCategories(form.get('boardConfigCategories') as string),
         tagline: (form.get('boardConfigTagline') as string)?.trim(),
+        taglineColor: (form.get('boardConfigTaglineColor') as string)?.trim() || undefined,
+        pages: {
+          about: {
+            enabled: form.get('boardConfigAboutEnabled') === 'true',
+            content: (form.get('boardConfigAboutContent') as string)?.trim() || undefined,
+          },
+          privacy: {
+            enabled: form.get('boardConfigPrivacyEnabled') === 'true',
+            template: (form.get('boardConfigPrivacyTemplate') as PrivacyTemplate) || 'global',
+            legalName: (form.get('boardConfigPrivacyLegalName') as string)?.trim() || undefined,
+            contactEmail: (form.get('boardConfigPrivacyEmail') as string)?.trim() || undefined,
+            websiteUrl: (form.get('boardConfigPrivacyWebsiteUrl') as string)?.trim() || undefined,
+          },
+        },
         heroHeadline: (form.get('boardConfigHeroHeadline') as string)?.trim() || undefined,
         logoUrl: (form.get('boardConfigLogoUrl') as string)?.trim(),
         headerImageUrl: (form.get('boardConfigHeaderImageUrl') as string)?.trim(),
@@ -326,6 +342,7 @@ export default function AppearancePage() {
   const [configBoardName, setConfigBoardName] = useState(boardConfig.boardName)
   const [configCategoriesText, setConfigCategoriesText] = useState((boardConfig.categories ?? []).map((item) => titleCaseCategory(item)).join('\n'))
   const [configTagline, setConfigTagline] = useState(boardConfig.tagline ?? '')
+  const [configTaglineColor, setConfigTaglineColor] = useState(boardConfig.taglineColor ?? '')
   const [configLogoUrl, setConfigLogoUrl] = useState(boardConfig.logoUrl ?? '')
   const [configHeaderImageUrl, setConfigHeaderImageUrl] = useState(boardConfig.headerImageUrl ?? '')
   const [configBrandColor, setConfigBrandColor] = useState(boardConfig.brandColor)
@@ -352,9 +369,18 @@ export default function AppearancePage() {
   const [configCssVarPillInactiveFg, setConfigCssVarPillInactiveFg] = useState(boardConfig.cssVariables?.pillInactiveFg ?? '')
   const [configCssVarPillInactiveBorder, setConfigCssVarPillInactiveBorder] = useState(boardConfig.cssVariables?.pillInactiveBorder ?? '')
   const [configCssVarPillDisabledOpacity, setConfigCssVarPillDisabledOpacity] = useState(boardConfig.cssVariables?.pillDisabledOpacity ?? '')
+  // Pages
+  const [configAboutEnabled, setConfigAboutEnabled] = useState(boardConfig.pages?.about?.enabled ?? false)
+  const [configAboutContent, setConfigAboutContent] = useState(boardConfig.pages?.about?.content ?? '')
+  const [configPrivacyEnabled, setConfigPrivacyEnabled] = useState(boardConfig.pages?.privacy?.enabled ?? false)
+  const [configPrivacyTemplate, setConfigPrivacyTemplate] = useState<'uk'|'eu'|'us'|'global'>(boardConfig.pages?.privacy?.template ?? 'global')
+  const [configPrivacyLegalName, setConfigPrivacyLegalName] = useState(boardConfig.pages?.privacy?.legalName ?? '')
+  const [configPrivacyEmail, setConfigPrivacyEmail] = useState(boardConfig.pages?.privacy?.contactEmail ?? '')
+  const [configPrivacyWebsiteUrl, setConfigPrivacyWebsiteUrl] = useState(boardConfig.pages?.privacy?.websiteUrl ?? '')
+
   const [uploadingKind, setUploadingKind] = useState<'logo' | 'header' | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'brand' | 'theme' | 'hero' | 'content'>('brand')
+  const [activeTab, setActiveTab] = useState<'brand' | 'theme' | 'hero' | 'content' | 'pages'>('brand')
   const [configHeroHeadline, setConfigHeroHeadline] = useState(boardConfig.heroHeadline ?? '')
   const heroHeadlineRef = useRef(boardConfig.heroHeadline ?? '')
   const [toasts, setToasts] = useState<Array<{ id: number; type: 'success' | 'error'; message: string }>>([])
@@ -501,13 +527,14 @@ export default function AppearancePage() {
         {/* Scrollable settings */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
 
-          <div className="mb-5 grid grid-cols-4 gap-1.5 rounded-xl p-1"
+          <div className="mb-5 grid grid-cols-5 gap-1.5 rounded-xl p-1"
             style={{ backgroundColor: 'var(--color-surface-subtle)' }}>
             {([
               { key: 'brand', label: 'Brand' },
               { key: 'theme', label: 'Theme' },
               { key: 'hero', label: 'Hero' },
               { key: 'content', label: 'Content' },
+              { key: 'pages', label: 'Pages' },
             ] as const).map(tab => (
               <button
                 key={tab.key}
@@ -536,6 +563,14 @@ export default function AppearancePage() {
             <input type="hidden" name="boardConfigBoardName" value={configBoardName} />
             <input type="hidden" name="boardConfigCategories" value={configCategoriesText} />
             <input type="hidden" name="boardConfigTagline" value={configTagline} />
+            <input type="hidden" name="boardConfigTaglineColor" value={configTaglineColor} />
+            <input type="hidden" name="boardConfigAboutEnabled" value={configAboutEnabled ? 'true' : 'false'} />
+            <input type="hidden" name="boardConfigAboutContent" value={configAboutContent} />
+            <input type="hidden" name="boardConfigPrivacyEnabled" value={configPrivacyEnabled ? 'true' : 'false'} />
+            <input type="hidden" name="boardConfigPrivacyTemplate" value={configPrivacyTemplate} />
+            <input type="hidden" name="boardConfigPrivacyLegalName" value={configPrivacyLegalName} />
+            <input type="hidden" name="boardConfigPrivacyEmail" value={configPrivacyEmail} />
+            <input type="hidden" name="boardConfigPrivacyWebsiteUrl" value={configPrivacyWebsiteUrl} />
             <input type="hidden" name="boardConfigHeroHeadline" value={configHeroHeadline} />
             <input type="hidden" name="boardConfigLogoUrl" value={configLogoUrl} />
             <input type="hidden" name="boardConfigHeaderImageUrl" value={configHeaderImageUrl} />
@@ -1101,13 +1136,23 @@ export default function AppearancePage() {
                 placeholder="Public board title"
                 style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
               />
-              <input
-                value={configTagline}
-                onChange={e => setConfigTagline(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
-                placeholder="Short header tagline"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  value={configTagline}
+                  onChange={e => setConfigTagline(e.target.value)}
+                  className="flex-1 px-2.5 py-1.5 rounded-lg text-xs border"
+                  placeholder="Short header tagline"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                />
+                <input
+                  type="color"
+                  value={configTaglineColor || '#6b7280'}
+                  onChange={e => setConfigTaglineColor(e.target.value)}
+                  className="w-8 h-8 rounded-lg cursor-pointer border p-0.5 shrink-0"
+                  style={{ borderColor: 'var(--color-border)' }}
+                  title="Tagline text colour"
+                />
+              </div>
             </Section>
             )}
 
@@ -1263,6 +1308,61 @@ export default function AppearancePage() {
             </Section>
             )}
 
+            {/* ── Pages tab ── */}
+            {activeTab === 'pages' && (
+            <Section label="ABOUT PAGE">
+              <label className="flex items-center gap-2 mb-3 cursor-pointer">
+                <input type="checkbox" checked={configAboutEnabled} onChange={e => setConfigAboutEnabled(e.target.checked)} />
+                <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>Enable About page (/about)</span>
+              </label>
+              {configAboutEnabled && (
+                <PageContentEditor value={configAboutContent} onChange={setConfigAboutContent} />
+              )}
+            </Section>
+            )}
+
+            {activeTab === 'pages' && (
+            <Section label="PRIVACY POLICY PAGE">
+              <label className="flex items-center gap-2 mb-3 cursor-pointer">
+                <input type="checkbox" checked={configPrivacyEnabled} onChange={e => setConfigPrivacyEnabled(e.target.checked)} />
+                <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>Enable Privacy page (/privacy)</span>
+              </label>
+              {configPrivacyEnabled && (<>
+                <select
+                  value={configPrivacyTemplate}
+                  onChange={e => setConfigPrivacyTemplate(e.target.value as PrivacyTemplate)}
+                  className="w-full px-2.5 py-2 rounded-lg text-xs border mb-3"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                >
+                  {(Object.entries(TEMPLATE_LABELS) as [PrivacyTemplate, string][]).map(([key, label]) => (
+                    <option key={key} value={key}>{label}</option>
+                  ))}
+                </select>
+                <input
+                  value={configPrivacyLegalName}
+                  onChange={e => setConfigPrivacyLegalName(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg text-xs border mb-2"
+                  placeholder="Legal entity name (e.g. Acme Ltd)"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                />
+                <input
+                  value={configPrivacyEmail}
+                  onChange={e => setConfigPrivacyEmail(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg text-xs border mb-2"
+                  placeholder="Privacy contact email"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                />
+                <input
+                  value={configPrivacyWebsiteUrl}
+                  onChange={e => setConfigPrivacyWebsiteUrl(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
+                  placeholder="Board URL (e.g. https://jobs.acme.com)"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
+                />
+              </>)}
+            </Section>
+            )}
+
             <button
               type="submit"
               disabled={isSaving}
@@ -1274,16 +1374,16 @@ export default function AppearancePage() {
           </Form>
 
           {/* Domain link */}
-          <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="mt-4 pt-4 border-t flex flex-col gap-2" style={{ borderColor: 'var(--color-border)' }}>
             <a href={`/dashboard/boards/${board.id}/domain`}
               className="flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-xs font-semibold no-underline transition-all"
-              style={{
-                border: '1px solid var(--color-border)',
-                color: 'var(--color-text-secondary)',
-                backgroundColor: 'var(--color-surface-subtle)',
-              }}>
-              <span>Manage domains</span>
-              <span>→</span>
+              style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)', backgroundColor: 'var(--color-surface-subtle)' }}>
+              <span>Manage domains</span><span>→</span>
+            </a>
+            <a href={`/dashboard/boards/${board.id}/integrations`}
+              className="flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-xs font-semibold no-underline transition-all"
+              style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)', backgroundColor: 'var(--color-surface-subtle)' }}>
+              <span>Integrations</span><span>→</span>
             </a>
           </div>
 

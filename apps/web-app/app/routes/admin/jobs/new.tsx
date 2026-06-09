@@ -6,6 +6,7 @@ import { getDb, boards, jobs } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { resolveJobBoardThemeConfig } from '@jobuki/types'
 import { normalizeCategory, resolveBoardCategories, titleCaseCategory } from '../../../lib/board-categories'
+import { cacheInvalidate } from '../../../lib/board-cache.server'
 import { validateJobTitle } from '../../../lib/content-moderation.server'
 import { RichTextEditor } from '../../../components/rich-text/RichTextEditor'
 import {
@@ -91,6 +92,7 @@ export async function action(args: ActionFunctionArgs) {
     status:         'draft',
   }).returning()
 
+  cacheInvalidate(`board:${boardId}:`)
   throw redirect(`/dashboard/jobs/${job.id}`)
 }
 

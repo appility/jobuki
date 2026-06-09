@@ -1,5 +1,5 @@
 import { useLoaderData, Link } from 'react-router'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import type { LoaderFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess } from '../../../lib/auth.server'
 import { getDb, jobs, boards } from '@jobuki/db'
@@ -25,6 +25,8 @@ const STATUS_COLOR: Record<string, string> = {
   closed:    'var(--color-danger)',
 }
 
+const PAGE_SIZE = 50
+
 type OriginFilter = 'all' | 'posted' | 'imported'
 type StatusFilter = 'all' | 'published' | 'draft' | 'closed'
 
@@ -33,6 +35,7 @@ export default function JobsIndex() {
   const [search, setSearch] = useState('')
   const [origin, setOrigin] = useState<OriginFilter>('all')
   const [status, setStatus] = useState<StatusFilter>('all')
+  const [page, setPage] = useState(1)
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
@@ -44,6 +47,11 @@ export default function JobsIndex() {
       return true
     })
   }, [rows, search, origin, status])
+
+  useEffect(() => { setPage(1) }, [search, origin, status])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const postedCount   = rows.filter(r => !r.job.externalSource).length
   const importedCount = rows.filter(r =>  r.job.externalSource).length
@@ -122,35 +130,91 @@ export default function JobsIndex() {
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
-          {filtered.map(({ job, boardName, boardId }) => (
-            <div key={job.id} className="card p-4 flex items-center justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                  <span className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
-                    {job.title}
-                  </span>
-                  <span className="text-xs capitalize font-medium"
-                    style={{ color: STATUS_COLOR[job.status] ?? 'var(--color-text-muted)' }}>
-                    {job.status}
-                  </span>
-                  {job.externalSource && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-                      style={{ backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-muted)' }}>
-                      {job.externalSource}
+        <>
+          <div className="flex flex-col gap-2">
+            {paginated.map(({ job, boardName }) => (
+              <div key={job.id} className="card p-4 flex items-center justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                    <span className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
+                      {job.title}
                     </span>
-                  )}
+                    <span className="text-xs capitalize font-medium"
+                      style={{ color: STATUS_COLOR[job.status] ?? 'var(--color-text-muted)' }}>
+                      {job.status}
+                    </span>
+                    {job.externalSource && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                        style={{ backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-muted)' }}>
+                        {job.externalSource}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                    {boardName} · {[job.company, job.location, job.remotePolicy].filter(Boolean).join(' · ')}
+                  </p>
                 </div>
-                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  {boardName} · {[job.company, job.location, job.remotePolicy].filter(Boolean).join(' · ')}
-                </p>
+                <Link to={`/dashboard/jobs/${job.id}`} className="btn-outline text-sm shrink-0">
+                  Edit
+                </Link>
               </div>
-              <Link to={`/dashboard/jobs/${job.id}`} className="btn-outline text-sm shrink-0">
-                Edit
-              </Link>
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+              </span>
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-40"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', color: 'var(--color-text-secondary)' }}
+                >
+                  ← Prev
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => Math.abs(p - page) <= 2 || p === 1 || p === totalPages)
+                  .reduce<(number | '…')[]>((acc, p, i, arr) => {
+                    if (i > 0 && (arr[i - 1] as number) < p - 1) acc.push('…')
+                    acc.push(p)
+                    return acc
+                  }, [])
+                  .map((p, i) =>
+                    p === '…' ? (
+                      <span key={`ellipsis-${i}`} className="px-2 py-1.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>…</span>
+                    ) : (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setPage(p as number)}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors"
+                        style={{
+                          borderColor: page === p ? 'var(--color-primary)' : 'var(--color-border)',
+                          backgroundColor: page === p ? 'var(--color-primary)' : 'var(--color-surface)',
+                          color: page === p ? 'var(--color-primary-fg)' : 'var(--color-text-secondary)',
+                        }}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+                <button
+                  type="button"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-40"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', color: 'var(--color-text-secondary)' }}
+                >
+                  Next →
+                </button>
+              </div>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   )

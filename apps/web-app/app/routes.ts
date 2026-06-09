@@ -2,7 +2,6 @@ import { type RouteConfig, route, index, layout } from '@react-router/dev/routes
 
 export default [
   // ── Marketing ──────────────────────────────────────────────────────
-  index('routes/marketing/home.tsx'),
   route('for/:type', 'routes/marketing/market.tsx'),
 
   // ── Auth ──────────────────────────────────────────────────────────
@@ -42,7 +41,8 @@ export default [
     route('dashboard/boards',         'routes/admin/boards/index.tsx'),
     route('dashboard/boards/new',     'routes/admin/boards/new.tsx'),
     route('dashboard/boards/:id',        'routes/admin/boards/show.tsx'),
-    route('dashboard/boards/:id/domain', 'routes/admin/boards/domain.tsx'),
+    route('dashboard/boards/:id/domain',        'routes/admin/boards/domain.tsx'),
+    route('dashboard/boards/:id/integrations',  'routes/admin/boards/integrations.tsx'),
     route('dashboard/appearance/:id',    'routes/admin/appearance.tsx'),
     route('dashboard/jobs',           'routes/admin/jobs/index.tsx'),
     route('dashboard/jobs/new',       'routes/admin/jobs/new.tsx'),
@@ -54,8 +54,11 @@ export default [
   // ── Public board (resolved from subdomain/custom domain by server) ─
   route('sitemap.xml', 'routes/board/sitemap.ts'),
   layout('routes/board/layout.tsx', [
+    index('routes/marketing/home.tsx'),
     route('jobs',        'routes/board/index.tsx'),
     route('jobs/category/:category', 'routes/board/category.tsx'),
+    route('about',   'routes/board/about.tsx'),
+    route('privacy', 'routes/board/privacy.tsx'),
     route('jobs/:jobId', 'routes/board/job-legacy.tsx'),
     route('jobs/:jobId/:jobTitle',  'routes/board/job.tsx'),
     route('apply/:jobId', 'routes/board/apply.tsx'),

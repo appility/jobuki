@@ -656,27 +656,48 @@ const IFRAME_HEIGHT = 720
 
 function ScaledIframePreview({ src, title }: { src: string; title: string }) {
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const [scale, setScale] = useState(1)
+  const [scale, setScale] = useState<number | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
-    const el = wrapperRef.current
-    if (!el) return
-    const update = () => setScale(el.offsetWidth / MOBILE_WIDTH)
+    const mq = window.matchMedia('(max-width: 768px)')
+    const update = () => setIsMobile(mq.matches)
     update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => ro.disconnect()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
   }, [])
 
+  useEffect(() => {
+    if (!isMobile) { setScale(null); return }
+    const el = wrapperRef.current
+    if (!el) return
+    const updateScale = () => setScale(el.offsetWidth / MOBILE_WIDTH)
+    updateScale()
+    const ro = new ResizeObserver(updateScale)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [isMobile])
+
+  // Desktop — normal full-width iframe
+  if (!isMobile || scale === null) {
+    return (
+      <iframe
+        title={title}
+        src={src}
+        loading="lazy"
+        tabIndex={-1}
+        className="w-full rounded-xl pointer-events-none"
+        style={{ minHeight: 580, border: '1px solid var(--color-border)' }}
+      />
+    )
+  }
+
+  // Mobile — iframe fixed at 360px, scaled up to fill container
   return (
     <div
       ref={wrapperRef}
       className="w-full rounded-xl overflow-hidden"
-      style={{
-        height: IFRAME_HEIGHT * scale,
-        border: '1px solid var(--color-border)',
-        position: 'relative',
-      }}
+      style={{ height: IFRAME_HEIGHT * scale, border: '1px solid var(--color-border)', position: 'relative' }}
     >
       <iframe
         title={title}

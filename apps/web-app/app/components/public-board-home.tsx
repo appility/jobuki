@@ -1,5 +1,5 @@
-import { Form, Link } from 'react-router'
-import type { CSSProperties } from 'react'
+import { Form, Link, useNavigate } from 'react-router'
+import { useState, type CSSProperties } from 'react'
 import { resolveJobBoardThemeConfig } from '@jobuki/types'
 import { DEFAULT_THEME } from '@jobuki/types'
 import type { BoardLoaderData } from '../routes/marketing/home'
@@ -177,6 +177,8 @@ const V6_STYLES_BASE = `
 }
 .v6-search {
   display: flex;
+  align-items: stretch;
+  min-height: 48px;
   background: var(--white);
   border: 1.5px solid var(--rule);
   border-radius: 14px;
@@ -186,25 +188,7 @@ const V6_STYLES_BASE = `
   transition: border-color .15s, box-shadow .15s;
 }
 .v6-search:focus-within { border-color: var(--vio); box-shadow: 0 0 0 3px var(--vio-l); }
-.v6-search input {
-  flex: 1;
-  border: none;
-  outline: none;
-  padding: 13px 18px;
-  font-size: 14px;
-  color: var(--ink);
-  background: transparent;
-}
-.v6-search select {
-  border: none;
-  outline: none;
-  padding: 13px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--mid);
-  background: transparent;
-}
-.v6-sdiv { width: 1px; background: var(--rule); }
+.v6-search input { border: none; outline: none; background: transparent; }
 .v6-sgo {
   border: none;
   background: var(--vio);
@@ -297,7 +281,7 @@ const V6_STYLES_BASE = `
 .v6-chip:hover { border-color: var(--ink); color: var(--ink); }
 .v6-chip-on:hover { background: var(--chip-on-bg); color: var(--chip-on-fg); border-color: var(--chip-on-bg); }
 
-.v6-bento { padding: 4px 40px 80px; }
+.v6-bento { padding: 40px 40px 80px; }
 .v6-bento-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .v6-bento-t { font-family: var(--font-display), sans-serif; font-size: 13px; font-weight: 700; }
 .v6-bento-c { font-size: 12px; font-weight: 600; color: var(--mid); }
@@ -414,8 +398,7 @@ const V6_STYLES_BASE = `
 
 .v6-card-cta { background: var(--cta-bg); padding: 26px 28px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .v6-cta-t { color: var(--cta-fg); font-family: var(--font-display), sans-serif; font-size: 17px; font-weight: 700; line-height: 1.25; max-width: 240px; }
-.v6-cta-t em { font-style: normal; color: var(--cta-highlight); }
-.v6-cta-btn { border: none; border-radius: 10px; background: var(--cta-accent); color: var(--cta-accent-fg); padding: 12px 22px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.v6-cta-btn { border: none; border-radius: 10px; background: var(--cta-fg); color: var(--cta-bg); padding: 12px 22px; font-size: 13px; font-weight: 700; white-space: nowrap; }
 
 .v6-load { padding: 0 40px 80px; display: flex; justify-content: center; }
 .v6-load-btn {
@@ -525,7 +508,9 @@ function shiftHex(hex: string, lightnessDelta: number, saturationDelta = 0) {
 }
 
 export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
-  const { board, jobs: publishedJobs, css, totalOpen, filters, filterOptions } = data
+  const { board, jobs: publishedJobs, css, totalOpen, totalCompanies, filters, filterOptions } = data
+  const navigate = useNavigate()
+  const [searchQ, setSearchQ] = useState(filters.q ?? '')
   const boardConfig = resolveJobBoardThemeConfig(board.boardConfig, {
     boardName: board.name,
     tagline: board.introText ?? undefined,
@@ -547,9 +532,6 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
   const baseAccent = isValidHex(boardConfig.accentColor || '') ? boardConfig.accentColor as string : '#F97316'
   const onPrimary = readableFg(basePrimary)
   // A highlight colour that's always readable over the primary brand colour
-  const ctaHighlight = onPrimary === '#ffffff'
-    ? `color-mix(in srgb, white 65%, ${baseAccent})`
-    : baseAccent
 
   const styles: CSSProperties = {
     '--vio':        'var(--color-primary)',
@@ -571,7 +553,6 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
     '--cta-fg':        'var(--color-primary-fg)',
     '--cta-accent':    'var(--color-accent)',
     '--cta-accent-fg': 'var(--color-accent-fg)',
-    '--cta-highlight': ctaHighlight,
     '--chip-on-bg':    'var(--color-primary)',
     '--chip-on-fg':    'var(--color-primary-fg)',
   }
@@ -584,29 +565,6 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
     <div className="v6-board" style={styles}>
       <style dangerouslySetInnerHTML={{ __html: css }} />
       <style dangerouslySetInnerHTML={{ __html: v6Styles }} />
-
-      <nav className="v6-nav">
-      <div className="v6-nav-inner">
-        <div className="v6-logo">
-          {boardConfig.logoUrl ? (
-            <img
-              src={boardConfig.logoUrl}
-              alt={boardConfig.boardName}
-              style={{ height: 36, width: 'auto', display: 'block', objectFit: 'contain' }}
-            />
-          ) : (
-            <span>{boardConfig.boardName}</span>
-          )}
-        </div>
-        <div className="v6-nav-r">
-          <Link className="v6-nl" to="/jobs">Browse</Link>
-          <a className="v6-ncta" href={boardConfig.emptyState.ctaUrl || '#'} target="_blank" rel="noreferrer">
-            <span className="v6-ncta-full">Post a role ↗</span>
-            <span className="v6-ncta-short">Post ↗</span>
-          </a>
-        </div>
-      </div>
-      </nav>
 
       <section
           className="v6-hero"
@@ -640,32 +598,54 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
               </h1>
             )}
 
-            <p className="v6-sub">{boardConfig.tagline || 'Every serious tech job in the UK. No agency markup, no recruiter walls. Apply direct - always.'}</p>
-
-            {(boardConfig.categories ?? []).length > 0 && (
-              <div className="v6-hero-tags">
-                {(boardConfig.categories ?? []).slice(0, 8).map(cat => (
-                  <Link
-                    key={cat}
-                    to={`/jobs/category/${encodeURIComponent(cat.toLowerCase())}`}
-                    className="v6-hero-tag"
-                  >
-                    {cat}
-                  </Link>
-                ))}
-              </div>
-            )}
+            <p className="v6-sub" style={boardConfig.taglineColor ? { color: boardConfig.taglineColor } : undefined}>{boardConfig.tagline || 'Every serious tech job in the UK. No agency markup, no recruiter walls. Apply direct - always.'}</p>
 
             {boardConfig.showSearch && (
               <Form method="get" className="v6-search">
-                <input name="q" defaultValue={filters.q} placeholder="Role, skill or company..." />
-                <div className="v6-sdiv" />
-                <select name="location" defaultValue={filters.location}>
-                  <option value="">Anywhere</option>
-                  {filterOptions.locations.map((option) => (
-                    <option key={option} value={option.toLowerCase()}>{option}</option>
-                  ))}
-                </select>
+                <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+                  <input
+                    name="q"
+                    value={searchQ}
+                    onChange={e => setSearchQ(e.target.value)}
+                    placeholder="Role, skill or company..."
+                    style={{ flex: 1, border: 'none', outline: 'none', padding: '13px 18px', fontSize: 14, color: 'var(--ink)', background: 'transparent', paddingRight: searchQ ? 36 : 18 }}
+                  />
+                  {searchQ && (
+                    <button
+                      type="button"
+                      aria-label="Clear search"
+                      onClick={() => {
+                        setSearchQ('')
+                        const params = new URLSearchParams()
+                        if (filters.location) params.set('location', filters.location)
+                        if (filters.category) params.set('category', filters.category)
+                        navigate(`?${params.toString()}`)
+                      }}
+                      style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--mid)', padding: 4, lineHeight: 1, fontSize: 16 }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+
+                {/* Location — pin icon visible, select invisible but clickable */}
+                <div style={{ position: 'relative', width: 44, flexShrink: 0, borderLeft: '1px solid var(--rule)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" style={{ pointerEvents: 'none', color: filters.location ? 'var(--vio)' : 'var(--mid)' }}>
+                    <path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.386 1.445-.966 2.274-1.765C14.97 15.232 17 12.553 17 9A7 7 0 103 9c0 3.552 2.03 6.232 3.354 7.585.83.799 1.654 1.379 2.274 1.765.311.193.57.337.757.433a5.74 5.74 0 00.281.14l.018.008.006.003zM10 11.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" clipRule="evenodd" />
+                  </svg>
+                  <select
+                    name="location"
+                    defaultValue={filters.location}
+                    aria-label="Filter by location"
+                    style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', fontSize: 16, appearance: 'none', WebkitAppearance: 'none' } as React.CSSProperties}
+                  >
+                    <option value="">Anywhere</option>
+                    {filterOptions.locations.map((option) => (
+                      <option key={option} value={option.toLowerCase()}>{option}</option>
+                    ))}
+                  </select>
+                </div>
+
                 {filters.category ? <input type="hidden" name="category" value={filters.category} /> : null}
                 <button className="v6-sgo" type="submit">Search →</button>
               </Form>
@@ -695,37 +675,15 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
             <div className="v6-stats">
               <div className="v6-stat"><div className="v6-stat-n">{totalOpen}</div><div className="v6-stat-l">Open</div></div>
               <div className="v6-stat"><div className="v6-stat-n">{filterOptions.locations.length}</div><div className="v6-stat-l">Locations</div></div>
-              <div className="v6-stat"><div className="v6-stat-n">{Math.min(48, totalOpen)}</div><div className="v6-stat-l">New today</div></div>
+              <div className="v6-stat"><div className="v6-stat-n">{totalCompanies}</div><div className="v6-stat-l">Companies</div></div>
             </div>
           </aside>
           </div>
       </section>
 
       <div className="v6-shell">
-        <div className="v6-filters">
-          <Link className={`v6-chip ${!filters.category ? 'v6-chip-on' : ''}`} to="?">All roles</Link>
-          {filterOptions.categories.slice(0, 6).map((option) => {
-            const params = new URLSearchParams()
-            if (filters.q) params.set('q', filters.q)
-            if (filters.location) params.set('location', filters.location)
-            params.set('category', option.value)
-            const active = filters.category === option.value
-            return (
-              <Link key={`filter-${option.value}`} className={`v6-chip ${active ? 'v6-chip-on' : ''}`} to={`?${params.toString()}`}>
-                {option.label || toCategoryLabel(option.value)}
-              </Link>
-            )
-          })}
-          <button className="v6-chip" type="button">Remote only</button>
-          <button className="v6-chip" type="button">£100k+</button>
-        </div>
 
         <section className="v6-bento" id="roles">
-          <div className="v6-bento-h">
-            <h2 className="v6-bento-t">All roles</h2>
-            <p className="v6-bento-c">{publishedJobs.length} matched</p>
-          </div>
-
           {jobs.length === 0 ? (
             <div className="v6-card v6-cj">
               <div className="v6-cj-t">{boardConfig.emptyState.title}</div>
@@ -753,7 +711,7 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
               ))}
 
               <div className="v6-card v6-card-cta" style={{ marginTop: 6 }}>
-                <p className="v6-cta-t">Reach <em>40,000</em> people already following this board.</p>
+                <p className="v6-cta-t">Post a role and reach everyone following this board.</p>
                 <a className="v6-cta-btn" href={boardConfig.emptyState.ctaUrl || '#'} target="_blank" rel="noreferrer">Post a role →</a>
               </div>
             </div>
@@ -780,14 +738,14 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
               ))}
 
               <div className="v6-card v6-card-cta">
-                <p className="v6-cta-t">Reach <em>40,000</em> people already following this board.</p>
+                <p className="v6-cta-t">Post a role and reach everyone following this board.</p>
                 <a className="v6-cta-btn" href={boardConfig.emptyState.ctaUrl || '#'} target="_blank" rel="noreferrer">Post a role →</a>
               </div>
 
               <div className="v6-card v6-cstat">
-                <div className="v6-cstat-l">New today</div>
-                <div className="v6-cstat-n">{Math.min(48, publishedJobs.length)}</div>
-                <div className="v6-cstat-s">roles added</div>
+                <div className="v6-cstat-l">Companies</div>
+                <div className="v6-cstat-n">{totalCompanies}</div>
+                <div className="v6-cstat-s">hiring now</div>
               </div>
             </div>
           ) : (
@@ -809,9 +767,9 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
               )}
 
               <div className="v6-card v6-cstat v6-s4">
-                <div className="v6-cstat-l">New today</div>
-                <div className="v6-cstat-n">{Math.min(48, publishedJobs.length)}</div>
-                <div className="v6-cstat-s">roles added</div>
+                <div className="v6-cstat-l">Companies</div>
+                <div className="v6-cstat-n">{totalCompanies}</div>
+                <div className="v6-cstat-s">hiring now</div>
               </div>
 
               <div className="v6-card v6-card-alert v6-s4">
@@ -853,13 +811,13 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
               )}
 
               <div className="v6-card v6-cstat v6-s4">
-                <div className="v6-cstat-l">Companies hiring</div>
-                <div className="v6-cstat-n" style={{ color: 'var(--vio)' }}>{formatCount(filterOptions.locations.length * 52 || 312)}</div>
-                <div className="v6-cstat-s">across the UK</div>
+                <div className="v6-cstat-l">Companies</div>
+                <div className="v6-cstat-n" style={{ color: 'var(--vio)' }}>{formatCount(totalCompanies)}</div>
+                <div className="v6-cstat-s">hiring now</div>
               </div>
 
               <div className="v6-card v6-card-cta v6-s12">
-                <p className="v6-cta-t">Reach <em>40,000</em> people already following this board.</p>
+                <p className="v6-cta-t">Post a role and reach everyone following this board.</p>
                 <a className="v6-cta-btn" href={boardConfig.emptyState.ctaUrl || '#'} target="_blank" rel="noreferrer">Post a role →</a>
               </div>
 
@@ -897,13 +855,14 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
           )}
         </div>
         <div className="v6-f-links">
-          <a href="#roles">Browse</a>
-          <a href="#roles">Browse</a>
-          <a href="#roles">Employers</a>
-          <a href="#roles">About</a>
-          <a href="#roles">Privacy</a>
+          <Link to="/jobs">Browse</Link>
+          {boardConfig.emptyState.ctaUrl && (
+            <a href={boardConfig.emptyState.ctaUrl} target="_blank" rel="noreferrer">Post a role</a>
+          )}
+          {boardConfig.pages?.about?.enabled && <Link to="/about">About</Link>}
+          {boardConfig.pages?.privacy?.enabled && <Link to="/privacy">Privacy</Link>}
         </div>
-        <div className="v6-f-copy">© 2025 Tech Roundabout Ltd</div>
+        <div className="v6-f-copy">© {new Date().getFullYear()} {boardConfig.boardName}</div>
       </footer>
     </div>
   )

@@ -5,6 +5,7 @@ import { and, desc, eq } from 'drizzle-orm'
 import { resolveJobBoardThemeConfig, type Board } from '@jobuki/types'
 import { deriveJobCategory, normalizeCategory, resolveBoardCategories, titleCaseCategory } from '../../lib/board-categories'
 import { publicJobPath } from '../../lib/public-job-path'
+import { normalizeLocation, normalizeLocations } from '../../lib/normalize-location'
 
 const PAGE_SIZE = 10
 
@@ -89,7 +90,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       (job.company ?? '').toLowerCase().includes(q) ||
       (job.location ?? '').toLowerCase().includes(q)
 
-    const locationMatch = !location || (job.location ?? '').toLowerCase() === location
+    const locationMatch = !location || normalizeLocation(job.location).toLowerCase() === location
     const categoryMatch = !category || deriveJobCategory(job, boardCategories) === category
 
     return qMatch && locationMatch && categoryMatch
@@ -103,7 +104,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   const derivedCategories = Array.from(new Set(allJobs.map((job) => deriveJobCategory(job, boardCategories)).filter(Boolean))).sort()
   const categories = boardCategories.length ? boardCategories : derivedCategories
-  const locations = Array.from(new Set(allJobs.map((job) => (job.location ?? '').trim()).filter(Boolean))).sort()
+  const locations = normalizeLocations(allJobs.map((job) => job.location))
 
   return {
     jobs: paginatedJobs,
@@ -146,10 +147,8 @@ export default function BoardJobsPage() {
             {board.name} Jobs
           </h1>
 
-          <Form method="get" className="mt-5 flex flex-col md:flex-row gap-2.5">
-            <div
-              className="flex-1 flex overflow-hidden rounded-xl border border-border bg-surface shadow-sm"
-            >
+          <Form method="get" className="mt-5">
+            <div className="flex overflow-hidden rounded-xl border border-border bg-surface shadow-sm" style={{ minHeight: 44 }}>
               <input
                 name="q"
                 defaultValue={filters.q}
@@ -157,20 +156,29 @@ export default function BoardJobsPage() {
                 placeholder="Role, skill or company..."
                 aria-label="Search jobs"
               />
-              <select
-                name="location"
-                defaultValue={filters.location}
-                className="border-0 outline-none px-3 text-xs font-semibold text-text-secondary bg-transparent"
-                aria-label="Filter by location"
+
+              {/* Location icon button — native select overlaid for usability */}
+              <div
+                style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, flexShrink: 0, borderLeft: '1px solid var(--color-border)', color: filters.location ? 'var(--color-primary)' : 'var(--color-text-muted)' }}
+                title={filters.location || 'Filter by location'}
               >
-                <option value="">Anywhere</option>
-                {options.locations.map((item) => (
-                  <option key={item} value={item.toLowerCase()}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-              <button type="submit" className="px-5 text-sm font-bold bg-primary text-primary-fg">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16" style={{ pointerEvents: 'none' }}>
+                  <path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.386 1.445-.966 2.274-1.765C14.97 15.232 17 12.553 17 9A7 7 0 103 9c0 3.552 2.03 6.232 3.354 7.585.83.799 1.654 1.379 2.274 1.765.311.193.57.337.757.433a5.74 5.74 0 00.281.14l.018.008.006.003zM10 11.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" clipRule="evenodd" />
+                </svg>
+                <select
+                  name="location"
+                  defaultValue={filters.location}
+                  aria-label="Filter by location"
+                  style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', fontSize: 16, appearance: 'none', WebkitAppearance: 'none' } as React.CSSProperties}
+                >
+                  <option value="">Anywhere</option>
+                  {options.locations.map((item) => (
+                    <option key={item} value={item.toLowerCase()}>{item}</option>
+                  ))}
+                </select>
+              </div>
+
+              <button type="submit" className="px-5 text-sm font-bold bg-primary text-primary-fg shrink-0">
                 Search →
               </button>
             </div>
@@ -180,12 +188,6 @@ export default function BoardJobsPage() {
 
         <section className="mt-4">
           <div className="flex flex-wrap gap-1.5">
-            <Link
-              to="/jobs"
-              className={`pill ${!filters.category ? 'pill-active' : 'pill-inactive'}`}
-            >
-              All roles
-            </Link>
             {options.categories.map((item) => (
               <Link
                 key={item}
@@ -198,15 +200,10 @@ export default function BoardJobsPage() {
           </div>
         </section>
 
-        <section className="mt-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[12px] font-bold tracking-[0.02em] text-text-primary">
-              {totalFilteredJobs} role{totalFilteredJobs === 1 ? '' : 's'}
-            </span>
-            <span className="text-xs px-2.5 py-1.5 rounded-md border border-border bg-surface text-text-secondary">
-              Most recent
-            </span>
-          </div>
+        <section className="mt-5">
+          <p className="text-xs font-semibold mb-3" style={{ color: 'var(--color-text-muted)' }}>
+            {totalFilteredJobs} role{totalFilteredJobs === 1 ? '' : 's'} found
+          </p>
 
         {filteredJobs.length === 0 ? (
           <div className="rounded-xl border border-border bg-surface p-10 text-center">

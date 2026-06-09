@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from 'react-router'
 import { getDb, boards, jobs } from '@jobuki/db'
 import { and, inArray } from 'drizzle-orm'
+import { cacheInvalidate } from '../../lib/board-cache.server'
 
 type FeedSource =
   | 'reed_json'
@@ -1168,6 +1169,7 @@ export async function action({ request }: ActionFunctionArgs) {
     if (batch.length === 0) continue
     await db.insert(jobs).values(batch)
     inserted += batch.length
+    batch.forEach(r => cacheInvalidate(`board:${r.boardId}:`))
   }
 
   return Response.json({

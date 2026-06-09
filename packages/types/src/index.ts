@@ -32,6 +32,7 @@ export interface JobBoardThemeConfig {
   categories?: string[]
   cssVariables?: JobBoardCssVariables
   tagline?: string
+  taglineColor?: string
   heroHeadline?: string
   logoUrl?: string
   headerImageUrl?: string
@@ -57,6 +58,27 @@ export interface JobBoardThemeConfig {
     companyWebsiteUrl?: string
   }
   monetization?: BoardMonetizationConfig
+  pages?: {
+    about?: {
+      enabled?: boolean
+      content?: string
+    }
+    privacy?: {
+      enabled?: boolean
+      template?: 'uk' | 'eu' | 'us' | 'global'
+      legalName?: string
+      contactEmail?: string
+      websiteUrl?: string
+    }
+  }
+  integrations?: {
+    googleAnalyticsId?: string
+    googleTagManagerId?: string
+    facebookPixelId?: string
+    linkedinPartnerId?: string
+    hotjarSiteId?: string
+    microsoftClarityId?: string
+  }
 }
 
 export interface BoardTheme {
