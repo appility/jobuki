@@ -196,6 +196,21 @@ export default function JobDetail() {
               </div>
             ) : null}
 
+            {/* Mobile apply — above description */}
+            <div className="lg:hidden px-8 pt-6 pb-2">
+              {externalApplyHref ? (
+                <a href={externalApplyHref} target="_blank" rel="noopener noreferrer"
+                  className="w-full btn-primary inline-flex justify-center py-3 text-sm font-bold">
+                  Apply →
+                </a>
+              ) : (
+                <Link to={`/apply/${job.id}`}
+                  className="w-full btn-primary inline-flex justify-center py-3 text-sm font-bold">
+                  Apply
+                </Link>
+              )}
+            </div>
+
             <div className="px-8 py-8">
               {isTiptapDoc(job.descriptionJson) ? (
                 <RichTextRenderer
@@ -224,6 +239,22 @@ export default function JobDetail() {
                 </div>
               ) : null}
             </div>
+
+            {/* Mobile apply — below description */}
+            <div className="lg:hidden px-8 pb-8 pt-2">
+              {externalApplyHref ? (
+                <a href={externalApplyHref} target="_blank" rel="noopener noreferrer"
+                  className="w-full btn-primary inline-flex justify-center py-3 text-sm font-bold">
+                  Apply →
+                </a>
+              ) : (
+                <Link to={`/apply/${job.id}`}
+                  className="w-full btn-primary inline-flex justify-center py-3 text-sm font-bold">
+                  Apply
+                </Link>
+              )}
+            </div>
+
           </main>
 
           <aside className="space-y-3 lg:sticky lg:top-20">
@@ -324,12 +355,21 @@ export default function JobDetail() {
       </main>
 
       <footer className="py-8 border-t border-border bg-surface">
-        <div className="max-w-[1280px] mx-auto px-10">
+        <div className="max-w-[1280px] mx-auto px-10 flex flex-col items-center gap-2">
           <p className="text-xs text-center text-text-muted">
             {layoutBoard.footerText || (
               <>Powered by <span className="font-extrabold text-text-secondary">Jobuki</span></>
             )}
           </p>
+          <a
+            href="https://jobuki.com"
+            target="_blank"
+            rel="noreferrer"
+            className="text-[11px] font-semibold no-underline transition-colors"
+            style={{ color: 'var(--color-primary)' }}
+          >
+            Create your own job board →
+          </a>
         </div>
       </footer>
     </div>

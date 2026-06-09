@@ -9,6 +9,11 @@ import { normalizeLocation, normalizeLocations } from '../../lib/normalize-locat
 
 const PAGE_SIZE = 10
 
+const JOB_WORDS = /\b(jobs|job|roles|role|careers|career|work|hiring|vacancies|vacancy|positions|position|opportunities)\b/i
+function boardPageTitle(name: string) {
+  return JOB_WORDS.test(name) ? name : `${name} Jobs`
+}
+
 function salaryLabel(job: typeof jobs.$inferSelect) {
   if (!job.salaryMin && !job.salaryMax) return 'Salary not listed'
   const low = job.salaryMin ? `${job.salaryCurrency}${job.salaryMin.toLocaleString()}` : null
@@ -137,17 +142,43 @@ export default function BoardJobsPage() {
   const pageWindow = Array.from({ length: pagination.totalPages }, (_, idx) => idx + 1)
     .filter((page) => Math.abs(page - pagination.page) <= 2 || page === 1 || page === pagination.totalPages)
 
+  const boardConfig = resolveJobBoardThemeConfig(board.boardConfig, { boardName: board.name })
+  const logoUrl = (boardConfig.logoUrl ?? '').trim()
+
   return (
     <div className="min-h-screen bg-background">
       <main className="max-w-[1280px] mx-auto px-6 lg:px-10 pt-10 pb-20">
-        <section>
-          <h1
-            className="text-[22px] font-extrabold tracking-[-0.03em] font-display text-text-primary"
-          >
-            {board.name} Jobs
-          </h1>
 
-          <Form method="get" className="mt-5">
+        {/* Board header */}
+        <section className="mb-6">
+          <div className="flex items-center gap-3 mb-2">
+            {logoUrl ? (
+              <img src={logoUrl} alt={board.name} style={{ height: 32, width: 'auto', objectFit: 'contain' }} />
+            ) : null}
+            <h1 className="text-[22px] font-extrabold tracking-[-0.03em] font-display text-text-primary">
+              {boardPageTitle(board.name)}
+            </h1>
+          </div>
+          {boardConfig.tagline && (
+            <p className="text-sm text-text-secondary mb-4">{boardConfig.tagline}</p>
+          )}
+          {options.categories.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-5">
+              {options.categories.map((item) => (
+                <Link
+                  key={item}
+                  to={`/jobs/category/${item}`}
+                  className={`pill ${filters.category === item ? 'pill-active' : 'pill-inactive'}`}
+                >
+                  {titleCaseCategory(item)}
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section>
+          <Form method="get" className="mt-0">
             <div className="flex overflow-hidden rounded-xl border border-border bg-surface shadow-sm" style={{ minHeight: 44 }}>
               <input
                 name="q"
@@ -184,20 +215,6 @@ export default function BoardJobsPage() {
             </div>
             {filters.category ? <input type="hidden" name="category" value={filters.category} /> : null}
           </Form>
-        </section>
-
-        <section className="mt-4">
-          <div className="flex flex-wrap gap-1.5">
-            {options.categories.map((item) => (
-              <Link
-                key={item}
-                to={`/jobs/category/${item}`}
-                className={`pill ${filters.category === item ? 'pill-active' : 'pill-inactive'}`}
-              >
-                {titleCaseCategory(item)}
-              </Link>
-            ))}
-          </div>
         </section>
 
         <section className="mt-5">
