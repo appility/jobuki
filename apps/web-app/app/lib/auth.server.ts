@@ -192,7 +192,7 @@ export async function requireWorkspaceAccess(args: Args) {
 
   if (!result) {
     if (user.accountType === 'job_seeker') throw redirect('/candidate')
-    if (user.accountType === 'job_poster') throw redirect('/posters/start')
+    if (user.accountType === 'job_poster') throw redirect('/hiring/start')
     throw redirect('/dashboard/onboarding')
   }
   return { user, workspace: result.workspace, role: result.role }

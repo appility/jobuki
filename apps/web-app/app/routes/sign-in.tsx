@@ -20,7 +20,7 @@ export default function SignInPage() {
   const fallbackByType = userType === 'job-seeker'
     ? '/candidate/start'
     : userType === 'job-poster'
-      ? '/posters/start'
+      ? '/hiring/start'
       : '/dashboard'
   const redirectTarget = requestedPath ?? fallbackByType
   const signInTitle = userType === 'job-seeker'

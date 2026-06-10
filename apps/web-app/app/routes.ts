@@ -27,12 +27,13 @@ export default [
     route('candidate/applications',     'routes/candidate/applications.tsx'),
     route('candidate/profile',          'routes/candidate/profile.tsx'),
   ]),
-  route('posters/start',        'routes/posters/start.tsx'),
-  layout('routes/posters/layout.tsx', [
-    route('posters',          'routes/posters/index.tsx'),
-    route('posters/listings', 'routes/posters/listings.tsx'),
-    route('posters/billing',  'routes/posters/billing.tsx'),
-    route('posters/status',   'routes/posters/status.tsx'),
+  route('hiring/start',        'routes/hiring/start.tsx'),
+  layout('routes/hiring/layout.tsx', [
+    route('hiring',              'routes/hiring/index.tsx'),
+    route('hiring/listings',     'routes/hiring/listings.tsx'),
+    route('hiring/applications', 'routes/hiring/applications.tsx'),
+    route('hiring/billing',      'routes/hiring/billing.tsx'),
+    route('hiring/status',       'routes/hiring/status.tsx'),
   ]),
 
   // ── Admin (auth + workspace required) ─────────────────────────────

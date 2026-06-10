@@ -49,6 +49,7 @@ export async function action(args: ActionFunctionArgs) {
     tagline: g('tagline') || undefined,
     taglineColor: g('taglineColor') || undefined,
     heroHeadline: g('heroHeadline') || undefined,
+    showSearch: form.get('showSearch') === 'true',
     categories: parseBoardCategories(g('categories')),
     emptyState: {
       ...existing.emptyState,
@@ -127,6 +128,7 @@ export default function BoardContent() {
   const [tagline, setTagline] = useState(boardConfig.tagline ?? '')
   const [taglineColor, setTaglineColor] = useState(boardConfig.taglineColor ?? '')
   const [heroHeadline, setHeroHeadline] = useState(boardConfig.heroHeadline ?? '')
+  const [showSearch, setShowSearch] = useState(boardConfig.showSearch ?? true)
   const heroHeadlineRef = useRef(boardConfig.heroHeadline ?? '')
   const [categoriesText, setCategoriesText] = useState(
     (boardConfig.categories ?? []).map(c => titleCaseCategory(c)).join('\n')
@@ -205,6 +207,7 @@ export default function BoardContent() {
         <input type="hidden" name="tagline" value={tagline} />
         <input type="hidden" name="taglineColor" value={taglineColor} />
         <input type="hidden" name="heroHeadline" value={heroHeadline} />
+        <input type="hidden" name="showSearch" value={showSearch ? 'true' : 'false'} />
         <input type="hidden" name="categories" value={categoriesText} />
         <input type="hidden" name="emptyStateCtaLabel" value={emptyStateCtaLabel} />
         <input type="hidden" name="emptyStateCtaUrl" value={emptyStateCtaUrl} />
@@ -274,6 +277,16 @@ export default function BoardContent() {
                 primaryColor={brandColor}
                 accentColor={accentColor}
               />
+            </Field>
+            <Field label="Search">
+              <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--color-text-secondary)' }}>
+                <input
+                  type="checkbox"
+                  checked={showSearch}
+                  onChange={e => setShowSearch(e.target.checked)}
+                />
+                Show search bar in hero
+              </label>
             </Field>
           </div>
         )}

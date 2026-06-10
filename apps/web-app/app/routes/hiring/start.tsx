@@ -17,7 +17,7 @@ export async function loader(args: LoaderFunctionArgs) {
       .where(eq(users.id, user.id))
   }
 
-  throw redirect('/posters')
+  throw redirect('/hiring')
 }
 
 export default function PosterStartRoute() {

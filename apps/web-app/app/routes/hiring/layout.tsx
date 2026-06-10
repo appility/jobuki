@@ -8,10 +8,11 @@ export async function loader(args: LoaderFunctionArgs) {
 }
 
 const posterNav = [
-  { to: '/posters', label: 'Overview' },
-  { to: '/posters/listings', label: 'Listings' },
-  { to: '/posters/billing', label: 'Billing' },
-  { to: '/posters/status', label: 'Status' },
+  { to: '/hiring', label: 'Overview' },
+  { to: '/hiring/listings', label: 'Listings' },
+  { to: '/hiring/applications', label: 'Applications' },
+  { to: '/hiring/billing', label: 'Billing' },
+  { to: '/hiring/status', label: 'Status' },
 ]
 
 export default function PosterLayout() {
@@ -52,7 +53,7 @@ export default function PosterLayout() {
               <NavLink
                 key={item.to}
                 to={item.to}
-                end={item.to === '/posters'}
+                end={item.to === '/hiring'}
                 className={({ isActive }) =>
                   `rounded-lg px-3 py-2 text-sm no-underline transition-all ${isActive ? 'font-semibold' : 'font-medium'}`
                 }

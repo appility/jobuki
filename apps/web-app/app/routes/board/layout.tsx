@@ -1,5 +1,16 @@
 import { Link, Outlet, useLoaderData } from 'react-router'
 import type { LoaderFunctionArgs } from 'react-router'
+import { useUser } from '@clerk/react-router'
+
+// Safe hook — returns null instead of throwing when ClerkProvider is not mounted
+function useSafeUser() {
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    return useUser()
+  } catch {
+    return { user: null, isLoaded: true }
+  }
+}
 import { getDb, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { themeToCSS, resolveTheme } from '../../lib/theme'
@@ -32,6 +43,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export default function BoardLayout() {
   const { board } = useLoaderData<typeof loader>()
+  const { user } = useSafeUser()
 
   // No board (root domain / marketing) — render without board chrome
   if (!board) return <Outlet />
@@ -109,8 +121,13 @@ export default function BoardLayout() {
           boxShadow: '0 1px 0 color-mix(in srgb, var(--color-border) 85%, transparent)',
         }}
       >
-        <div className="max-w-[1280px] mx-auto h-[62px] px-10 flex items-center justify-between gap-4">
-          <Link to="/" className="no-underline flex items-center gap-2.5 min-w-0">
+        <div className="max-w-[1280px] mx-auto h-[62px] px-6 lg:px-10 flex items-center justify-between gap-4">
+
+          {/* Mobile: left spacer to balance avatar; Desktop: hidden */}
+          <div className="w-8 lg:hidden" />
+
+          {/* Logo — centered on mobile, left-aligned on desktop */}
+          <Link to="/" className="no-underline flex items-center gap-2.5 min-w-0 lg:flex-1">
             {hasLogo ? (
               <img
                 src={logoUrl}
@@ -119,6 +136,7 @@ export default function BoardLayout() {
                 height={36}
                 loading="eager"
                 decoding="async"
+                fetchPriority="high"
                 style={{ height: 36, width: 'auto', display: 'block', objectFit: 'contain' }}
               />
             ) : (
@@ -128,16 +146,15 @@ export default function BoardLayout() {
                   <circle cx="14" cy="14" r="7" stroke="var(--color-primary)" strokeWidth="2" fill="none" strokeDasharray="3 2" />
                   <circle cx="14" cy="14" r="12" stroke="var(--color-border)" strokeWidth="1.5" fill="none" />
                 </svg>
-                <span
-                  className="truncate text-[13px] font-extrabold tracking-[0.01em] font-display text-text-primary"
-                >
+                <span className="truncate text-[13px] font-extrabold tracking-[0.01em] font-display text-text-primary">
                   {boardConfig.boardName}
                 </span>
               </>
             )}
           </Link>
 
-          <div className="flex items-center gap-0.5">
+          {/* Desktop nav — hidden on mobile */}
+          <div className="hidden lg:flex items-center gap-0.5">
             <Link to="/jobs" className="px-3.5 py-2 text-[13px] font-medium rounded-[10px] transition-colors text-text-secondary">
               Browse
             </Link>
@@ -162,6 +179,37 @@ export default function BoardLayout() {
               </a>
             )}
           </div>
+
+          {/* Right slot — avatar for candidates/hiring, Post a role CTA on mobile otherwise */}
+          <div className="flex items-center gap-2 lg:hidden">
+            {(() => {
+              const accountType = user?.unsafeMetadata?.accountType as string | undefined
+              const portalHref = accountType === 'job_seeker' ? '/candidate' : accountType === 'job_poster' ? '/hiring' : null
+              if (user && portalHref) return (
+                <Link to={portalHref} className="w-8 h-8 rounded-full overflow-hidden border border-border shrink-0">
+                  {user.imageUrl ? (
+                    <img src={user.imageUrl} alt={user.fullName ?? ''} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="w-full h-full flex items-center justify-center text-xs font-bold bg-primary text-primary-fg">
+                      {(user.fullName ?? user.primaryEmailAddress?.emailAddress ?? '?')[0].toUpperCase()}
+                    </span>
+                  )}
+                </Link>
+              )
+              if (boardConfig.emptyState.ctaUrl) return (
+                <a
+                  href={boardConfig.emptyState.ctaUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 text-[12px] font-bold rounded-[10px] no-underline bg-primary text-primary-fg"
+                >
+                  Post a role
+                </a>
+              )
+              return <div className="w-8" />
+            })()}
+          </div>
+
         </div>
       </header>
 

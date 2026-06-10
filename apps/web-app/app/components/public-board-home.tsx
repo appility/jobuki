@@ -15,7 +15,7 @@ const STYLES_BASE = `
   --bg2: #E8E1D8;
   --white: #FAF8F4;
   --ink: #16120E;
-  --mid: #7C7067;
+  --mid: #5E5248;
   --rule: #D4CBBD;
   --vio: #6C3BFF;
   --vio-l: #EDE6FF;
@@ -428,7 +428,7 @@ const STYLES_BASE = `
 .jp-f-links { display: flex; gap: 20px; flex-wrap: wrap; }
 .jp-f-links a { font-size: 12px; font-weight: 600; color: var(--mid); transition: color .1s; }
 .jp-f-links a:hover { color: var(--ink); }
-.jp-f-copy { font-size: 11px; font-weight: 600; color: var(--rule); }
+.jp-f-copy { font-size: 11px; font-weight: 600; color: var(--mid); }
 
 @media (max-width: 960px) {
   .jp-nav-inner, .jp-hero-inner, .jp-filters, .jp-bento, .jp-load, .jp-footer { padding-left: 20px; padding-right: 20px; }
@@ -680,7 +680,7 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
           </div>
       </section>
 
-      <div className="jp-shell">
+      <main className="jp-shell">
 
         <section className="jp-bento" id="roles">
           {jobs.length === 0 ? (
@@ -843,12 +843,12 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
           <Link className="jp-load-btn" to="/jobs">Browse all roles →</Link>
         </div>
 
-      </div>
+      </main>
 
       <footer className="jp-footer">
         <div className="jp-f-logo">
           {boardConfig.logoUrl ? (
-            <img src={boardConfig.logoUrl} alt={boardConfig.boardName} style={{ height: 28, width: 'auto', objectFit: 'contain' }} />
+            <img src={boardConfig.logoUrl} alt={boardConfig.boardName} height={28} width="auto" style={{ height: 28, width: 'auto', objectFit: 'contain' }} />
           ) : (
             <><span className="jp-f-dot" />{boardConfig.boardName}</>
           )}

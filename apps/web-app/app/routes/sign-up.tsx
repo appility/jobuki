@@ -10,7 +10,7 @@ export default function SignUpPage() {
   const afterSignUpUrl = userType === 'job-seeker'
     ? '/candidate/start'
     : userType === 'job-poster'
-      ? '/posters/start'
+      ? '/hiring/start'
       : '/dashboard'
   const accountTypeMetadata = userType === 'job-seeker'
     ? 'job_seeker'

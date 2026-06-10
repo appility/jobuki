@@ -37,8 +37,8 @@ export default function JobPosterHome() {
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <Link to="/posters/listings" className="btn-primary">Open listings</Link>
-        <Link to="/posters/billing" className="btn-outline">View billing</Link>
+        <Link to="/hiring/listings" className="btn-primary">Open listings</Link>
+        <Link to="/hiring/billing" className="btn-outline">View billing</Link>
       </div>
     </section>
   )

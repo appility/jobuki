@@ -146,7 +146,6 @@ export async function action(args: ActionFunctionArgs) {
       headerStyle:  form.get('boardConfigHeaderStyle') as JobBoardHeaderStyle,
       themePreset:  form.get('boardConfigThemePreset') as JobBoardThemePreset,
       jobsLayout:   form.get('boardConfigJobsLayout') as JobBoardJobsLayout,
-      showSearch:   parseBool(form.get('boardConfigShowSearch')),
       showFilters:  parseBool(form.get('boardConfigShowFilters')),
       cssVariables: {
         pillActiveBg:       parseOptional(form.get('boardConfigCssVarPillActiveBg')),
@@ -302,7 +301,6 @@ export default function AppearancePage() {
   const [configHeaderStyle, setConfigHeaderStyle] = useState<JobBoardHeaderStyle>(boardConfig.headerStyle)
   const [configThemePreset, setConfigThemePreset] = useState<JobBoardThemePreset>(boardConfig.themePreset)
   const [configJobsLayout, setConfigJobsLayout] = useState<JobBoardJobsLayout>(boardConfig.jobsLayout)
-  const [configShowSearch, setConfigShowSearch] = useState(boardConfig.showSearch)
   const [configShowFilters, setConfigShowFilters] = useState(boardConfig.showFilters)
   const [configEmptyStateIcon, setConfigEmptyStateIcon] = useState<JobBoardEmptyStateIcon>(boardConfig.emptyState.icon ?? 'search')
   const [configEmptyStateTitle, setConfigEmptyStateTitle] = useState(boardConfig.emptyState.title)
@@ -501,7 +499,6 @@ export default function AppearancePage() {
             <input type="hidden" name="boardConfigHeaderStyle" value={configHeaderStyle} />
             <input type="hidden" name="boardConfigThemePreset" value={configThemePreset} />
             <input type="hidden" name="boardConfigJobsLayout" value={configJobsLayout} />
-            <input type="hidden" name="boardConfigShowSearch" value={configShowSearch ? 'true' : 'false'} />
             <input type="hidden" name="boardConfigShowFilters" value={configShowFilters ? 'true' : 'false'} />
             <input type="hidden" name="boardConfigCssVarPillActiveBg" value={configCssVarPillActiveBg} />
             <input type="hidden" name="boardConfigCssVarPillActiveFg" value={configCssVarPillActiveFg} />
@@ -1051,10 +1048,6 @@ export default function AppearancePage() {
                 <option value="dark">Dark</option>
               </select>
               <LayoutPicker value={configJobsLayout} onChange={setConfigJobsLayout} />
-              <label className="flex items-center gap-2 text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                <input type="checkbox" checked={configShowSearch} onChange={e => setConfigShowSearch(e.target.checked)} />
-                Show search
-              </label>
               <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
                 <input type="checkbox" checked={configShowFilters} onChange={e => setConfigShowFilters(e.target.checked)} />
                 Show filters
