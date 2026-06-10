@@ -42,6 +42,39 @@ Each job must have these fields (use null if not found):
 Only include real job listings — skip ads, featured banners, nav items.
 Extract up to 30 jobs per page.`
 
+// Patterns that appear at the end of scraped descriptions — source attribution
+// footers, CTA buttons, tracking noise. Matched case-insensitively against each
+// sentence/line at the tail of the description.
+// Add patterns here as you discover them — one regex per line.
+// Each is tested against individual sentences at the tail of the description.
+// Add patterns here as you discover them — one regex per line.
+// Each is tested against individual sentences at the tail of the description.
+const DESCRIPTION_FOOTER_PATTERNS = [
+  /find jobs in .+ on arbeitnow/i,
+  /to apply:\s*https?:\/\/\S+/i,
+  /originally posted on .+/i,
+  // TODO: add more patterns from real examples
+]
+
+function cleanDescription(text) {
+  if (!text) return text
+
+  // Split into sentences on ". " or newlines, trim from the tail
+  const sentences = text.split(/(?<=\.)\s+|\n+/).map(s => s.trim()).filter(Boolean)
+
+  // Walk backwards and drop sentences that are pure footer noise
+  let cutAt = sentences.length
+  for (let i = sentences.length - 1; i >= Math.max(0, sentences.length - 5); i--) {
+    if (DESCRIPTION_FOOTER_PATTERNS.some(p => p.test(sentences[i]))) {
+      cutAt = i
+    } else {
+      break
+    }
+  }
+
+  return sentences.slice(0, cutAt).join(' ').trim()
+}
+
 function stripHtml(html) {
   // Remove scripts, styles, SVGs and compress whitespace to reduce tokens
   return html
@@ -97,7 +130,10 @@ for (const file of htmlFiles) {
 
     const raw = response.choices[0]?.message?.content ?? '{}'
     const parsed = JSON.parse(raw)
-    const jobs = Array.isArray(parsed.jobs) ? parsed.jobs : []
+    const jobs = (Array.isArray(parsed.jobs) ? parsed.jobs : []).map(j => ({
+      ...j,
+      description: cleanDescription(j.description),
+    }))
 
     if (jobs.length === 0) {
       console.warn(`[extract] ${file}: No jobs found — site may be JS-rendered or blocked`)

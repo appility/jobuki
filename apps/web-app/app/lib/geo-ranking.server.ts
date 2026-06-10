@@ -30,6 +30,7 @@ export async function getGeoRegions(): Promise<GeoRegion[]> {
     slug: r.slug,
     label: r.label,
     flag: r.flag,
+    sortOrder: r.sortOrder,
     cfCountryCodes: r.cfCountryCodes.split(',').map(s => s.trim().toUpperCase()).filter(Boolean),
     locationKeywords: r.locationKeywords.split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
     sourceKeys: r.sourceKeys.split(',').map(s => s.trim()).filter(Boolean),

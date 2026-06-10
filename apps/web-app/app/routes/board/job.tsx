@@ -261,6 +261,18 @@ export default function JobDetail() {
               <MetaRow label="Type" value={TYPE_LABEL[job.employmentType] ?? job.employmentType} />
               <MetaRow label="Category" value={categoryLabel || 'General'} />
               <MetaRow label="Posted" value={postedAt} />
+              {job.externalSource && job.externalListingUrl ? (
+                <div className="pt-3 mt-1">
+                  <a
+                    href={job.externalListingUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="text-[11px] no-underline hover:underline text-text-muted"
+                  >
+                    Originally listed on {job.externalSource}
+                  </a>
+                </div>
+              ) : null}
             </section>
 
             {!isPreviewMode ? (

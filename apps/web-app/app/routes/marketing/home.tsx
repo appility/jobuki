@@ -11,6 +11,8 @@ import { cacheGet, cacheSet } from '../../lib/board-cache.server'
 import { publicJobPath } from '../../lib/public-job-path'
 import { PublicBoardHome } from '../../components/public-board-home'
 
+export type BoardLoaderData = Awaited<ReturnType<typeof loader>> & { mode: 'board' }
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const boardSlug     = request.headers.get('x-board-slug')
   const boardHostname = request.headers.get('x-board-hostname')
@@ -56,6 +58,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
     cacheSet(cacheKey, publishedJobs)
   }
 
+  // Geo ranking — float region-relevant jobs to the top
+  const regions = await getGeoRegions()
+  const vRegion = visitorRegion(request, regions)
+  const rankedJobs = rankJobs(publishedJobs, vRegion, regions)
+
   const url = new URL(request.url)
   const q = (url.searchParams.get('q') ?? '').trim().toLowerCase()
   const location = (url.searchParams.get('location') ?? '').trim().toLowerCase()
@@ -91,11 +98,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }))
 
   const totalCompanies = new Set(publishedJobs.map(j => j.company).filter(Boolean)).size
-
-  // Geo ranking — float region-relevant jobs to the top
-  const regions = await getGeoRegions()
-  const vRegion = visitorRegion(request, regions)
-  const rankedJobs = rankJobs(publishedJobs, vRegion, regions)
 
   const css = themeToCSS(resolveTheme(board.theme ?? {}), ':root', boardConfig.cssVariables)
   return {
