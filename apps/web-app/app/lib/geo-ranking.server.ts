@@ -20,11 +20,18 @@ export async function getGeoRegions(): Promise<GeoRegion[]> {
   if (cached) return cached
 
   const db = getDb()
-  const rows = await db
-    .select()
-    .from(geoRegions)
-    .where(eq(geoRegions.enabled, true))
-    .orderBy(geoRegions.sortOrder)
+  let rows: typeof geoRegions.$inferSelect[] = []
+  try {
+    rows = await db
+      .select()
+      .from(geoRegions)
+      .where(eq(geoRegions.enabled, true))
+      .orderBy(geoRegions.sortOrder)
+  } catch (err: any) {
+    // Table doesn't exist yet (migration pending) — degrade gracefully
+    if (err?.code === '42P01') return []
+    throw err
+  }
 
   const regions: GeoRegion[] = rows.map(r => ({
     slug: r.slug,
