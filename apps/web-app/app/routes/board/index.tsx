@@ -152,11 +152,8 @@ export default function BoardJobsPage() {
         {/* Board header */}
         <section className="mb-6">
           <div className="flex items-center gap-3 mb-2">
-            {logoUrl ? (
-              <img src={logoUrl} alt={board.name} style={{ height: 32, width: 'auto', objectFit: 'contain' }} />
-            ) : null}
             <h1 className="text-[22px] font-extrabold tracking-[-0.03em] font-display text-text-primary">
-              {boardPageTitle(board.name)}
+              Job Listings
             </h1>
           </div>
           {boardConfig.tagline && (

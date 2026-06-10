@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useLoaderData, useFetcher } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess, requireBoardInWorkspace } from '../../../lib/auth.server'
-import { runIngest } from '../../api/ingest-jobs'
+import { runIngest } from '../../../lib/ingest-pipeline.server'
 
 export async function loader(args: LoaderFunctionArgs) {
   const { workspace } = await requireWorkspaceAccess(args)

@@ -69,7 +69,6 @@ export default function SignInPage() {
         <section className="auth-form-panel">
           <div className="auth-clerk-slot">
             <SignIn
-              afterSignInUrl={redirectTarget}
               fallbackRedirectUrl={redirectTarget}
               forceRedirectUrl={redirectTarget}
               signUpUrl={signUpUrl}

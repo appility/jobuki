@@ -58,7 +58,8 @@ export default function SignUpPage() {
         <section className="auth-form-panel">
           <div className="auth-clerk-slot">
             <SignUp
-              afterSignUpUrl={afterSignUpUrl}
+              fallbackRedirectUrl={afterSignUpUrl}
+              forceRedirectUrl={afterSignUpUrl}
               signInUrl={signInUrl}
               unsafeMetadata={{ accountType: accountTypeMetadata }}
               appearance={clerkAuthAppearance}

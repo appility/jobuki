@@ -1,16 +1,22 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
-import { useAuth } from '@clerk/react-router'
+import { useUser } from '@clerk/react-router'
 
 export default function SSOCallback() {
   const navigate = useNavigate()
-  const { isSignedIn } = useAuth()
+  const { isLoaded, isSignedIn, user } = useUser()
 
   useEffect(() => {
-    if (isSignedIn) {
+    if (!isLoaded || !isSignedIn) return
+    const accountType = user?.unsafeMetadata?.accountType as string | undefined
+    if (accountType === 'job_seeker') {
+      navigate('/candidate/start')
+    } else if (accountType === 'job_poster') {
+      navigate('/hiring/start')
+    } else {
       navigate('/dashboard')
     }
-  }, [isSignedIn, navigate])
+  }, [isLoaded, isSignedIn, user, navigate])
 
   return (
     <div className="min-h-screen flex items-center justify-center"
