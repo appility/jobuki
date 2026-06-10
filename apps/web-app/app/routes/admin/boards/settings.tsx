@@ -276,13 +276,11 @@ export default function BoardSettings() {
                 <AlertDialogCancel asChild>
                   <button type="button" className="btn-outline text-sm">Cancel</button>
                 </AlertDialogCancel>
-                <AlertDialogAction asChild>
-                  <button type="submit"
-                    disabled={deleting || confirmSlug.trim().toLowerCase() !== board.slug.toLowerCase()}
-                    className="w-full disabled:opacity-60">
-                    {deleting ? 'Deleting…' : 'Delete board'}
-                  </button>
-                </AlertDialogAction>
+                <button type="submit"
+                  disabled={deleting || confirmSlug.trim().toLowerCase() !== board.slug.toLowerCase()}
+                  className="w-full disabled:opacity-60">
+                  {deleting ? 'Deleting…' : 'Delete board'}
+                </button>
               </AlertDialogFooter>
             </Form>
           </AlertDialogContent>
