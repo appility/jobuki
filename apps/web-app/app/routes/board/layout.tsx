@@ -71,6 +71,10 @@ export default function BoardLayout() {
       <style dangerouslySetInnerHTML={{ __html: fontImport }} />
       {/* Per-board CSS variable injection — this is the entire theming system */}
       <style dangerouslySetInnerHTML={{ __html: css }} />
+      {/* Preload hero image so browser discovers it before CSS is parsed */}
+      {board.heroImageUrl && (
+        <link rel="preload" as="image" href={board.heroImageUrl} fetchPriority="high" />
+      )}
 
       {/* ── SEO ── */}
       {boardConfig.seo?.noindex && <meta name="robots" content="noindex,nofollow" />}

@@ -28,6 +28,7 @@ function boardNavItems(id: string) {
     { to: `/dashboard/boards/${id}`,             label: 'Overview',    icon: '▦', end: true },
     { to: `/dashboard/jobs?boardId=${id}`,       label: 'Jobs',        icon: '✦', end: false },
     { to: `/dashboard/boards/${id}/content`,     label: 'Content',     icon: '✎', end: false },
+    { to: `/dashboard/boards/${id}/import`,      label: 'Import jobs', icon: '↓', end: false },
     { to: `/dashboard/appearance/${id}`,         label: 'Appearance',  icon: '◑', end: false },
     { to: `/dashboard/boards/${id}/domain`,      label: 'Domain',      icon: '◉', end: false },
     { to: `/dashboard/boards/${id}/integrations`,label: 'Integrations',icon: '⬡', end: false },

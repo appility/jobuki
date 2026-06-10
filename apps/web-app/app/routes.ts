@@ -43,6 +43,7 @@ export default [
     route('dashboard/boards/new',     'routes/admin/boards/new.tsx'),
     route('dashboard/boards/:id',        'routes/admin/boards/show.tsx'),
     route('dashboard/boards/:id/content',       'routes/admin/boards/content.tsx'),
+    route('dashboard/boards/:id/import',        'routes/admin/boards/import.tsx'),
     route('dashboard/boards/:id/domain',        'routes/admin/boards/domain.tsx'),
     route('dashboard/boards/:id/integrations',  'routes/admin/boards/integrations.tsx'),
     route('dashboard/boards/:id/settings',      'routes/admin/boards/settings.tsx'),

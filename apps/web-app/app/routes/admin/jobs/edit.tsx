@@ -84,9 +84,6 @@ export async function action(args: ActionFunctionArgs) {
 
   await db.update(jobs).set({
     title,
-    externalApplyUrl: null,
-    externalListingUrl: null,
-    externalSource: null,
     company:        (form.get('company') as string).trim() || null,
     location:       (form.get('location') as string).trim() || null,
     remotePolicy:   (form.get('remotePolicy') as any),

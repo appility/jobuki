@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from 'react-router'
 import { getDb, boards, jobs } from '@jobuki/db'
-import { and, inArray } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { cacheInvalidate } from '../../lib/board-cache.server'
 
 type FeedSource =
@@ -84,6 +84,8 @@ type IngestRequestBody = {
   lookbackDays?: number
   strictSource?: boolean
   dryRun?: boolean
+  previewPage?: number
+  boardId?: string  // if set, ingest into this board only (admin import UI)
 }
 
 type NormalizedJob = {
@@ -951,27 +953,13 @@ function normalizeIncomingJob(job: IncomingJob, context: IngestNormalizationCont
   }
 }
 
-export async function action({ request }: ActionFunctionArgs) {
-  const secret = process.env.INGEST_SECRET
-  const token = getBearerToken(request)
+// ── Public pipeline function ───────────────────────────────────────────
+// Called directly by the admin import UI (no HTTP round-trip needed).
+// Also called by the HTTP action below for cron/external use.
 
-  if (!secret || token !== secret) {
-    return unauthorized()
-  }
-
-  if (request.method.toUpperCase() !== 'POST') {
-    return Response.json({ ok: false, error: 'Method not allowed' }, { status: 405 })
-  }
-
-  let body: IngestRequestBody = {}
-  try {
-    body = (await request.json()) as IngestRequestBody
-  } catch {
-    return Response.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 })
-  }
-
+export async function runIngest(body: IngestRequestBody) {
   const source = body.source ?? DEFAULT_SOURCE
-  let sourceUsed = source
+  let sourceUsed: SourceSelection = source
   let sourceBreakdown: Partial<Record<FeedSource, number>> | null = null
   let sourceHealth: Partial<Record<FeedSource, SourceHealthEntry>> | null = null
   const limit = Math.max(1, Math.min(2000, Number(body.limit ?? 500) || 500))
@@ -990,111 +978,80 @@ export async function action({ request }: ActionFunctionArgs) {
   if (Array.isArray(body.jobs) && body.jobs.length > 0) {
     incomingJobs = body.jobs
   } else {
-    try {
-      if (source === 'all') {
-        sourceBreakdown = {}
-        sourceHealth = {}
-        const combined: IncomingJob[] = []
+    if (source === 'all') {
+      sourceBreakdown = {}
+      sourceHealth = {}
+      const combined: IncomingJob[] = []
+      for (const selectedSource of FEED_SOURCES) {
+        try {
+          const fetched = await SOURCE_FETCHERS[selectedSource](sourceOptions)
+          sourceBreakdown[selectedSource] = fetched.length
+          sourceHealth[selectedSource] = { status: fetched.length > 0 ? 'ok' : 'empty_feed', count: fetched.length }
+          combined.push(...fetched)
+        } catch (error) {
+          sourceBreakdown[selectedSource] = 0
+          sourceHealth[selectedSource] = classifySourceError(error)
+        }
+      }
+      incomingJobs = combined
+    } else {
+      sourceHealth = {}
+      incomingJobs = await SOURCE_FETCHERS[source](sourceOptions)
+      sourceHealth[source] = { status: incomingJobs.length > 0 ? 'ok' : 'empty_feed', count: incomingJobs.length }
 
-        for (const selectedSource of FEED_SOURCES) {
+      // CryptoJobsList is intermittently blocked — fall back transparently
+      if (source === 'cryptojobslist' && !body.strictSource && incomingJobs.length === 0) {
+        for (const fallback of ['remoteok_json_web3', 'hireweb3_rss', 'jobicy_json_web3'] as FeedSource[]) {
           try {
-            const jobsForSource = await SOURCE_FETCHERS[selectedSource](sourceOptions)
-            sourceBreakdown[selectedSource] = jobsForSource.length
-            sourceHealth[selectedSource] = {
-              status: jobsForSource.length > 0 ? 'ok' : 'empty_feed',
-              count: jobsForSource.length,
-            }
-            combined.push(...jobsForSource)
+            const fallbackJobs = await SOURCE_FETCHERS[fallback](sourceOptions)
+            sourceHealth[fallback] = { status: fallbackJobs.length > 0 ? 'ok' : 'empty_feed', count: fallbackJobs.length }
+            if (fallbackJobs.length > 0) { incomingJobs = fallbackJobs; sourceUsed = fallback; break }
           } catch (error) {
-            sourceBreakdown[selectedSource] = 0
-            sourceHealth[selectedSource] = classifySourceError(error)
-          }
-        }
-
-        incomingJobs = combined
-      } else {
-        sourceHealth = {}
-        incomingJobs = await SOURCE_FETCHERS[source](sourceOptions)
-        sourceHealth[source] = {
-          status: incomingJobs.length > 0 ? 'ok' : 'empty_feed',
-          count: incomingJobs.length,
-        }
-
-        // CryptoJobsList feed is intermittently empty/challenged; transparently fail over to other feed sources.
-        if (source === 'cryptojobslist' && !body.strictSource && incomingJobs.length === 0) {
-          const fallbackOrder: FeedSource[] = ['remoteok_json_web3', 'hireweb3_rss', 'jobicy_json_web3']
-          for (const fallbackSource of fallbackOrder) {
-            try {
-              const fallbackJobs = await SOURCE_FETCHERS[fallbackSource](sourceOptions)
-              sourceHealth[fallbackSource] = {
-                status: fallbackJobs.length > 0 ? 'ok' : 'empty_feed',
-                count: fallbackJobs.length,
-              }
-              if (fallbackJobs.length > 0) {
-                incomingJobs = fallbackJobs
-                sourceUsed = fallbackSource
-                break
-              }
-            } catch (error) {
-              sourceHealth[fallbackSource] = classifySourceError(error)
-            }
+            sourceHealth[fallback] = classifySourceError(error)
           }
         }
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown fetch error'
-      return Response.json({ ok: false, error: `Failed to fetch source ${source}: ${message}` }, { status: 502 })
     }
   }
 
-  const filteredIncoming = applyLookbackFilter(
-    incomingJobs,
-    Number.isFinite(lookbackDays) ? lookbackDays : undefined
-  )
+  const filteredIncoming = applyLookbackFilter(incomingJobs, Number.isFinite(lookbackDays) ? lookbackDays : undefined)
 
   const normalized = filteredIncoming
-    .map((job) =>
-      normalizeIncomingJob(job, {
-        requestCategory,
-        requestTags,
-        requestSearchTerms,
-      })
-    )
+    .map(job => normalizeIncomingJob(job, { requestCategory, requestTags, requestSearchTerms }))
     .filter((job): job is NormalizedJob => Boolean(job))
 
-  const filteredNormalized = normalized.filter((job) =>
-    matchesRequestFilters(job, {
-      requestCategory,
-      requestTags,
-      requestSearchTerms,
-    })
+  const filteredNormalized = normalized.filter(job =>
+    matchesRequestFilters(job, { requestCategory, requestTags, requestSearchTerms })
   )
 
+  const base = {
+    ok: true as const,
+    source,
+    sourceUsed,
+    sourceBreakdown,
+    sourceHealth,
+    category: requestCategory,
+    searchTerms: requestSearchTerms,
+    tagsUsed: requestTags,
+    totalIncoming: incomingJobs.length,
+    afterLookback: filteredIncoming.length,
+    normalized: normalized.length,
+    afterRequestFilters: filteredNormalized.length,
+  }
+
   if (filteredNormalized.length === 0) {
-    return Response.json({
-      ok: true,
-      source,
-      sourceUsed,
-      sourceBreakdown,
-      sourceHealth,
-      inserted: 0,
-      skipped: 0,
-      totalIncoming: incomingJobs.length,
-      afterLookback: filteredIncoming.length,
-      normalized: normalized.length,
-      afterRequestFilters: filteredNormalized.length,
-    })
+    return { ...base, boards: 0, inserted: 0, skipped: 0 }
   }
 
   const db = getDb()
-  const allBoards = await db.select({ id: boards.id }).from(boards)
+  const allBoards = body.boardId
+    ? await db.select({ id: boards.id }).from(boards).where(eq(boards.id, body.boardId))
+    : await db.select({ id: boards.id }).from(boards)
 
-  if (allBoards.length === 0) {
-    return Response.json({ ok: false, error: 'No boards found to ingest into.' }, { status: 400 })
-  }
+  if (allBoards.length === 0) throw new Error('No boards found to ingest into.')
 
-  const boardIds = allBoards.map((b) => b.id)
-  const titles = Array.from(new Set(filteredNormalized.map((j) => j.title))).slice(0, 1000)
+  const boardIds = allBoards.map(b => b.id)
+  const titles = Array.from(new Set(filteredNormalized.map(j => j.title))).slice(0, 1000)
 
   const existingRows = titles.length
     ? await db
@@ -1104,7 +1061,7 @@ export async function action({ request }: ActionFunctionArgs) {
     : []
 
   const existingKeys = new Set(
-    existingRows.map((row) => `${row.boardId}::${row.title.toLowerCase()}::${(row.company ?? '').toLowerCase()}`)
+    existingRows.map(row => `${row.boardId}::${row.title.toLowerCase()}::${(row.company ?? '').toLowerCase()}`)
   )
 
   const rowsToInsert: Array<typeof jobs.$inferInsert> = []
@@ -1113,11 +1070,7 @@ export async function action({ request }: ActionFunctionArgs) {
   for (const board of allBoards) {
     for (const job of filteredNormalized) {
       const key = `${board.id}::${job.title.toLowerCase()}::${(job.company ?? '').toLowerCase()}`
-      if (existingKeys.has(key)) {
-        skipped += 1
-        continue
-      }
-
+      if (existingKeys.has(key)) { skipped++; continue }
       rowsToInsert.push({
         boardId: board.id,
         title: job.title,
@@ -1141,29 +1094,35 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   if (body.dryRun) {
-    return Response.json({
-      ok: true,
-      dryRun: true,
-      source,
-      sourceUsed,
-      sourceBreakdown,
-      sourceHealth,
-      category: requestCategory,
-      searchTerms: requestSearchTerms,
-      tagsUsed: requestTags,
+    const previewPage = Math.max(1, Number(body.previewPage ?? 1))
+    const previewPageSize = 20
+    const previewJobs = filteredNormalized
+      .slice((previewPage - 1) * previewPageSize, previewPage * previewPageSize)
+      .map(j => ({
+        title: j.title,
+        company: j.company,
+        location: j.location,
+        remotePolicy: j.remotePolicy,
+        employmentType: j.employmentType,
+        externalSource: j.externalSource,
+      }))
+    return {
+      ...base,
+      dryRun: true as const,
       boards: allBoards.length,
-      totalIncoming: incomingJobs.length,
-      afterLookback: filteredIncoming.length,
-      normalized: normalized.length,
-      afterRequestFilters: filteredNormalized.length,
       wouldInsert: rowsToInsert.length,
       skipped,
-    })
+      preview: {
+        jobs: previewJobs,
+        page: previewPage,
+        pageSize: previewPageSize,
+        totalPages: Math.max(1, Math.ceil(filteredNormalized.length / previewPageSize)),
+      },
+    }
   }
 
-  const batchSize = 200
   let inserted = 0
-
+  const batchSize = 200
   for (let i = 0; i < rowsToInsert.length; i += batchSize) {
     const batch = rowsToInsert.slice(i, i + batchSize)
     if (batch.length === 0) continue
@@ -1172,21 +1131,31 @@ export async function action({ request }: ActionFunctionArgs) {
     batch.forEach(r => cacheInvalidate(`board:${r.boardId}:`))
   }
 
-  return Response.json({
-    ok: true,
-    source,
-    sourceUsed,
-    sourceBreakdown,
-    sourceHealth,
-    category: requestCategory,
-    searchTerms: requestSearchTerms,
-    tagsUsed: requestTags,
-    boards: allBoards.length,
-    totalIncoming: incomingJobs.length,
-    afterLookback: filteredIncoming.length,
-    normalized: normalized.length,
-    afterRequestFilters: filteredNormalized.length,
-    inserted,
-    skipped,
-  })
+  return { ...base, boards: allBoards.length, inserted, skipped }
+}
+
+// ── HTTP action (cron / external callers) ─────────────────────────────
+
+export async function action({ request }: ActionFunctionArgs) {
+  const secret = process.env.INGEST_SECRET
+  const token = getBearerToken(request)
+  if (!secret || token !== secret) return unauthorized()
+  if (request.method.toUpperCase() !== 'POST') {
+    return Response.json({ ok: false, error: 'Method not allowed' }, { status: 405 })
+  }
+
+  let body: IngestRequestBody = {}
+  try {
+    body = (await request.json()) as IngestRequestBody
+  } catch {
+    return Response.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  try {
+    const result = await runIngest(body)
+    return Response.json(result)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return Response.json({ ok: false, error: message }, { status: 502 })
+  }
 }
