@@ -42,9 +42,17 @@ export async function getOptionalUser(request: Request) {
   }
 }
 
-export async function requireUser(args: Args) {
+export async function requireUser(
+  args: Args,
+  opts: { type?: 'job-seeker' | 'job-poster' | 'board-creator' } = {}
+) {
   const clerkUserId = await getAuthUser(args)
-  if (!clerkUserId) throw redirect('/sign-in')
+  if (!clerkUserId) {
+    const url = new URL(args.request.url)
+    const type = opts.type ?? 'board-creator'
+    const redirectTo = url.pathname + url.search
+    throw redirect(`/sign-in?type=${type}&redirectTo=${encodeURIComponent(redirectTo)}`)
+  }
 
   const db = getDb()
   let user = await db.query.users.findFirst({
@@ -55,10 +63,13 @@ export async function requireUser(args: Args) {
     const clerkUser = await clerk.users.getUser(clerkUserId)
     const email = clerkUser.emailAddresses[0]?.emailAddress ?? ''
     const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || null
-    const accountType =
-      parseAccountType((clerkUser.unsafeMetadata as any)?.accountType)
+    // Prefer account type from Clerk metadata; fall back to the type hint from the sign-in context
+    const metaType = parseAccountType((clerkUser.unsafeMetadata as any)?.accountType)
       ?? parseAccountType((clerkUser.publicMetadata as any)?.accountType)
-      ?? 'board_creator'
+    const defaultType = opts.type === 'job-seeker' ? 'job_seeker'
+      : opts.type === 'job-poster' ? 'job_poster'
+      : 'board_creator'
+    const accountType = metaType ?? defaultType
     const [created] = await db
       .insert(users)
       .values({ clerkUserId, email, name, imageUrl: clerkUser.imageUrl ?? null, accountType })

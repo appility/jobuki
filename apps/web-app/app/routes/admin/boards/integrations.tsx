@@ -116,7 +116,7 @@ export default function IntegrationsPage() {
         </div>
       )}
 
-      <Form method="post" className="flex flex-col gap-6">
+      <Form method="post" className="flex flex-col gap-7">
         {INTEGRATIONS.map(({ key, label, placeholder, help }) => (
           <div key={key}>
             <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>
@@ -126,7 +126,7 @@ export default function IntegrationsPage() {
               name={key}
               defaultValue={(integrations as any)[key] ?? ''}
               placeholder={placeholder}
-              className="w-full px-3 py-2 rounded-xl text-sm border font-mono"
+              className="w-full px-3 py-2.5 rounded-xl text-sm border font-mono"
               style={{
                 borderColor: 'var(--color-border)',
                 backgroundColor: 'var(--color-surface-subtle)',

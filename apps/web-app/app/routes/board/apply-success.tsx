@@ -42,23 +42,51 @@ function followUpAdvice(company: string | null): { days: number; message: string
   }
 }
 
-const CATEGORY_RESOURCES: Record<string, { label: string; url: string; hint: string }[]> = {
-  engineering: [
-    { label: 'LeetCode', url: 'https://leetcode.com', hint: 'Coding challenges' },
-    { label: 'System Design Primer', url: 'https://github.com/donnemartin/system-design-primer', hint: 'Architecture prep' },
-  ],
-  product: [
-    { label: 'Lenny\'s Newsletter', url: 'https://www.lennysnewsletter.com', hint: 'PM interview prep' },
-    { label: 'Exponent', url: 'https://www.tryexponent.com', hint: 'PM mock interviews' },
-  ],
-  design: [
-    { label: 'UX Portfolio Tips', url: 'https://www.nngroup.com/articles/ux-portfolio-study-guide/', hint: 'Nielsen Norman' },
-    { label: 'Design Exercise Guide', url: 'https://www.designercize.com', hint: 'Practice prompts' },
-  ],
-  data: [
-    { label: 'StrataScratch', url: 'https://www.stratascratch.com', hint: 'SQL & analytics practice' },
-    { label: 'Kaggle', url: 'https://www.kaggle.com', hint: 'Datasets & competitions' },
-  ],
+function toSlug(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
+function buildInterviewLinks(company: string | null, title: string, category: string | null) {
+  const companySlug = company ? toSlug(company) : ''
+  const companyQ = company ? encodeURIComponent(company) : ''
+  const glassdoor = {
+    label: company ? `${company} on Glassdoor` : 'Glassdoor',
+    url: company
+      ? `https://www.glassdoor.co.uk/Search/results.htm?keyword=${companyQ}&locT=N&locId=1&jobType=all`
+      : 'https://www.glassdoor.co.uk',
+    hint: 'Reviews & interview questions',
+  }
+  const linkedin = {
+    label: company ? `${company} on LinkedIn` : 'LinkedIn',
+    url: company ? `https://www.linkedin.com/company/${companySlug}/people/` : 'https://www.linkedin.com',
+    hint: company ? 'Browse the team' : 'Research the team',
+  }
+  const titleLower = title.toLowerCase()
+  const sdpSection = titleLower.includes('distributed') || titleLower.includes('platform') || titleLower.includes('infra')
+    ? '#distributed-systems' : ''
+  const byCategory: Record<string, { label: string; url: string; hint: string }[]> = {
+    engineering: [
+      { label: company ? `${company} on LeetCode` : 'LeetCode', url: company ? `https://leetcode.com/company/${companySlug}/` : 'https://leetcode.com', hint: company ? 'Company-tagged questions' : 'Coding challenges' },
+      { label: 'System Design Primer', url: `https://github.com/donnemartin/system-design-primer${sdpSection}`, hint: 'Architecture & system design prep' },
+      glassdoor, linkedin,
+    ],
+    product: [
+      { label: 'Lenny\'s Interview Guide', url: 'https://www.lennysnewsletter.com/p/how-to-get-a-pm-job', hint: 'PM interview prep' },
+      { label: 'Exponent PM Prep', url: 'https://www.tryexponent.com/courses/pm', hint: 'Mock interviews & frameworks' },
+      glassdoor, linkedin,
+    ],
+    design: [
+      { label: 'Portfolio Checklist', url: 'https://www.nngroup.com/articles/ux-portfolio-study-guide/', hint: 'Nielsen Norman guide' },
+      { label: company ? `${company} on Dribbble` : 'Dribbble', url: company ? `https://dribbble.com/search/${companyQ}` : 'https://dribbble.com', hint: 'Brand & design inspiration' },
+      glassdoor, linkedin,
+    ],
+    data: [
+      { label: 'StrataScratch', url: 'https://www.stratascratch.com', hint: 'Real data science interview questions' },
+      { label: 'Mode SQL Tutorial', url: 'https://mode.com/sql-tutorial/', hint: 'SQL practice' },
+      glassdoor, linkedin,
+    ],
+  }
+  return byCategory[category ?? ''] ?? [glassdoor, linkedin]
 }
 
 export async function loader({ params, request }: LoaderFunctionArgs) {
@@ -77,7 +105,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   ])
 
   const followUp = followUpAdvice(job.company)
-  const resources = CATEGORY_RESOURCES[category] ?? []
+  const resources = buildInterviewLinks(job.company, job.title, category)
 
   return { job, profile, interviewTips, followUp, resources, category }
 }
@@ -175,24 +203,6 @@ export default function ApplySuccess() {
             </div>
           ) : null}
 
-          {/* Glassdoor company link */}
-          {job.company && (
-            <a
-              href={`https://www.glassdoor.co.uk/Search/results.htm?keyword=${encodeURIComponent(job.company)}`}
-              target="_blank" rel="noreferrer"
-              className="rounded-[18px] border border-border bg-surface px-7 py-6 no-underline hover:-translate-y-px transition-all block"
-            >
-              <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                Research the company
-              </h2>
-              <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                {job.company} on Glassdoor ↗
-              </p>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                Reviews, interview questions, and salary data
-              </p>
-            </a>
-          )}
 
         </div>
 

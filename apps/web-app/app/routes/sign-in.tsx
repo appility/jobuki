@@ -23,6 +23,11 @@ export default function SignInPage() {
       ? '/posters/start'
       : '/dashboard'
   const redirectTarget = requestedPath ?? fallbackByType
+  const signInTitle = userType === 'job-seeker'
+    ? 'Sign in to apply'
+    : userType === 'job-poster'
+      ? 'Welcome back'
+      : 'Welcome back to Jobuki'
   const signUpUrl = `/sign-up?type=${userType}`
 
   return (
@@ -48,7 +53,7 @@ export default function SignInPage() {
           ) : (
             <>
               <p className="auth-kicker">Board creator access</p>
-              <h1 className="auth-side-title">Welcome back to Jobuki</h1>
+              <h1 className="auth-side-title">{signInTitle}</h1>
               <p className="auth-side-copy">
                 Sign in to manage boards, post jobs, and track applications in one place.
               </p>

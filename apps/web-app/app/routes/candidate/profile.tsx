@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm'
 import { requireUser } from '../../lib/auth.server'
 
 export async function loader(args: LoaderFunctionArgs) {
-  const user = await requireUser(args)
+  const user = await requireUser(args, { type: 'job-seeker' })
   const db = getDb()
   const profile = await db.query.candidateProfiles.findFirst({
     where: eq(candidateProfiles.userId, user.id),
@@ -15,7 +15,7 @@ export async function loader(args: LoaderFunctionArgs) {
 }
 
 export async function action(args: ActionFunctionArgs) {
-  const user = await requireUser(args)
+  const user = await requireUser(args, { type: 'job-seeker' })
   const db = getDb()
   const form = await args.request.formData()
 

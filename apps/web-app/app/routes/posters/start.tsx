@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm'
 import { requireUser, getWorkspaceForUser } from '../../lib/auth.server'
 
 export async function loader(args: LoaderFunctionArgs) {
-  const user = await requireUser(args)
+  const user = await requireUser(args, { type: 'job-poster' })
   const workspaceMembership = await getWorkspaceForUser(user.id)
   if (workspaceMembership) throw redirect('/dashboard')
 

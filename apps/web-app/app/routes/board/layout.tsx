@@ -60,6 +60,11 @@ export default function BoardLayout() {
       {/* Per-board CSS variable injection — this is the entire theming system */}
       <style dangerouslySetInnerHTML={{ __html: css }} />
 
+      {/* ── SEO ── */}
+      {boardConfig.seo?.noindex && <meta name="robots" content="noindex,nofollow" />}
+      {boardConfig.seo?.ogImageUrl && <meta property="og:image" content={boardConfig.seo.ogImageUrl} />}
+      {boardConfig.seo?.metaDescription && <meta name="description" content={boardConfig.seo.metaDescription} />}
+
       {/* ── Tracking scripts ── */}
       {integrations.googleTagManagerId && (
         <script dangerouslySetInnerHTML={{ __html:

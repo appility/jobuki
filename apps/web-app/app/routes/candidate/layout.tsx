@@ -4,7 +4,7 @@ import { requireUser } from '../../lib/auth.server'
 import { useClerk } from '@clerk/react-router'
 
 export async function loader(args: LoaderFunctionArgs) {
-  const user = await requireUser(args)
+  const user = await requireUser(args, { type: 'job-seeker' })
   return { user }
 }
 

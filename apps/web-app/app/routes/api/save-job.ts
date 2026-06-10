@@ -6,7 +6,7 @@ import { requireUser } from '../../lib/auth.server'
 export async function action(args: ActionFunctionArgs) {
   let user: Awaited<ReturnType<typeof requireUser>>
   try {
-    user = await requireUser(args)
+    user = await requireUser(args, { type: 'job-seeker' })
   } catch {
     return Response.json({ ok: false, error: 'Sign in to save jobs.' }, { status: 401 })
   }

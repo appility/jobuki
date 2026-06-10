@@ -6,6 +6,7 @@ import { resolveJobBoardThemeConfig } from '@jobuki/types'
 import { resolveTheme, themeToCSS } from '../../lib/theme'
 import { deriveJobCategory, normalizeCategory, resolveBoardCategories, titleCaseCategory } from '../../lib/board-categories'
 import { normalizeLocation, normalizeLocations } from '../../lib/normalize-location'
+import { getGeoRegions, visitorRegion, rankJobs } from '../../lib/geo-ranking.server'
 import { cacheGet, cacheSet } from '../../lib/board-cache.server'
 import { publicJobPath } from '../../lib/public-job-path'
 import { PublicBoardHome } from '../../components/public-board-home'
@@ -60,7 +61,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const location = (url.searchParams.get('location') ?? '').trim().toLowerCase()
   const category = normalizeCategory(url.searchParams.get('category') ?? url.searchParams.get('department'))
 
-  const filteredJobs = publishedJobs.filter((job) => {
+  const filteredJobs = rankedJobs.filter((job) => {
     const qMatch =
       !q ||
       job.title.toLowerCase().includes(q) ||
@@ -91,6 +92,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   const totalCompanies = new Set(publishedJobs.map(j => j.company).filter(Boolean)).size
 
+  // Geo ranking — float region-relevant jobs to the top
+  const regions = await getGeoRegions()
+  const vRegion = visitorRegion(request, regions)
+  const rankedJobs = rankJobs(publishedJobs, vRegion, regions)
+
   const css = themeToCSS(resolveTheme(board.theme ?? {}), ':root', boardConfig.cssVariables)
   return {
     mode: 'board' as const,
@@ -99,6 +105,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     jobs: filteredJobs,
     totalOpen: publishedJobs.length,
     totalCompanies,
+    geoRegions: regions.map(r => ({ slug: r.slug, label: r.label, flag: r.flag })),
+    visitorRegionSlug: vRegion?.slug ?? null,
     filters: { q, location, category },
     filterOptions: { locations, categories },
   }
@@ -112,12 +120,15 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
     ]
   }
 
+  const boardConfig = resolveJobBoardThemeConfig(data.board.boardConfig, { boardName: data.board.name })
+  const seo = boardConfig.seo ?? {}
   return [
-    { title: `${data.board.name} Jobs` },
+    { title: seo.metaTitle || `${data.board.name} Jobs` },
     {
       name: 'description',
-      content: data.board.introText?.trim() || `Explore open roles at ${data.board.name}.`,
+      content: seo.metaDescription || data.board.introText?.trim() || `Explore open roles at ${data.board.name}.`,
     },
+    ...(seo.ogImageUrl ? [{ property: 'og:image', content: seo.ogImageUrl }] : []),
   ]
 }
 

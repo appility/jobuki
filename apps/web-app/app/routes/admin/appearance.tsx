@@ -8,10 +8,7 @@ import { resolveTheme, themeToCSS } from '../../lib/theme'
 import { suggestAccents, readableFg, isValidHex } from '../../lib/color'
 import { addCustomDomain, isValidDomain, removeCustomDomain } from '../../lib/railway'
 import { ALLOWED_IMAGE_MIME_TYPES, createBoardAssetUploadUrl, MAX_UPLOAD_BYTES } from '../../lib/r2.server'
-import { parseBoardCategories, titleCaseCategory } from '../../lib/board-categories'
-import { HeroHeadlineEditor } from '../../components/rich-text/HeroHeadlineEditor'
-import { PageContentEditor } from '../../components/rich-text/PageContentEditor'
-import { TEMPLATE_LABELS, type PrivacyTemplate } from '../../lib/privacy-templates'
+import { titleCaseCategory } from '../../lib/board-categories'
 import {
   resolveJobBoardThemeConfig,
   type BoardTheme,
@@ -19,7 +16,6 @@ import {
   type ButtonStyle,
   type JobBoardHeaderStyle,
   type JobBoardThemePreset,
-  type JobBoardEmptyStateIcon,
   type JobBoardJobsLayout,
   type JobBoardThemeConfig,
   type JobBoardCssVariables,
@@ -97,7 +93,7 @@ export async function action(args: ActionFunctionArgs) {
     }
   }
 
-  // ── Save theme + content ────────────────────────────────────────────
+  // ── Save theme + visual config ────────────────────────────────────────
   if (intent === 'save') {
     const parseBool = (value: FormDataEntryValue | null) => value === 'true' || value === 'on'
     const parseOptional = (value: FormDataEntryValue | null) => {
@@ -107,108 +103,67 @@ export async function action(args: ActionFunctionArgs) {
 
     const theme: BoardTheme = {
       ...resolveTheme(board.theme ?? {}),
-      colorPrimary:       form.get('colorPrimary') as string,
-      colorPrimaryFg:     form.get('colorPrimaryFg') as string,
-      colorAccent:        form.get('colorAccent') as string,
-      colorAccentFg:      form.get('colorAccentFg') as string,
-      colorBackground:    form.get('colorBackground') as string,
-      colorSurface:       form.get('colorSurface') as string,
-      colorSurfaceSubtle: form.get('colorSurfaceSubtle') as string,
-      colorTextPrimary:   form.get('colorTextPrimary') as string,
-      colorTextSecondary: form.get('colorTextSecondary') as string,
-      colorTextMuted:     form.get('colorTextMuted') as string,
-      colorBorder:        form.get('colorBorder') as string,
-      colorBorderStrong:  form.get('colorBorderStrong') as string,
-      fontDisplay:        form.get('fontDisplay') as string,
-      fontBody:           form.get('fontBody') as string,
-      radiusSm:           form.get('radiusSm') as string,
-      radiusMd:           form.get('radiusMd') as string,
-      radiusLg:           form.get('radiusLg') as string,
-      radiusXl:           form.get('radiusXl') as string,
-      radius2xl:          form.get('radius2xl') as string,
-      headerStyle:        form.get('headerStyle') as HeaderStyle,
-      buttonStyle:        form.get('buttonStyle') as ButtonStyle,
+      colorPrimary:        form.get('colorPrimary') as string,
+      colorPrimaryFg:      form.get('colorPrimaryFg') as string,
+      colorAccent:         form.get('colorAccent') as string,
+      colorAccentFg:       form.get('colorAccentFg') as string,
+      colorBackground:     form.get('colorBackground') as string,
+      colorSurface:        form.get('colorSurface') as string,
+      colorSurfaceSubtle:  form.get('colorSurfaceSubtle') as string,
+      colorTextPrimary:    form.get('colorTextPrimary') as string,
+      colorTextSecondary:  form.get('colorTextSecondary') as string,
+      colorTextMuted:      form.get('colorTextMuted') as string,
+      colorBorder:         form.get('colorBorder') as string,
+      colorBorderStrong:   form.get('colorBorderStrong') as string,
+      fontDisplay:         form.get('fontDisplay') as string,
+      fontBody:            form.get('fontBody') as string,
+      radiusSm:            form.get('radiusSm') as string,
+      radiusMd:            form.get('radiusMd') as string,
+      radiusLg:            form.get('radiusLg') as string,
+      radiusXl:            form.get('radiusXl') as string,
+      radius2xl:           form.get('radius2xl') as string,
+      headerStyle:         form.get('headerStyle') as HeaderStyle,
+      buttonStyle:         form.get('buttonStyle') as ButtonStyle,
       boardAmbientPrimary: form.get('boardAmbientPrimary') as string,
-      boardAmbientAccent: form.get('boardAmbientAccent') as string,
-      boardHeroTint: form.get('boardHeroTint') as string,
-      boardCardTint: form.get('boardCardTint') as string,
+      boardAmbientAccent:  form.get('boardAmbientAccent') as string,
+      boardHeroTint:       form.get('boardHeroTint') as string,
+      boardCardTint:       form.get('boardCardTint') as string,
       boardHeaderSurfaceMix: form.get('boardHeaderSurfaceMix') as string,
-      boardHeaderBlur: form.get('boardHeaderBlur') as string,
+      boardHeaderBlur:     form.get('boardHeaderBlur') as string,
     }
 
-    const boardConfig: JobBoardThemeConfig = resolveJobBoardThemeConfig(
-      {
-        boardName: (form.get('boardConfigBoardName') as string)?.trim(),
-        categories: parseBoardCategories(form.get('boardConfigCategories') as string),
-        tagline: (form.get('boardConfigTagline') as string)?.trim(),
-        taglineColor: (form.get('boardConfigTaglineColor') as string)?.trim() || undefined,
-        pages: {
-          about: {
-            enabled: form.get('boardConfigAboutEnabled') === 'true',
-            content: (form.get('boardConfigAboutContent') as string)?.trim() || undefined,
-          },
-          privacy: {
-            enabled: form.get('boardConfigPrivacyEnabled') === 'true',
-            template: (form.get('boardConfigPrivacyTemplate') as PrivacyTemplate) || 'global',
-            legalName: (form.get('boardConfigPrivacyLegalName') as string)?.trim() || undefined,
-            contactEmail: (form.get('boardConfigPrivacyEmail') as string)?.trim() || undefined,
-            websiteUrl: (form.get('boardConfigPrivacyWebsiteUrl') as string)?.trim() || undefined,
-          },
-        },
-        heroHeadline: (form.get('boardConfigHeroHeadline') as string)?.trim() || undefined,
-        logoUrl: (form.get('boardConfigLogoUrl') as string)?.trim(),
-        headerImageUrl: (form.get('boardConfigHeaderImageUrl') as string)?.trim(),
-        brandColor: (form.get('boardConfigBrandColor') as string)?.trim(),
-        accentColor: (form.get('boardConfigAccentColor') as string)?.trim(),
-        backgroundColor: (form.get('boardConfigBackgroundColor') as string)?.trim(),
-        headerStyle: form.get('boardConfigHeaderStyle') as JobBoardHeaderStyle,
-        themePreset: form.get('boardConfigThemePreset') as JobBoardThemePreset,
-        jobsLayout: form.get('boardConfigJobsLayout') as JobBoardJobsLayout,
-        showSearch: parseBool(form.get('boardConfigShowSearch')),
-        showFilters: parseBool(form.get('boardConfigShowFilters')),
-        emptyState: {
-          icon: form.get('boardConfigEmptyStateIcon') as JobBoardEmptyStateIcon,
-          title: (form.get('boardConfigEmptyStateTitle') as string)?.trim(),
-          description: (form.get('boardConfigEmptyStateDescription') as string)?.trim(),
-          ctaLabel: (form.get('boardConfigEmptyStateCtaLabel') as string)?.trim(),
-          ctaUrl: (form.get('boardConfigEmptyStateCtaUrl') as string)?.trim(),
-        },
-        footer: {
-          showPoweredBy: parseBool(form.get('boardConfigFooterShowPoweredBy')),
-          xUrl: (form.get('boardConfigFooterXUrl') as string)?.trim(),
-          linkedinUrl: (form.get('boardConfigFooterLinkedinUrl') as string)?.trim(),
-          companyWebsiteUrl: (form.get('boardConfigFooterCompanyWebsiteUrl') as string)?.trim(),
-        },
-      },
-      {
-        boardName: board.name,
-        tagline: form.get('introText') as string,
-        logoUrl: (form.get('logoUrl') as string)?.trim(),
-        headerImageUrl: (form.get('heroImageUrl') as string)?.trim(),
-        brandColor: theme.colorPrimary,
-        accentColor: theme.colorAccent,
-        backgroundColor: theme.colorBackground,
-      }
-    )
+    // Read existing boardConfig to preserve all content fields managed by the Content page
+    const existing = resolveJobBoardThemeConfig(board.boardConfig, { boardName: board.name })
 
-    boardConfig.cssVariables = {
-      pillActiveBg: parseOptional(form.get('boardConfigCssVarPillActiveBg')),
-      pillActiveFg: parseOptional(form.get('boardConfigCssVarPillActiveFg')),
-      pillActiveBorder: parseOptional(form.get('boardConfigCssVarPillActiveBorder')),
-      pillInactiveBg: parseOptional(form.get('boardConfigCssVarPillInactiveBg')),
-      pillInactiveFg: parseOptional(form.get('boardConfigCssVarPillInactiveFg')),
-      pillInactiveBorder: parseOptional(form.get('boardConfigCssVarPillInactiveBorder')),
-      pillDisabledOpacity: parseOptional(form.get('boardConfigCssVarPillDisabledOpacity')),
+    const boardConfig: JobBoardThemeConfig = {
+      ...existing,
+      // Only visual fields are updated here; content fields are preserved from existing
+      logoUrl:      (form.get('boardConfigLogoUrl') as string)?.trim(),
+      headerImageUrl: (form.get('boardConfigHeaderImageUrl') as string)?.trim(),
+      brandColor:   (form.get('boardConfigBrandColor') as string)?.trim(),
+      accentColor:  (form.get('boardConfigAccentColor') as string)?.trim(),
+      backgroundColor: (form.get('boardConfigBackgroundColor') as string)?.trim(),
+      headerStyle:  form.get('boardConfigHeaderStyle') as JobBoardHeaderStyle,
+      themePreset:  form.get('boardConfigThemePreset') as JobBoardThemePreset,
+      jobsLayout:   form.get('boardConfigJobsLayout') as JobBoardJobsLayout,
+      showSearch:   parseBool(form.get('boardConfigShowSearch')),
+      showFilters:  parseBool(form.get('boardConfigShowFilters')),
+      cssVariables: {
+        pillActiveBg:       parseOptional(form.get('boardConfigCssVarPillActiveBg')),
+        pillActiveFg:       parseOptional(form.get('boardConfigCssVarPillActiveFg')),
+        pillActiveBorder:   parseOptional(form.get('boardConfigCssVarPillActiveBorder')),
+        pillInactiveBg:     parseOptional(form.get('boardConfigCssVarPillInactiveBg')),
+        pillInactiveFg:     parseOptional(form.get('boardConfigCssVarPillInactiveFg')),
+        pillInactiveBorder: parseOptional(form.get('boardConfigCssVarPillInactiveBorder')),
+        pillDisabledOpacity: parseOptional(form.get('boardConfigCssVarPillDisabledOpacity')),
+      },
     }
 
     await db
       .update(boards)
       .set({
-        name:         form.get('name') as string,
-        logoUrl:      (form.get('logoUrl') as string).trim() || null,
-        heroImageUrl: (form.get('heroImageUrl') as string).trim() || null,
-        introText:    form.get('introText') as string,
-        footerText:   form.get('footerText') as string,
+        logoUrl:      (form.get('logoUrl') as string)?.trim() || null,
+        heroImageUrl: (form.get('heroImageUrl') as string)?.trim() || null,
         theme,
         boardConfig,
         updatedAt:    new Date(),
@@ -338,11 +293,7 @@ export default function AppearancePage() {
   const [t, setT] = useState(theme)
   const [logoUrl, setLogoUrl]           = useState(boardConfig.logoUrl ?? board.logoUrl ?? '')
   const [heroImageUrl, setHeroImageUrl] = useState(boardConfig.headerImageUrl ?? board.heroImageUrl ?? '')
-  const [introText, setIntroText]       = useState(board.introText ?? '')
-  const [configBoardName, setConfigBoardName] = useState(boardConfig.boardName)
-  const [configCategoriesText, setConfigCategoriesText] = useState((boardConfig.categories ?? []).map((item) => titleCaseCategory(item)).join('\n'))
-  const [configTagline, setConfigTagline] = useState(boardConfig.tagline ?? '')
-  const [configTaglineColor, setConfigTaglineColor] = useState(boardConfig.taglineColor ?? '')
+  const introText = board.introText ?? ''
   const [configLogoUrl, setConfigLogoUrl] = useState(boardConfig.logoUrl ?? '')
   const [configHeaderImageUrl, setConfigHeaderImageUrl] = useState(boardConfig.headerImageUrl ?? '')
   const [configBrandColor, setConfigBrandColor] = useState(boardConfig.brandColor)
@@ -360,8 +311,6 @@ export default function AppearancePage() {
   const [configEmptyStateCtaUrl, setConfigEmptyStateCtaUrl] = useState(boardConfig.emptyState.ctaUrl ?? '')
   const [configFooterShowPoweredBy, setConfigFooterShowPoweredBy] = useState(boardConfig.footer.showPoweredBy)
   const [configFooterXUrl, setConfigFooterXUrl] = useState(boardConfig.footer.xUrl ?? '')
-  const [configFooterLinkedinUrl, setConfigFooterLinkedinUrl] = useState(boardConfig.footer.linkedinUrl ?? '')
-  const [configFooterCompanyWebsiteUrl, setConfigFooterCompanyWebsiteUrl] = useState(boardConfig.footer.companyWebsiteUrl ?? '')
   const [configCssVarPillActiveBg, setConfigCssVarPillActiveBg] = useState(boardConfig.cssVariables?.pillActiveBg ?? '')
   const [configCssVarPillActiveFg, setConfigCssVarPillActiveFg] = useState(boardConfig.cssVariables?.pillActiveFg ?? '')
   const [configCssVarPillActiveBorder, setConfigCssVarPillActiveBorder] = useState(boardConfig.cssVariables?.pillActiveBorder ?? '')
@@ -369,20 +318,10 @@ export default function AppearancePage() {
   const [configCssVarPillInactiveFg, setConfigCssVarPillInactiveFg] = useState(boardConfig.cssVariables?.pillInactiveFg ?? '')
   const [configCssVarPillInactiveBorder, setConfigCssVarPillInactiveBorder] = useState(boardConfig.cssVariables?.pillInactiveBorder ?? '')
   const [configCssVarPillDisabledOpacity, setConfigCssVarPillDisabledOpacity] = useState(boardConfig.cssVariables?.pillDisabledOpacity ?? '')
-  // Pages
-  const [configAboutEnabled, setConfigAboutEnabled] = useState(boardConfig.pages?.about?.enabled ?? false)
-  const [configAboutContent, setConfigAboutContent] = useState(boardConfig.pages?.about?.content ?? '')
-  const [configPrivacyEnabled, setConfigPrivacyEnabled] = useState(boardConfig.pages?.privacy?.enabled ?? false)
-  const [configPrivacyTemplate, setConfigPrivacyTemplate] = useState<'uk'|'eu'|'us'|'global'>(boardConfig.pages?.privacy?.template ?? 'global')
-  const [configPrivacyLegalName, setConfigPrivacyLegalName] = useState(boardConfig.pages?.privacy?.legalName ?? '')
-  const [configPrivacyEmail, setConfigPrivacyEmail] = useState(boardConfig.pages?.privacy?.contactEmail ?? '')
-  const [configPrivacyWebsiteUrl, setConfigPrivacyWebsiteUrl] = useState(boardConfig.pages?.privacy?.websiteUrl ?? '')
 
   const [uploadingKind, setUploadingKind] = useState<'logo' | 'header' | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'brand' | 'theme' | 'hero' | 'content' | 'pages'>('brand')
-  const [configHeroHeadline, setConfigHeroHeadline] = useState(boardConfig.heroHeadline ?? '')
-  const heroHeadlineRef = useRef(boardConfig.heroHeadline ?? '')
+  const [activeTab, setActiveTab] = useState<'brand' | 'design'>('brand')
   const [toasts, setToasts] = useState<Array<{ id: number; type: 'success' | 'error'; message: string }>>([])
   const [logoDimensions, setLogoDimensions] = useState<{ width: number; height: number } | null>(null)
 
@@ -527,14 +466,11 @@ export default function AppearancePage() {
         {/* Scrollable settings */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
 
-          <div className="mb-5 grid grid-cols-5 gap-1.5 rounded-xl p-1"
+          <div className="mb-5 grid grid-cols-2 gap-1.5 rounded-xl p-1"
             style={{ backgroundColor: 'var(--color-surface-subtle)' }}>
             {([
               { key: 'brand', label: 'Brand' },
-              { key: 'theme', label: 'Theme' },
-              { key: 'hero', label: 'Hero' },
-              { key: 'content', label: 'Content' },
-              { key: 'pages', label: 'Pages' },
+              { key: 'design', label: 'Design' },
             ] as const).map(tab => (
               <button
                 key={tab.key}
@@ -552,26 +488,11 @@ export default function AppearancePage() {
             ))}
           </div>
 
-          {/* ── Theme form ── */}
+          {/* ── Appearance form (visual fields only) ── */}
           <Form method="post">
             <input type="hidden" name="intent" value="save" />
-            <input type="hidden" name="name" value={board.name} />
             <input type="hidden" name="logoUrl" value={logoUrl} />
             <input type="hidden" name="heroImageUrl" value={heroImageUrl} />
-            <input type="hidden" name="introText" value={introText} />
-            <input type="hidden" name="footerText" value={board.footerText ?? ''} />
-            <input type="hidden" name="boardConfigBoardName" value={configBoardName} />
-            <input type="hidden" name="boardConfigCategories" value={configCategoriesText} />
-            <input type="hidden" name="boardConfigTagline" value={configTagline} />
-            <input type="hidden" name="boardConfigTaglineColor" value={configTaglineColor} />
-            <input type="hidden" name="boardConfigAboutEnabled" value={configAboutEnabled ? 'true' : 'false'} />
-            <input type="hidden" name="boardConfigAboutContent" value={configAboutContent} />
-            <input type="hidden" name="boardConfigPrivacyEnabled" value={configPrivacyEnabled ? 'true' : 'false'} />
-            <input type="hidden" name="boardConfigPrivacyTemplate" value={configPrivacyTemplate} />
-            <input type="hidden" name="boardConfigPrivacyLegalName" value={configPrivacyLegalName} />
-            <input type="hidden" name="boardConfigPrivacyEmail" value={configPrivacyEmail} />
-            <input type="hidden" name="boardConfigPrivacyWebsiteUrl" value={configPrivacyWebsiteUrl} />
-            <input type="hidden" name="boardConfigHeroHeadline" value={configHeroHeadline} />
             <input type="hidden" name="boardConfigLogoUrl" value={configLogoUrl} />
             <input type="hidden" name="boardConfigHeaderImageUrl" value={configHeaderImageUrl} />
             <input type="hidden" name="boardConfigBrandColor" value={configBrandColor} />
@@ -582,15 +503,6 @@ export default function AppearancePage() {
             <input type="hidden" name="boardConfigJobsLayout" value={configJobsLayout} />
             <input type="hidden" name="boardConfigShowSearch" value={configShowSearch ? 'true' : 'false'} />
             <input type="hidden" name="boardConfigShowFilters" value={configShowFilters ? 'true' : 'false'} />
-            <input type="hidden" name="boardConfigEmptyStateIcon" value={configEmptyStateIcon} />
-            <input type="hidden" name="boardConfigEmptyStateTitle" value={configEmptyStateTitle} />
-            <input type="hidden" name="boardConfigEmptyStateDescription" value={configEmptyStateDescription} />
-            <input type="hidden" name="boardConfigEmptyStateCtaLabel" value={configEmptyStateCtaLabel} />
-            <input type="hidden" name="boardConfigEmptyStateCtaUrl" value={configEmptyStateCtaUrl} />
-            <input type="hidden" name="boardConfigFooterShowPoweredBy" value={configFooterShowPoweredBy ? 'true' : 'false'} />
-            <input type="hidden" name="boardConfigFooterXUrl" value={configFooterXUrl} />
-            <input type="hidden" name="boardConfigFooterLinkedinUrl" value={configFooterLinkedinUrl} />
-            <input type="hidden" name="boardConfigFooterCompanyWebsiteUrl" value={configFooterCompanyWebsiteUrl} />
             <input type="hidden" name="boardConfigCssVarPillActiveBg" value={configCssVarPillActiveBg} />
             <input type="hidden" name="boardConfigCssVarPillActiveFg" value={configCssVarPillActiveFg} />
             <input type="hidden" name="boardConfigCssVarPillActiveBorder" value={configCssVarPillActiveBorder} />
@@ -725,7 +637,7 @@ export default function AppearancePage() {
             )}
 
             {/* Header style */}
-            {activeTab === 'theme' && (
+            {activeTab === 'design' && (
             <Section label="HEADER STYLE">
               <div className="flex gap-2">
                 {(['minimal', 'bold', 'coloured'] as HeaderStyle[]).map(s => (
@@ -744,7 +656,7 @@ export default function AppearancePage() {
             )}
 
             {/* Button style */}
-            {activeTab === 'theme' && (
+            {activeTab === 'design' && (
             <Section label="BUTTON STYLE">
               <div className="flex gap-2">
                 {(['rounded', 'pill', 'sharp'] as ButtonStyle[]).map(s => (
@@ -762,7 +674,7 @@ export default function AppearancePage() {
             </Section>
             )}
 
-            {activeTab === 'theme' && (
+            {activeTab === 'design' && (
             <Section label="BOARD VISUAL TUNING">
               <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
                 Controls for public board atmosphere and chrome depth.
@@ -844,7 +756,7 @@ export default function AppearancePage() {
             </Section>
             )}
 
-            {activeTab === 'theme' && (
+            {activeTab === 'design' && (
             <Section label="ADVANCED CSS VARIABLES (OPTIONAL)">
               <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
                 Optional pill-state overrides for power users. Leave blank to use system defaults.
@@ -1051,7 +963,7 @@ export default function AppearancePage() {
             )}
 
             {/* Hero image */}
-            {activeTab === 'hero' && (
+            {activeTab === 'design' && (
             <Section label="HERO BACKGROUND IMAGE">
               <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
                 Header background image used on the public board.
@@ -1113,51 +1025,8 @@ export default function AppearancePage() {
             </Section>
             )}
 
-            {/* Intro text */}
-            {activeTab === 'brand' && (
-            <Section label="INTRO TEXT">
-              <textarea
-                value={introText}
-                onChange={e => setIntroText(e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 rounded-xl text-xs border leading-relaxed resize-y"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)', boxSizing: 'border-box' }}
-              />
-            </Section>
-            )}
-
-            {/* Board name + tagline moved to Brand tab */}
-            {activeTab === 'brand' && (
-            <Section label="BOARD NAME & TAGLINE">
-              <input
-                value={configBoardName}
-                onChange={e => setConfigBoardName(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded-lg text-xs border mb-2"
-                placeholder="Public board title"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-              />
-              <div className="flex items-center gap-2">
-                <input
-                  value={configTagline}
-                  onChange={e => setConfigTagline(e.target.value)}
-                  className="flex-1 px-2.5 py-1.5 rounded-lg text-xs border"
-                  placeholder="Short header tagline"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-                />
-                <input
-                  type="color"
-                  value={configTaglineColor || '#6b7280'}
-                  onChange={e => setConfigTaglineColor(e.target.value)}
-                  className="w-8 h-8 rounded-lg cursor-pointer border p-0.5 shrink-0"
-                  style={{ borderColor: 'var(--color-border)' }}
-                  title="Tagline text colour"
-                />
-              </div>
-            </Section>
-            )}
-
-            {/* Header & preset moved to Theme tab */}
-            {activeTab === 'theme' && (
+            {/* Header & preset */}
+            {activeTab === 'design' && (
             <Section label="LAYOUT & PRESET">
               <select
                 value={configHeaderStyle}
@@ -1193,175 +1062,12 @@ export default function AppearancePage() {
             </Section>
             )}
 
-            {activeTab === 'hero' && (
+            {activeTab === 'design' && (
             <Section label="JOBS LAYOUT">
               <LayoutPicker value={configJobsLayout} onChange={setConfigJobsLayout} />
             </Section>
             )}
 
-            {/* Hero tab */}
-            {activeTab === 'hero' && (
-            <Section label="HERO HEADLINE">
-              <p className="text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>
-                The big headline on your public board home page. Select text and pick a colour to highlight words.
-              </p>
-              <HeroHeadlineEditor
-                value={configHeroHeadline}
-                onChange={html => { setConfigHeroHeadline(html); heroHeadlineRef.current = html }}
-                primaryColor={t.colorPrimary}
-                accentColor={t.colorAccent}
-              />
-            </Section>
-            )}
-
-            {activeTab === 'hero' && (
-            <Section label="CATEGORY TAGS">
-              <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                One per line. These appear as clickable tags on your home page and drive job filters.
-              </p>
-              <textarea
-                value={configCategoriesText}
-                onChange={e => setConfigCategoriesText(e.target.value)}
-                rows={6}
-                className="w-full px-3 py-2 rounded-xl text-xs border leading-relaxed resize-y"
-                placeholder={'Engineering\nProduct\nDesign\nCrypto\nWeb3\nBlockchain'}
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)', boxSizing: 'border-box' }}
-              />
-            </Section>
-            )}
-
-            {activeTab === 'content' && (
-            <Section label="EMPTY STATE">
-              <select
-                value={configEmptyStateIcon}
-                onChange={e => setConfigEmptyStateIcon(e.target.value as JobBoardEmptyStateIcon)}
-                className="w-full px-2.5 py-2 rounded-lg text-xs border mb-2"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-              >
-                <option value="search">Search</option>
-                <option value="briefcase">Briefcase</option>
-                <option value="sparkle">Sparkle</option>
-                <option value="inbox">Inbox</option>
-              </select>
-              <input
-                value={configEmptyStateTitle}
-                onChange={e => setConfigEmptyStateTitle(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded-lg text-xs border mb-2"
-                placeholder="Empty state title"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-              />
-              <textarea
-                value={configEmptyStateDescription}
-                onChange={e => setConfigEmptyStateDescription(e.target.value)}
-                rows={2}
-                className="w-full px-3 py-2 rounded-xl text-xs border leading-relaxed resize-y mb-2"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)', boxSizing: 'border-box' }}
-              />
-              <input
-                value={configEmptyStateCtaLabel}
-                onChange={e => setConfigEmptyStateCtaLabel(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded-lg text-xs border mb-2"
-                placeholder="CTA label (optional)"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-              />
-              <input
-                value={configEmptyStateCtaUrl}
-                onChange={e => setConfigEmptyStateCtaUrl(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
-                placeholder="CTA URL (optional)"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-              />
-            </Section>
-            )}
-
-            {activeTab === 'content' && (
-            <Section label="FOOTER CONFIG">
-              <label className="flex items-center gap-2 text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                <input
-                  type="checkbox"
-                  checked={configFooterShowPoweredBy}
-                  onChange={e => setConfigFooterShowPoweredBy(e.target.checked)}
-                />
-                Show powered by
-              </label>
-              <input
-                value={configFooterXUrl}
-                onChange={e => setConfigFooterXUrl(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded-lg text-xs border mb-2"
-                placeholder="X profile URL (optional)"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-              />
-              <input
-                value={configFooterLinkedinUrl}
-                onChange={e => setConfigFooterLinkedinUrl(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded-lg text-xs border mb-2"
-                placeholder="LinkedIn URL (optional)"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-              />
-              <input
-                value={configFooterCompanyWebsiteUrl}
-                onChange={e => setConfigFooterCompanyWebsiteUrl(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
-                placeholder="Company website URL (optional)"
-                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-              />
-            </Section>
-            )}
-
-            {/* ── Pages tab ── */}
-            {activeTab === 'pages' && (
-            <Section label="ABOUT PAGE">
-              <label className="flex items-center gap-2 mb-3 cursor-pointer">
-                <input type="checkbox" checked={configAboutEnabled} onChange={e => setConfigAboutEnabled(e.target.checked)} />
-                <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>Enable About page (/about)</span>
-              </label>
-              {configAboutEnabled && (
-                <PageContentEditor value={configAboutContent} onChange={setConfigAboutContent} />
-              )}
-            </Section>
-            )}
-
-            {activeTab === 'pages' && (
-            <Section label="PRIVACY POLICY PAGE">
-              <label className="flex items-center gap-2 mb-3 cursor-pointer">
-                <input type="checkbox" checked={configPrivacyEnabled} onChange={e => setConfigPrivacyEnabled(e.target.checked)} />
-                <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>Enable Privacy page (/privacy)</span>
-              </label>
-              {configPrivacyEnabled && (<>
-                <select
-                  value={configPrivacyTemplate}
-                  onChange={e => setConfigPrivacyTemplate(e.target.value as PrivacyTemplate)}
-                  className="w-full px-2.5 py-2 rounded-lg text-xs border mb-3"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-                >
-                  {(Object.entries(TEMPLATE_LABELS) as [PrivacyTemplate, string][]).map(([key, label]) => (
-                    <option key={key} value={key}>{label}</option>
-                  ))}
-                </select>
-                <input
-                  value={configPrivacyLegalName}
-                  onChange={e => setConfigPrivacyLegalName(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-lg text-xs border mb-2"
-                  placeholder="Legal entity name (e.g. Acme Ltd)"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-                />
-                <input
-                  value={configPrivacyEmail}
-                  onChange={e => setConfigPrivacyEmail(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-lg text-xs border mb-2"
-                  placeholder="Privacy contact email"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-                />
-                <input
-                  value={configPrivacyWebsiteUrl}
-                  onChange={e => setConfigPrivacyWebsiteUrl(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-lg text-xs border"
-                  placeholder="Board URL (e.g. https://jobs.acme.com)"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-primary)' }}
-                />
-              </>)}
-            </Section>
-            )}
 
             <button
               type="submit"
@@ -1373,19 +1079,6 @@ export default function AppearancePage() {
             </button>
           </Form>
 
-          {/* Domain link */}
-          <div className="mt-4 pt-4 border-t flex flex-col gap-2" style={{ borderColor: 'var(--color-border)' }}>
-            <a href={`/dashboard/boards/${board.id}/domain`}
-              className="flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-xs font-semibold no-underline transition-all"
-              style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)', backgroundColor: 'var(--color-surface-subtle)' }}>
-              <span>Manage domains</span><span>→</span>
-            </a>
-            <a href={`/dashboard/boards/${board.id}/integrations`}
-              className="flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-xs font-semibold no-underline transition-all"
-              style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)', backgroundColor: 'var(--color-surface-subtle)' }}>
-              <span>Integrations</span><span>→</span>
-            </a>
-          </div>
 
         </div>
       </div>

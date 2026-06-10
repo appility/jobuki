@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useLoaderData, useNavigate, Link, useLocation } from 'react-router'
+import { Outlet, NavLink, useLoaderData, useNavigate, Link, useLocation, useMatches } from 'react-router'
 import type { LoaderFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess } from '../../lib/auth.server'
 import { useClerk } from '@clerk/react-router'
@@ -17,10 +17,34 @@ const navItems = [
   { to: '/dashboard/applications', label: 'Applications', icon: '◎' },
 ]
 
+function getBoardIdFromPath(pathname: string): string | null {
+  const m = pathname.match(/^\/dashboard\/boards\/([^/]+)/) ??
+            pathname.match(/^\/dashboard\/appearance\/([^/]+)/)
+  return m?.[1] ?? null
+}
+
+function boardNavItems(id: string) {
+  return [
+    { to: `/dashboard/boards/${id}`,             label: 'Overview',    icon: '▦', end: true },
+    { to: `/dashboard/jobs?boardId=${id}`,       label: 'Jobs',        icon: '✦', end: false },
+    { to: `/dashboard/boards/${id}/content`,     label: 'Content',     icon: '✎', end: false },
+    { to: `/dashboard/appearance/${id}`,         label: 'Appearance',  icon: '◑', end: false },
+    { to: `/dashboard/boards/${id}/domain`,      label: 'Domain',      icon: '◉', end: false },
+    { to: `/dashboard/boards/${id}/integrations`,label: 'Integrations',icon: '⬡', end: false },
+    { to: `/dashboard/boards/${id}/settings`,    label: 'Settings',    icon: '⚙', end: false },
+  ]
+}
+
 export default function AdminLayout() {
   const { workspace, user } = useLoaderData<typeof loader>()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const location = useLocation()
+  const matches = useMatches()
+
+  const boardId = getBoardIdFromPath(location.pathname)
+  const boardName = boardId
+    ? (matches.map(m => (m.data as any)?.board?.name).filter(Boolean).at(-1) as string | undefined)
+    : undefined
 
   useEffect(() => {
     setMobileNavOpen(false)
@@ -48,7 +72,9 @@ export default function AdminLayout() {
         </div>
 
         {/* Nav */}
-        <DashboardNav />
+        {boardId
+          ? <BoardNav boardId={boardId} boardName={boardName} />
+          : <DashboardNav />}
 
         {/* User menu */}
         <div className="p-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
@@ -141,7 +167,9 @@ export default function AdminLayout() {
               </p>
             </div>
 
-            <DashboardNav onNavigate={() => setMobileNavOpen(false)} />
+            {boardId
+              ? <BoardNav boardId={boardId} boardName={boardName} onNavigate={() => setMobileNavOpen(false)} />
+              : <DashboardNav onNavigate={() => setMobileNavOpen(false)} />}
 
             <div className="p-3 border-t mt-auto" style={{ borderColor: 'var(--color-border)' }}>
               <UserMenu user={user} workspace={workspace} />
@@ -161,6 +189,58 @@ function DashboardNav({ onNavigate }: { onNavigate?: () => void }) {
           key={item.to}
           to={item.to}
           end={item.to === '/dashboard'}
+          onClick={onNavigate}
+          className={({ isActive }) =>
+            `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm mb-0.5 no-underline transition-all ${
+              isActive ? 'font-semibold' : 'font-normal'
+            }`
+          }
+          style={({ isActive }) => ({
+            backgroundColor: isActive ? 'var(--color-primary)18' : 'transparent',
+            color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+          })}
+        >
+          <span className="text-xs">{item.icon}</span>
+          {item.label}
+        </NavLink>
+      ))}
+    </nav>
+  )
+}
+
+function BoardNav({ boardId, boardName, onNavigate }: {
+  boardId: string
+  boardName?: string
+  onNavigate?: () => void
+}) {
+  const items = boardNavItems(boardId)
+  return (
+    <nav className="flex-1 p-2.5 flex flex-col">
+      {/* Back link */}
+      <Link
+        to="/dashboard/boards"
+        onClick={onNavigate}
+        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold no-underline mb-3 transition-colors"
+        style={{ color: 'var(--color-text-muted)' }}
+      >
+        ← Job Boards
+      </Link>
+
+      {/* Board name */}
+      {boardName && (
+        <p className="px-3 mb-2 text-[11px] font-bold uppercase tracking-[0.08em] truncate"
+          style={{ color: 'var(--color-text-muted)' }}>
+          {boardName}
+        </p>
+      )}
+
+      <div className="h-px mb-2" style={{ backgroundColor: 'var(--color-border)' }} />
+
+      {items.map(item => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          end={item.end}
           onClick={onNavigate}
           className={({ isActive }) =>
             `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm mb-0.5 no-underline transition-all ${

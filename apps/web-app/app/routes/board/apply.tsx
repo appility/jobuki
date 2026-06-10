@@ -75,23 +75,101 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   return { job, user, profile, isSaved, aiContent, externalUrl, isExternal, category, cvText: cvText ? true : false }
 }
 
-const INTERVIEW_LINKS = {
-  engineering: [
-    { label: 'LeetCode', url: 'https://leetcode.com', hint: 'Coding challenges' },
-    { label: 'System Design Primer', url: 'https://github.com/donnemartin/system-design-primer', hint: 'Architecture prep' },
-  ],
-  product: [
-    { label: 'Lenny\'s Newsletter', url: 'https://www.lennysnewsletter.com', hint: 'PM interview prep' },
-    { label: 'Product School', url: 'https://productschool.com/resources', hint: 'Free resources' },
-  ],
-  design: [
-    { label: 'Dribbble', url: 'https://dribbble.com', hint: 'Portfolio inspiration' },
-    { label: 'UX Portfolio Tips', url: 'https://www.nngroup.com/articles/ux-portfolio-study-guide/', hint: 'Nielsen Norman' },
-  ],
-  default: [
-    { label: 'Glassdoor', url: 'https://www.glassdoor.co.uk', hint: 'Company reviews & interview Q\'s' },
-    { label: 'LinkedIn', url: 'https://www.linkedin.com', hint: 'Research the team' },
-  ],
+function toSlug(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
+function buildInterviewLinks(company: string | null, title: string, category: string | null) {
+  const companySlug = company ? toSlug(company) : ''
+  const companyQ = company ? encodeURIComponent(company) : ''
+  const linkedinSlug = companySlug
+
+  const glassdoor = {
+    label: company ? `${company} on Glassdoor` : 'Glassdoor',
+    url: company
+      ? `https://www.glassdoor.co.uk/Search/results.htm?keyword=${companyQ}&locT=N&locId=1&jobType=all`
+      : 'https://www.glassdoor.co.uk',
+    hint: 'Reviews & interview questions',
+  }
+
+  const linkedin = {
+    label: company ? `${company} on LinkedIn` : 'LinkedIn',
+    url: company
+      ? `https://www.linkedin.com/company/${linkedinSlug}/people/`
+      : 'https://www.linkedin.com',
+    hint: company ? 'Browse the team' : 'Research the team',
+  }
+
+  const titleLower = title.toLowerCase()
+  const isDistributed = titleLower.includes('distributed') || titleLower.includes('platform') || titleLower.includes('infra')
+  const sdpSection = isDistributed
+    ? '#distributed-systems'
+    : titleLower.includes('mobile') ? '#communication' : ''
+
+  const byCategory: Record<string, Array<{ label: string; url: string; hint: string }>> = {
+    engineering: [
+      {
+        label: company ? `${company} on LeetCode` : 'LeetCode',
+        url: company
+          ? `https://leetcode.com/company/${companySlug}/`
+          : 'https://leetcode.com',
+        hint: company ? 'Company-tagged questions' : 'Coding challenges',
+      },
+      {
+        label: 'System Design Primer',
+        url: `https://github.com/donnemartin/system-design-primer${sdpSection}`,
+        hint: 'Architecture & system design prep',
+      },
+      glassdoor,
+      linkedin,
+    ],
+    product: [
+      {
+        label: 'Lenny\'s Interview Guide',
+        url: 'https://www.lennysnewsletter.com/p/how-to-get-a-pm-job',
+        hint: 'PM interview prep',
+      },
+      {
+        label: 'Exponent PM Prep',
+        url: 'https://www.tryexponent.com/courses/pm',
+        hint: 'Mock interviews & frameworks',
+      },
+      glassdoor,
+      linkedin,
+    ],
+    design: [
+      {
+        label: 'Portfolio Checklist',
+        url: 'https://www.nngroup.com/articles/ux-portfolio-study-guide/',
+        hint: 'Nielsen Norman guide',
+      },
+      {
+        label: company ? `${company} on Dribbble` : 'Dribbble',
+        url: company
+          ? `https://dribbble.com/search/${companyQ}`
+          : 'https://dribbble.com',
+        hint: 'Brand & design inspiration',
+      },
+      glassdoor,
+      linkedin,
+    ],
+    data: [
+      {
+        label: 'StrataScratch',
+        url: 'https://www.stratascratch.com',
+        hint: 'Real data science interview questions',
+      },
+      {
+        label: 'Mode SQL Tutorial',
+        url: 'https://mode.com/sql-tutorial/',
+        hint: 'SQL practice',
+      },
+      glassdoor,
+      linkedin,
+    ],
+  }
+
+  return byCategory[category ?? ''] ?? [glassdoor, linkedin]
 }
 
 export default function ApplyPrep() {
@@ -107,9 +185,7 @@ export default function ApplyPrep() {
   const coverLetterRef = useRef<HTMLTextAreaElement>(null)
   const navigate = useNavigate()
 
-  const interviewLinks = (category && INTERVIEW_LINKS[category as keyof typeof INTERVIEW_LINKS])
-    ? INTERVIEW_LINKS[category as keyof typeof INTERVIEW_LINKS]
-    : INTERVIEW_LINKS.default
+  const interviewLinks = buildInterviewLinks(job.company, job.title, category)
 
   const allChecked = checklist.cv && checklist.linkedin && checklist.coverLetter
 
@@ -268,9 +344,7 @@ export default function ApplyPrep() {
                 Interview Prep
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {[...interviewLinks, ...INTERVIEW_LINKS.default].filter((v, i, a) =>
-                  a.findIndex(x => x.url === v.url) === i
-                ).slice(0, 4).map(link => (
+                {interviewLinks.map(link => (
                   <a
                     key={link.url}
                     href={link.url}
@@ -286,21 +360,6 @@ export default function ApplyPrep() {
                     <span className="text-text-muted text-sm">↗</span>
                   </a>
                 ))}
-                {job.company && (
-                  <a
-                    href={`https://www.glassdoor.co.uk/Search/results.htm?keyword=${encodeURIComponent(job.company)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3 no-underline transition-all hover:-translate-y-px"
-                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-text-primary">{job.company} on Glassdoor</p>
-                      <p className="text-xs text-text-muted">Reviews & interview questions</p>
-                    </div>
-                    <span className="text-text-muted text-sm">↗</span>
-                  </a>
-                )}
               </div>
             </div>
 

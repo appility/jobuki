@@ -58,6 +58,12 @@ export interface JobBoardThemeConfig {
     companyWebsiteUrl?: string
   }
   monetization?: BoardMonetizationConfig
+  seo?: {
+    metaTitle?: string
+    metaDescription?: string
+    ogImageUrl?: string
+    noindex?: boolean
+  }
   pages?: {
     about?: {
       enabled?: boolean

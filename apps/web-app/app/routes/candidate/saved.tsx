@@ -6,7 +6,7 @@ import { requireUser } from '../../lib/auth.server'
 import { publicJobPath } from '../../lib/public-job-path'
 
 export async function loader(args: LoaderFunctionArgs) {
-  const user = await requireUser(args)
+  const user = await requireUser(args, { type: 'job-seeker' })
   const db = getDb()
   const rows = await db
     .select({ saved: savedJobs, job: jobs })

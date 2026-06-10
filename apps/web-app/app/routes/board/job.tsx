@@ -196,21 +196,6 @@ export default function JobDetail() {
               </div>
             ) : null}
 
-            {/* Mobile apply — above description */}
-            <div className="lg:hidden px-8 pt-6 pb-2">
-              {externalApplyHref ? (
-                <a href={externalApplyHref} target="_blank" rel="noopener noreferrer"
-                  className="w-full btn-primary inline-flex justify-center py-3 text-sm font-bold">
-                  Apply →
-                </a>
-              ) : (
-                <Link to={`/apply/${job.id}`}
-                  className="w-full btn-primary inline-flex justify-center py-3 text-sm font-bold">
-                  Apply
-                </Link>
-              )}
-            </div>
-
             <div className="px-8 py-8">
               {isTiptapDoc(job.descriptionJson) ? (
                 <RichTextRenderer
@@ -240,20 +225,6 @@ export default function JobDetail() {
               ) : null}
             </div>
 
-            {/* Mobile apply — below description */}
-            <div className="lg:hidden px-8 pb-8 pt-2">
-              {externalApplyHref ? (
-                <a href={externalApplyHref} target="_blank" rel="noopener noreferrer"
-                  className="w-full btn-primary inline-flex justify-center py-3 text-sm font-bold">
-                  Apply →
-                </a>
-              ) : (
-                <Link to={`/apply/${job.id}`}
-                  className="w-full btn-primary inline-flex justify-center py-3 text-sm font-bold">
-                  Apply
-                </Link>
-              )}
-            </div>
 
           </main>
 

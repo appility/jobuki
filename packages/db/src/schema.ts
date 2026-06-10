@@ -1,5 +1,5 @@
 import {
-  pgTable, text, timestamp, jsonb, integer, pgEnum, uniqueIndex, boolean, index,
+  pgTable, text, timestamp, jsonb, integer, pgEnum, uniqueIndex, boolean, index, smallint,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import { createId } from '@paralleldrive/cuid2'
@@ -238,3 +238,22 @@ export const applicationsRelations = relations(applications, ({ one }) => ({
   job:   one(jobs,   { fields: [applications.jobId],   references: [jobs.id] }),
   board: one(boards, { fields: [applications.boardId], references: [boards.id] }),
 }))
+
+// ── Geo regions ──────────────────────────────────────────────────────
+// Controls how jobs are ranked by visitor country and drives /jobs/country/:slug SEO pages
+export const geoRegions = pgTable('geo_regions', {
+  id:               text('id').primaryKey().$defaultFn(() => createId()),
+  slug:             text('slug').notNull().unique(),           // 'gb', 'us', 'remote'
+  label:            text('label').notNull(),                   // 'United Kingdom'
+  flag:             text('flag'),                              // '🇬🇧'
+  // Cloudflare CF-IPCountry codes that map to this region (comma-separated, e.g. 'GB,IE')
+  cfCountryCodes:   text('cf_country_codes').notNull().default(''),
+  // Location field substrings to match (comma-separated, lowercase)
+  locationKeywords: text('location_keywords').notNull().default(''),
+  // externalSource values that belong to this region (comma-separated)
+  sourceKeys:       text('source_keys').notNull().default(''),
+  sortOrder:        smallint('sort_order').notNull().default(0),
+  enabled:          boolean('enabled').notNull().default(true),
+  createdAt:        timestamp('created_at').notNull().defaultNow(),
+  updatedAt:        timestamp('updated_at').notNull().defaultNow(),
+})
