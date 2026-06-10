@@ -6,7 +6,9 @@ export default [
 
   // ── Auth ──────────────────────────────────────────────────────────
   route('sign-in',       'routes/sign-in.tsx'),
+  route('sign-in/*',     'routes/sign-in.tsx'),
   route('sign-up',       'routes/sign-up.tsx'),
+  route('sign-up/*',     'routes/sign-up.tsx'),
   route('sso-callback',  'routes/sso-callback.tsx'),
 
   // ── API ───────────────────────────────────────────────────────────

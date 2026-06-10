@@ -1,5 +1,9 @@
 export const clerkAuthAppearance = {
   theme: 'simple',
+  variables: {
+    boxShadow: 'none',
+    colorBackground: 'transparent',
+  },
   elements: {
     rootBox: 'auth-clerk-root',
     cardBox: 'auth-clerk-card-box',
