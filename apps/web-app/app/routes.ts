@@ -5,10 +5,10 @@ export default [
   route('for/:type', 'routes/marketing/market.tsx'),
 
   // ── Auth ──────────────────────────────────────────────────────────
-  route('sign-in',       'routes/sign-in.tsx'),
-  route('sign-in/*',     'routes/sign-in.tsx'),
-  route('sign-up',       'routes/sign-up.tsx'),
-  route('sign-up/*',     'routes/sign-up.tsx'),
+  route('sign-in',       'routes/sign-in.tsx', { id: 'sign-in' }),
+  route('sign-in/*',     'routes/sign-in.tsx', { id: 'sign-in-wildcard' }),
+  route('sign-up',       'routes/sign-up.tsx', { id: 'sign-up' }),
+  route('sign-up/*',     'routes/sign-up.tsx', { id: 'sign-up-wildcard' }),
   route('sso-callback',  'routes/sso-callback.tsx'),
 
   // ── API ───────────────────────────────────────────────────────────
