@@ -486,12 +486,15 @@ h1, h2, h3, h4, h5, h6 {
     border-radius: var(--radius-md);
   }
 
-  /* Override Clerk's internal generated classes on the card wrapper */
-  .auth-clerk-card-box [class^="cl-internal-"] {
+  /* Override Clerk's internal generated classes — strip border/shadow everywhere in the auth shell */
+  .auth-form-panel [class^="cl-internal-"],
+  .auth-form-panel [class*=" cl-internal-"] {
     border: none !important;
     box-shadow: none !important;
     border-radius: 0 !important;
     background: transparent !important;
+    max-width: 100% !important;
+    width: 100% !important;
   }
 
   .auth-clerk-footer-link {
