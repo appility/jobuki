@@ -1,16 +1,6 @@
 import { Link, Outlet, useLoaderData } from 'react-router'
 import type { LoaderFunctionArgs } from 'react-router'
 import { useUser } from '@clerk/react-router'
-
-// Safe hook — returns null instead of throwing when ClerkProvider is not mounted
-function useSafeUser() {
-  try {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    return useUser()
-  } catch {
-    return { user: null, isLoaded: true }
-  }
-}
 import { getDb, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { themeToCSS, resolveTheme } from '../../lib/theme'
@@ -43,7 +33,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export default function BoardLayout() {
   const { board } = useLoaderData<typeof loader>()
-  const { user } = useSafeUser()
+  const { user } = useUser()
 
   // No board (root domain / marketing) — render without board chrome
   if (!board) return <Outlet />

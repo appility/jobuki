@@ -86,8 +86,10 @@ export default function JobDetail() {
       fd.set('jobId', job.id)
       fd.set('boardId', job.boardId)
       fd.set('intent', saved ? 'unsave' : 'save')
-      await fetch('/api/save-job', { method: 'POST', body: fd, credentials: 'include' })
-      setSaved(s => !s)
+      const res = await fetch('/api/save-job', { method: 'POST', body: fd, credentials: 'include' })
+      const data = await res.json()
+      if (data.unauthenticated) { window.location.href = '/candidate/start'; return }
+      if (data.ok) setSaved(s => !s)
     } finally {
       setSavePending(false)
     }

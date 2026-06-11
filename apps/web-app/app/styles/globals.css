@@ -496,6 +496,13 @@ h1, h2, h3, h4, h5, h6 {
     width: 100% !important;
   }
 
+  /* Strip background from Clerk's footer */
+  [class*="cl-footer"] {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
   .auth-clerk-footer-link {
     color: var(--color-primary);
     font-weight: 600;

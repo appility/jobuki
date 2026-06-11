@@ -6,9 +6,9 @@ import { requireUser } from '../../lib/auth.server'
 export async function action(args: ActionFunctionArgs) {
   let user: Awaited<ReturnType<typeof requireUser>>
   try {
-    user = await requireUser(args, { type: 'job-seeker' })
+    user = await requireUser(args)
   } catch {
-    return Response.json({ ok: false, error: 'Sign in to save jobs.' }, { status: 401 })
+    return Response.json({ ok: false, error: 'Sign in to save jobs.', unauthenticated: true }, { status: 401 })
   }
 
   const form = await args.request.formData()

@@ -206,11 +206,20 @@ export default function ApplyPrep() {
   async function handleApply() {
     if (!externalUrl) return
     setApplying(true)
-    // Log the application (non-blocking — open URL regardless of result)
     const fd = new FormData()
     fd.set('jobId', job.id)
     fd.set('boardId', job.boardId)
+    // Log the application and auto-save the job — both non-blocking
     fetch('/api/log-apply', { method: 'POST', body: fd, credentials: 'include' }).catch(() => {})
+    if (user && !saved) {
+      const savefd = new FormData()
+      savefd.set('jobId', job.id)
+      savefd.set('boardId', job.boardId)
+      savefd.set('intent', 'save')
+      fetch('/api/save-job', { method: 'POST', body: savefd, credentials: 'include' })
+        .then(() => setSaved(true))
+        .catch(() => {})
+    }
     window.open(externalUrl, '_blank', 'noopener,noreferrer')
     navigate(`/apply/${job.id}/success`)
   }

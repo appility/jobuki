@@ -1,15 +1,9 @@
 import {
-  Links, Meta, Outlet, Scripts, ScrollRestoration, isRouteErrorResponse, useLoaderData, useRouteError, useLocation,
+  Links, Meta, Outlet, Scripts, ScrollRestoration, isRouteErrorResponse, useLoaderData, useRouteError,
 } from 'react-router'
 import type { LinksFunction, LoaderFunctionArgs, MetaFunction } from 'react-router'
 import { ClerkProvider } from '@clerk/react-router'
 import { rootAuthLoader, clerkMiddleware } from '@clerk/react-router/server'
-
-// Routes that need Clerk auth. Public board routes (/jobs, /, /about etc.) don't.
-const AUTH_PREFIXES = ['/dashboard', '/candidate', '/hiring', '/posters', '/sign-in', '/sign-up', '/sso-callback', '/admin']
-function needsAuth(pathname: string) {
-  return AUTH_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/'))
-}
 import stylesheet from './styles/globals.css?url'
 
 export const links: LinksFunction = () => [
@@ -53,11 +47,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const loaderData = useLoaderData<typeof loader>()
-  const { pathname } = useLocation()
-
-  if (!needsAuth(pathname)) {
-    return <Outlet />
-  }
 
   return (
     <ClerkProvider

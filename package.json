@@ -4,7 +4,9 @@
   "scripts": {
     "dev": "pnpm --filter @jobuki/web-app dev",
     "build": "pnpm --filter @jobuki/web-app build",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm --filter @jobuki/web-app test",
+    "e2e": "pnpm --filter @jobuki/web-app e2e"
   },
   "devDependencies": {
     "typescript": "^5.4.5"
