@@ -54,6 +54,7 @@ export default [
     route('dashboard/jobs/new',       'routes/admin/jobs/new.tsx'),
     route('dashboard/jobs/:id',       'routes/admin/jobs/edit.tsx'),
     route('dashboard/monetization',   'routes/admin/monetization.tsx'),
+    route('dashboard/billing',        'routes/admin/billing.tsx'),
     route('dashboard/applications',   'routes/admin/applications/index.tsx'),
   ]),
 

@@ -63,7 +63,7 @@ export default function MonetizationPage() {
       {!enabled && (
         <div className="mb-5 rounded-xl px-4 py-3 text-sm"
           style={{ backgroundColor: 'var(--color-warning-bg)', color: 'var(--color-warning)' }}>
-          Upgrade to Growth or Scale to accept paid job postings.
+          <a href="/dashboard/billing" className="underline font-semibold" style={{ color: 'inherit' }}>Upgrade to Growth or Scale</a> to accept paid job postings.
         </div>
       )}
 

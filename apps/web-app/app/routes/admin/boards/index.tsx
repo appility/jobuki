@@ -42,7 +42,9 @@ export default function BoardsIndex() {
             {rows.length} board{rows.length !== 1 ? 's' : ''} in {workspace.name}
           </p>
         </div>
-        <Link to="/dashboard/boards/new" className="btn-primary">+ Create board</Link>
+        {rows.length > 0 && (
+          <Link to="/dashboard/boards/new" className="btn-primary">+ Create board</Link>
+        )}
       </div>
 
       {rows.length === 0 ? (

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useLoaderData } from 'react-router'
+import { useLoaderData, Link } from 'react-router'
 import type { LoaderFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess, requireBoardInWorkspace } from '../../../lib/auth.server'
 import { getDb, jobs } from '@jobuki/db'
@@ -26,7 +26,7 @@ export default function BoardShow() {
   const { board, jobCount, publishedCount, publicUrl } = useLoaderData<typeof loader>()
 
   return (
-    <div className="w-full p-10 max-w-4xl">
+    <div className="w-full p-8 max-w-4xl">
       {/* Header */}
       <div className="flex items-center gap-3 mb-8">
         <h1 className="text-2xl font-extrabold" style={{ color: 'var(--color-text-primary)' }}>
@@ -81,6 +81,26 @@ export default function BoardShow() {
           </a>
         </div>
       </div>
+
+      {/* Empty jobs advisory */}
+      {jobCount === 0 && (
+        <div className="rounded-[18px] border p-6 mb-8 flex items-start gap-4"
+          style={{ borderColor: 'var(--color-primary)', backgroundColor: 'color-mix(in srgb, var(--color-primary) 6%, var(--color-surface))' }}>
+          <span className="text-xl mt-0.5">✦</span>
+          <div>
+            <p className="text-sm font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>
+              Your board has no jobs yet
+            </p>
+            <p className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
+              Post a job manually or import from external sources to get started.
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              <Link to="/dashboard/jobs/new" className="btn-primary text-sm">+ Post a job</Link>
+              <Link to={`/dashboard/boards/${board.id}/import`} className="btn-outline text-sm">Import jobs</Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Preview */}
       <section className="card p-5">

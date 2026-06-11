@@ -137,7 +137,7 @@ export default function BoardSettings() {
   }, [actionData])
 
   return (
-    <div className="w-full p-10 max-w-2xl">
+    <div className="w-full p-8 max-w-2xl">
       <h1 className="text-2xl font-extrabold mb-8" style={{ color: 'var(--color-text-primary)' }}>
         Settings
       </h1>
@@ -190,7 +190,7 @@ export default function BoardSettings() {
       <section className="card p-5 mb-6">
         <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>Monetization</h3>
         <p className="text-xs mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-          Tier: <strong>{workspacePlan}</strong> · {monetizationAllowed ? 'Available' : 'Locked — upgrade to Growth or Scale'}
+          Tier: <strong>{workspacePlan}</strong> · {monetizationAllowed ? 'Available' : <><span>Locked — </span><a href="/dashboard/billing" className="underline" style={{ color: 'inherit' }}>upgrade to Growth or Scale</a></>}
         </p>
 
         <Form method="post" className="space-y-3">

@@ -115,7 +115,8 @@ export async function action(args: ActionFunctionArgs) {
   const access = canCreateBoard(workspace.plan, existingBoards.length)
   if (!access.allowed) {
     return {
-      error: `Your ${workspace.plan} creator tier allows up to ${access.limit} board${access.limit === 1 ? '' : 's'}. Upgrade to create more boards.`,
+      error: `Your ${workspace.plan} plan allows up to ${access.limit} board${access.limit === 1 ? '' : 's'}. Upgrade your plan to create more boards.`,
+      upgradeUrl: '/dashboard/billing',
     }
   }
 
@@ -185,7 +186,7 @@ export default function NewBoard() {
     : null
 
   return (
-    <div className="p-10 max-w-xl">
+    <div className="w-full p-8 max-w-xl">
       <h1 className="text-2xl font-extrabold mb-1" style={{ color: 'var(--color-text-primary)' }}>
         Create a job board
       </h1>
@@ -208,7 +209,12 @@ export default function NewBoard() {
       {actionData?.error && (
         <div className="mb-6 px-4 py-3 rounded-lg text-sm"
           style={{ backgroundColor: 'var(--color-danger-bg)', color: 'var(--color-danger)' }}>
-          {actionData.error}
+          {actionData.error}{' '}
+          {actionData.upgradeUrl && (
+            <a href={actionData.upgradeUrl} className="font-semibold underline" style={{ color: 'inherit' }}>
+              View plans →
+            </a>
+          )}
         </div>
       )}
 
@@ -239,11 +245,12 @@ export default function NewBoard() {
           <p className="text-xs mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
             Used in your board's URL. Only lowercase letters, numbers, and hyphens.
           </p>
-          <div className="flex items-center gap-0 rounded-xl overflow-hidden border"
+          <div className="flex items-stretch rounded-xl overflow-hidden border"
             style={{
               borderColor: slugError ? 'var(--color-danger)' : 'var(--color-border)',
+              backgroundColor: 'var(--color-surface-subtle)',
             }}>
-            <span className="px-3 py-2 text-xs shrink-0 select-none"
+            <span className="px-3 py-2.5 text-xs shrink-0 select-none flex items-center"
               style={{ backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-muted)', borderRight: '1px solid var(--color-border)' }}>
               your-domain.com/
             </span>
@@ -251,8 +258,8 @@ export default function NewBoard() {
               name="slug"
               value={slug}
               onChange={handleSlugChange}
-              className="flex-1 px-3 py-2 text-sm font-mono bg-transparent outline-none"
-              style={{ color: 'var(--color-text-primary)' }}
+              className="flex-1 px-3 py-2.5 text-sm font-mono outline-none"
+              style={{ color: 'var(--color-text-primary)', backgroundColor: 'var(--color-surface)' }}
               placeholder="acme-jobs"
               spellCheck={false}
               autoComplete="off"

@@ -87,7 +87,7 @@ export default function BoardImport() {
   }
 
   return (
-    <div className="max-w-3xl">
+    <div className="w-full p-8 max-w-3xl">
       <div className="mb-6">
         <h1 className="text-lg font-extrabold font-display" style={{ color: 'var(--color-text-primary)' }}>
           Import jobs

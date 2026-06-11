@@ -15,6 +15,7 @@ const navItems = [
   { to: '/dashboard/jobs',         label: 'Jobs',         icon: '✦' },
   { to: '/dashboard/monetization', label: 'Monetization', icon: '¤' },
   { to: '/dashboard/applications', label: 'Applications', icon: '◎' },
+  { to: '/dashboard/billing',      label: 'Plan & Billing', icon: '◈' },
 ]
 
 function getBoardIdFromPath(pathname: string): string | null {
@@ -42,7 +43,8 @@ export default function AdminLayout() {
   const location = useLocation()
   const matches = useMatches()
 
-  const boardId = getBoardIdFromPath(location.pathname)
+  const isNewBoard = location.pathname === '/dashboard/boards/new'
+  const boardId = isNewBoard ? null : getBoardIdFromPath(location.pathname)
   const boardName = boardId
     ? (matches.map(m => (m.data as any)?.board?.name).filter(Boolean).at(-1) as string | undefined)
     : undefined

@@ -66,27 +66,40 @@ export default function Dashboard() {
         <StatCard label="Applications" value={stats.applications} />
       </div>
 
-      {/* Quick actions */}
-      <div className="flex flex-wrap gap-3">
-        <Link to="/dashboard/boards/new" className="btn-primary">
-          + Create job board
-        </Link>
-        <Link to="/dashboard/jobs/new" className="btn-outline">
-          + Post a job
-        </Link>
-        <Link to="/dashboard/monetization" className="btn-outline">
-          Monetization {monetizationEnabled ? 'enabled' : 'locked'}
-        </Link>
-      </div>
+      {/* No boards yet — primary CTA */}
+      {stats.boards === 0 ? (
+        <div className="rounded-[18px] border border-border bg-surface p-8 text-center mb-6">
+          <p className="text-2xl mb-2">⊞</p>
+          <h2 className="text-base font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>
+            Create your first job board
+          </h2>
+          <p className="text-sm mb-5" style={{ color: 'var(--color-text-secondary)' }}>
+            You need a board before you can post jobs or invite candidates.
+          </p>
+          <Link to="/dashboard/boards/new" className="btn-primary">
+            + Create job board
+          </Link>
+        </div>
+      ) : (
+        /* Quick actions — only shown once a board exists */
+        <div className="flex flex-wrap gap-3 mb-6">
+          <Link to="/dashboard/boards/new" className="btn-outline">+ Create job board</Link>
+          <Link to="/dashboard/jobs/new" className="btn-primary">+ Post a job</Link>
+          <Link to="/dashboard/monetization" className="btn-outline">
+            Monetization {monetizationEnabled ? 'enabled' : 'locked'}
+          </Link>
+        </div>
+      )}
 
-      <div className="mt-6 rounded-xl px-4 py-3 text-sm"
-        style={monetizationEnabled
-          ? { backgroundColor: 'var(--color-success-bg)', color: 'var(--color-success)' }
-          : { backgroundColor: 'var(--color-warning-bg)', color: 'var(--color-warning)' }}>
-        {monetizationEnabled
-          ? 'Your tier includes monetization access for paid listing workflows.'
-          : 'Monetization is not available on Free. Upgrade to Growth or Scale to unlock paid listings.'}
-      </div>
+      {!monetizationEnabled && stats.boards > 0 && (
+        <div className="rounded-xl px-4 py-3 text-sm"
+          style={{ backgroundColor: 'var(--color-warning-bg)', color: 'var(--color-warning)' }}>
+          Monetization is not available on Free.{' '}
+          <Link to="/dashboard/billing" className="font-semibold underline" style={{ color: 'var(--color-warning)' }}>
+            Upgrade to Growth or Scale
+          </Link>{' '}to unlock paid listings.
+        </div>
+      )}
     </div>
   )
 }
