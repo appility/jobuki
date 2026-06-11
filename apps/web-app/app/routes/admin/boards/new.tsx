@@ -27,7 +27,7 @@ export function toSlug(raw: string): string {
 
 /** True when a slug is safe to use */
 export function isValidSlug(slug: string): boolean {
-  return /^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/.test(slug)
+  return /^[a-z0-9][a-z0-9-]{0,58}[a-z0-9]$/.test(slug) || /^[a-z0-9]{2}$/.test(slug)
 }
 
 // ── Loader ────────────────────────────────────────────────────────────
@@ -75,7 +75,7 @@ export async function action(args: ActionFunctionArgs) {
   const slug = rawSlug ? toSlug(rawSlug) : toSlug(name)
 
   if (!isValidSlug(slug)) {
-    return { error: 'Slug must be 3–60 characters, lowercase letters and numbers only, hyphens allowed between words (e.g. acme-jobs).' }
+    return { error: 'Slug must be 2–60 characters, lowercase letters and numbers only, hyphens allowed between words (e.g. acme-jobs).' }
   }
 
   const slugError = validateBoardSlug(slug)
@@ -180,8 +180,8 @@ export default function NewBoard() {
   }
 
   const slugError = slug.length > 0 && !isValidSlug(slug)
-    ? slug.length < 3
-      ? 'At least 3 characters'
+    ? slug.length < 2
+      ? 'At least 2 characters'
       : 'Cannot start or end with a hyphen'
     : null
 
