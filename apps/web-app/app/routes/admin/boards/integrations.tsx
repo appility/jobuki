@@ -90,17 +90,12 @@ export default function IntegrationsPage() {
   const saving = navigation.state === 'submitting'
 
   return (
-    <div className="p-10 max-w-2xl">
+    <div className="w-full p-8 max-w-2xl">
+      <Link to={`/dashboard/boards/${board.id}`}
+        className="text-sm no-underline block mb-4" style={{ color: 'var(--color-text-muted)' }}>
+        ← {board.name}
+      </Link>
       <div className="mb-8">
-        <div className="flex items-center gap-3 mb-1">
-          <Link
-            to={`/dashboard/boards/${board.id}`}
-            className="text-xs font-medium"
-            style={{ color: 'var(--color-text-muted)' }}
-          >
-            ← {board.name}
-          </Link>
-        </div>
         <h1 className="text-2xl font-extrabold" style={{ color: 'var(--color-text-primary)' }}>
           Integrations
         </h1>

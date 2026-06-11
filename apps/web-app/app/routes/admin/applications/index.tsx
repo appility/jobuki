@@ -61,7 +61,7 @@ export default function ApplicationsIndex() {
   const navigation = useNavigation()
 
   return (
-    <div className="p-10 max-w-5xl">
+    <div className="w-full p-8 max-w-5xl">
       <div className="mb-8">
         <h1 className="text-2xl font-extrabold" style={{ color: 'var(--color-text-primary)' }}>
           Applications

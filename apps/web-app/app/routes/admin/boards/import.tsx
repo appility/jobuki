@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useLoaderData, useFetcher } from 'react-router'
+import { useLoaderData, useFetcher, Link } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess, requireBoardInWorkspace } from '../../../lib/auth.server'
 import { runIngest } from '../../../lib/ingest-pipeline.server'
@@ -88,8 +88,12 @@ export default function BoardImport() {
 
   return (
     <div className="w-full p-8 max-w-3xl">
+      <Link to={`/dashboard/boards/${board.id}`}
+        className="text-sm no-underline block mb-4" style={{ color: 'var(--color-text-muted)' }}>
+        ← {board.name}
+      </Link>
       <div className="mb-6">
-        <h1 className="text-lg font-extrabold font-display" style={{ color: 'var(--color-text-primary)' }}>
+        <h1 className="text-2xl font-extrabold" style={{ color: 'var(--color-text-primary)' }}>
           Import jobs
         </h1>
         <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>

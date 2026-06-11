@@ -248,12 +248,7 @@ export default function NewBoard() {
           <div className="flex items-stretch rounded-xl overflow-hidden border"
             style={{
               borderColor: slugError ? 'var(--color-danger)' : 'var(--color-border)',
-              backgroundColor: 'var(--color-surface-subtle)',
             }}>
-            <span className="px-3 py-2.5 text-xs shrink-0 select-none flex items-center"
-              style={{ backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-muted)', borderRight: '1px solid var(--color-border)' }}>
-              your-domain.com/
-            </span>
             <input
               name="slug"
               value={slug}
@@ -264,13 +259,17 @@ export default function NewBoard() {
               spellCheck={false}
               autoComplete="off"
             />
+            <span className="px-3 py-2.5 text-xs shrink-0 select-none flex items-center"
+              style={{ backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-muted)', borderLeft: '1px solid var(--color-border)' }}>
+              .jobuki.com
+            </span>
           </div>
           {slugError && (
             <p className="text-xs mt-1" style={{ color: 'var(--color-danger)' }}>{slugError}</p>
           )}
           {!slugError && slug && (
             <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-              ✓ {slug}
+              ✓ {slug}.jobuki.com
             </p>
           )}
         </div>

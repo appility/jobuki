@@ -165,13 +165,11 @@ export default function DomainPage() {
   const status = board.customDomainStatus
 
   return (
-    <div className="p-10 max-w-2xl">
-      {/* Back */}
+    <div className="w-full p-8 max-w-2xl">
       <Link to={`/dashboard/boards/${board.id}`}
-        className="text-sm no-underline block mb-6" style={{ color: 'var(--color-text-muted)' }}>
+        className="text-sm no-underline block mb-4" style={{ color: 'var(--color-text-muted)' }}>
         ← {board.name}
       </Link>
-
       <h1 className="text-2xl font-extrabold mb-1" style={{ color: 'var(--color-text-primary)' }}>
         Domains
       </h1>

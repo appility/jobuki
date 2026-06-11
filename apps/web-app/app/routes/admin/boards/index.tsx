@@ -32,7 +32,7 @@ export default function BoardsIndex() {
   const { boards: rows, workspace } = useLoaderData<typeof loader>()
 
   return (
-    <div className="w-full p-10 max-w-7xl">
+    <div className="w-full p-8 max-w-7xl">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-extrabold" style={{ color: 'var(--color-text-primary)' }}>

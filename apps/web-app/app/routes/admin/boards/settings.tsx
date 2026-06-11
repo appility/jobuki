@@ -138,7 +138,11 @@ export default function BoardSettings() {
 
   return (
     <div className="w-full p-8 max-w-2xl">
-      <h1 className="text-2xl font-extrabold mb-8" style={{ color: 'var(--color-text-primary)' }}>
+      <Link to={`/dashboard/boards/${board.id}`}
+        className="text-sm no-underline block mb-4" style={{ color: 'var(--color-text-muted)' }}>
+        ← {board.name}
+      </Link>
+      <h1 className="text-2xl font-extrabold mb-6" style={{ color: 'var(--color-text-primary)' }}>
         Settings
       </h1>
 

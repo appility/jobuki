@@ -107,7 +107,7 @@ export default function NewJob() {
   const availableCategories = selectedBoard?.categories ?? []
 
   return (
-    <div className="p-10 max-w-2xl">
+    <div className="w-full p-8 max-w-2xl">
       <h1 className="text-2xl font-extrabold mb-1" style={{ color: 'var(--color-text-primary)' }}>
         Post a job
       </h1>

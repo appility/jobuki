@@ -113,7 +113,7 @@ export default function EditJob() {
   )
 
   return (
-    <div className="p-10 max-w-2xl">
+    <div className="w-full p-8 max-w-2xl">
       <a href={`/dashboard/boards/${board.id}`}
         className="text-sm no-underline block mb-4" style={{ color: 'var(--color-text-muted)' }}>
         ← {board.name}

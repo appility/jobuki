@@ -50,10 +50,9 @@ export async function requireUser(
   if (!clerkUserId) {
     const url = new URL(args.request.url)
     const type = opts.type ?? 'board-creator'
-    // Strip React Router's Single Fetch .data suffix — redirecting back to it returns raw JSON
+    // Strip .data suffix (React Router Single Fetch) so redirectTo points to the real page
     const pathname = url.pathname.replace(/\.data$/, '')
-    const redirectTo = pathname + url.search
-    throw redirect(`/sign-in?type=${type}&redirectTo=${encodeURIComponent(redirectTo)}`)
+    throw redirect(`/sign-in?type=${type}&redirectTo=${encodeURIComponent(pathname + url.search)}`)
   }
 
   const db = getDb()

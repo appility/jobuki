@@ -55,6 +55,19 @@ app.use((req, _res, next) => {
   next()
 })
 
+// ── Clerk handshake on .data URLs ────────────────────────────────────
+// React Router Single Fetch appends .data to route URLs for client-side nav.
+// If Clerk captures one of these as the redirect target, strip .data before
+// processing the handshake so the user lands on the real page, not raw JSON.
+app.use((req, res, next) => {
+  if (req.path.endsWith('.data') && req.query.__clerk_handshake) {
+    const cleanPath = req.path.replace(/\.data$/, '')
+    const search = new URLSearchParams(req.query).toString()
+    return res.redirect(302, `${cleanPath}?${search}`)
+  }
+  next()
+})
+
 // ── React Router handler ──────────────────────────────────────────────
 app.all(
   '*',

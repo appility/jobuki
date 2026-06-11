@@ -41,7 +41,7 @@ export default function MonetizationPage() {
   const submitting = navigation.state === 'submitting'
 
   return (
-    <div className="p-10 max-w-3xl">
+    <div className="w-full p-8 max-w-3xl">
       <div className="mb-6">
         <h1 className="text-2xl font-extrabold mb-1" style={{ color: 'var(--color-text-primary)' }}>
           Monetization

@@ -57,7 +57,7 @@ export default function JobsIndex() {
   const importedCount = rows.filter(r =>  r.job.externalSource).length
 
   return (
-    <div className="w-full p-10 max-w-7xl">
+    <div className="w-full p-8 max-w-7xl">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-extrabold" style={{ color: 'var(--color-text-primary)' }}>Jobs</h1>

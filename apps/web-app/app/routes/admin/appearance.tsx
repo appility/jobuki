@@ -230,6 +230,115 @@ export async function action(args: ActionFunctionArgs) {
   return { ok: false, error: 'Unknown intent.' }
 }
 
+// ── Board style presets ───────────────────────────────────────────────
+const BOARD_STYLE_PRESETS = [
+  {
+    key: 'minimal',
+    label: 'Minimal',
+    bestFor: 'Engineering · SaaS · Dev tools',
+    description: 'Clean, typographic, uncluttered. Lets roles speak for themselves.',
+    displayFontName: 'Space Grotesk',
+    bodyFontName: 'Inter',
+    displayFont: "'Space Grotesk', sans-serif",
+    bodyFont: "'Inter', sans-serif",
+    sampleTitle: 'Staff Engineer',
+    sampleMeta: 'Linear · Remote',
+    tokens: {
+      colorPrimary:       '#1D4ED8',
+      colorPrimaryFg:     '#ffffff',
+      colorAccent:        '#0EA5E9',
+      colorAccentFg:      '#ffffff',
+      colorBackground:    '#F8FAFC',
+      colorSurface:       '#ffffff',
+      colorSurfaceSubtle: '#F1F5F9',
+      colorTextPrimary:   '#0F172A',
+      colorTextSecondary: '#334155',
+      colorTextMuted:     '#64748B',
+      colorBorder:        '#E2E8F0',
+      colorBorderStrong:  '#CBD5E1',
+      fontDisplay:        "'Space Grotesk', sans-serif",
+      fontBody:           "'Inter', sans-serif",
+      radiusSm:  '4px',
+      radiusMd:  '8px',
+      radiusLg:  '10px',
+      radiusXl:  '12px',
+      radius2xl: '16px',
+      buttonStyle: 'rounded',
+      headerStyle: 'minimal',
+    },
+  },
+  {
+    key: 'community',
+    label: 'Community',
+    bestFor: 'Crypto · Web3 · DAOs · Startups',
+    description: 'Warm, bold, approachable. The right energy for Web3 and community boards.',
+    displayFontName: 'Unbounded',
+    bodyFontName: 'Plus Jakarta Sans',
+    displayFont: "'Unbounded', sans-serif",
+    bodyFont: "'Plus Jakarta Sans', sans-serif",
+    sampleTitle: 'Senior Dev',
+    sampleMeta: 'Uniswap · Remote',
+    tokens: {
+      colorPrimary:       '#6C3BFF',
+      colorPrimaryFg:     '#ffffff',
+      colorAccent:        '#F97316',
+      colorAccentFg:      '#ffffff',
+      colorBackground:    '#F0EBE3',
+      colorSurface:       '#FAF8F5',
+      colorSurfaceSubtle: '#EDE6FF',
+      colorTextPrimary:   '#16120E',
+      colorTextSecondary: '#5C5248',
+      colorTextMuted:     '#7C7067',
+      colorBorder:        '#D4CBBD',
+      colorBorderStrong:  '#B8AFA4',
+      fontDisplay:        "'Unbounded', sans-serif",
+      fontBody:           "'Plus Jakarta Sans', sans-serif",
+      radiusSm:  '6px',
+      radiusMd:  '14px',
+      radiusLg:  '18px',
+      radiusXl:  '22px',
+      radius2xl: '28px',
+      buttonStyle: 'rounded',
+      headerStyle: 'minimal',
+    },
+  },
+  {
+    key: 'professional',
+    label: 'Professional',
+    bestFor: 'Finance · Legal · Executive',
+    description: 'Authoritative serif display. Sets the tone for finance, legal, and executive boards.',
+    displayFontName: 'Fraunces',
+    bodyFontName: 'Barlow',
+    displayFont: "'Fraunces', serif",
+    bodyFont: "'Barlow', sans-serif",
+    sampleTitle: 'Head of Legal',
+    sampleMeta: 'Clifford Chance · London',
+    tokens: {
+      colorPrimary:       '#1B4332',
+      colorPrimaryFg:     '#ffffff',
+      colorAccent:        '#D97706',
+      colorAccentFg:      '#ffffff',
+      colorBackground:    '#FAFAF8',
+      colorSurface:       '#ffffff',
+      colorSurfaceSubtle: '#F3F4F0',
+      colorTextPrimary:   '#0F172A',
+      colorTextSecondary: '#334155',
+      colorTextMuted:     '#64748B',
+      colorBorder:        '#E2E4DF',
+      colorBorderStrong:  '#CBD0C7',
+      fontDisplay:        "'Fraunces', serif",
+      fontBody:           "'Barlow', sans-serif",
+      radiusSm:  '2px',
+      radiusMd:  '4px',
+      radiusLg:  '6px',
+      radiusXl:  '8px',
+      radius2xl: '10px',
+      buttonStyle: 'sharp',
+      headerStyle: 'minimal',
+    },
+  },
+]
+
 // ── Component ─────────────────────────────────────────────────────────
 const DISPLAY_FONT_OPTIONS = [
   { label: 'Plus Jakarta Sans', value: "'Plus Jakarta Sans', sans-serif" },
@@ -320,6 +429,8 @@ export default function AppearancePage() {
   const [uploadingKind, setUploadingKind] = useState<'logo' | 'header' | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'brand' | 'design'>('brand')
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [panelOpen, setPanelOpen] = useState(true)
   const [toasts, setToasts] = useState<Array<{ id: number; type: 'success' | 'error'; message: string }>>([])
   const [logoDimensions, setLogoDimensions] = useState<{ width: number; height: number } | null>(null)
 
@@ -334,10 +445,16 @@ export default function AppearancePage() {
   const updateToken = (key: keyof BoardTheme, value: string) =>
     setT(prev => ({ ...prev, [key]: value }))
 
+  function applyPreset(preset: (typeof BOARD_STYLE_PRESETS)[number]) {
+    setT(prev => ({ ...prev, ...(preset.tokens as Partial<BoardTheme>) }))
+    setConfigThemePreset(preset.key as any)
+  }
+
   useEffect(() => {
     if (!actionData) return
     const message = actionData.message ?? actionData.error ?? 'Done.'
     pushToast(actionData.ok ? 'success' : 'error', message)
+    if (actionData.ok) setPanelOpen(false)
   }, [actionData])
 
   useEffect(() => {
@@ -444,46 +561,152 @@ export default function AppearancePage() {
   const previewCSS = themeToCSS(t, '.board-preview', previewCssVariables)
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ fontFamily: 'var(--font-body)' }}>
+    <div className="relative h-screen overflow-hidden" style={{ fontFamily: 'var(--font-body)' }}>
 
-      {/* ── Left: settings panel ── */}
-      <div className="w-80 shrink-0 flex flex-col border-r overflow-hidden"
-        style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
+      {/* ── Settings panel — slides in from right ── */}
+      <div
+        className="absolute top-0 right-0 h-full z-30 flex flex-col border-l"
+        style={{
+          width: '22rem',
+          borderColor: 'var(--color-border)',
+          backgroundColor: 'var(--color-surface)',
+          transform: panelOpen ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1)',
+          boxShadow: panelOpen ? '-8px 0 32px rgba(0,0,0,0.1)' : 'none',
+        }}>
 
         {/* Header */}
-        <div className="px-6 py-5 border-b shrink-0"
+        <div className="px-6 py-4 border-b shrink-0 flex items-center justify-between"
           style={{ borderColor: 'var(--color-border)' }}>
-          <h2 className="text-base font-extrabold m-0"
-            style={{ color: 'var(--color-text-primary)' }}>Appearance</h2>
-          <p className="text-xs mt-1 m-0"
-            style={{ color: 'var(--color-text-secondary)' }}>
-            {board.name}
-          </p>
+          <div>
+            <h2 className="text-base font-extrabold m-0"
+              style={{ color: 'var(--color-text-primary)' }}>Appearance</h2>
+            <p className="text-xs mt-0.5 m-0"
+              style={{ color: 'var(--color-text-secondary)' }}>
+              {board.name}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPanelOpen(false)}
+            className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors"
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)', backgroundColor: 'var(--color-surface-subtle)' }}
+            aria-label="Close panel"
+          >
+            ✕
+          </button>
         </div>
 
         {/* Scrollable settings */}
-        <div className="flex-1 overflow-y-auto px-6 py-5">
+        <div className="flex-1 overflow-y-auto">
 
-          <div className="mb-5 grid grid-cols-2 gap-1.5 rounded-xl p-1"
-            style={{ backgroundColor: 'var(--color-surface-subtle)' }}>
-            {([
-              { key: 'brand', label: 'Brand' },
-              { key: 'design', label: 'Design' },
-            ] as const).map(tab => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className="py-1.5 rounded-lg text-[11px] font-semibold cursor-pointer border transition-all"
-                style={{
-                  backgroundColor: activeTab === tab.key ? 'var(--color-surface)' : 'transparent',
-                  color: activeTab === tab.key ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
-                  borderColor: activeTab === tab.key ? 'var(--color-border)' : 'transparent',
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
+          {/* ── Board Style presets ── */}
+          <div className="px-5 pt-5 pb-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] mb-3" style={{ color: 'var(--color-text-muted)' }}>
+              Board Style
+            </p>
+            <div className="flex flex-col gap-2">
+              {BOARD_STYLE_PRESETS.map(preset => {
+                const isActive = configThemePreset === preset.key
+                return (
+                  <button
+                    key={preset.key}
+                    type="button"
+                    onClick={() => applyPreset(preset)}
+                    className="text-left rounded-xl border p-3 transition-all"
+                    style={{
+                      borderColor: isActive ? 'var(--color-primary)' : 'var(--color-border)',
+                      backgroundColor: isActive ? 'color-mix(in srgb, var(--color-primary) 6%, var(--color-surface))' : 'var(--color-surface)',
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.1em]"
+                        style={{ color: isActive ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>
+                        {preset.label}
+                      </span>
+                      <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
+                        {preset.bestFor}
+                      </span>
+                    </div>
+                    {/* Mini board preview */}
+                    <div className="rounded-lg overflow-hidden mb-2"
+                      style={{ backgroundColor: preset.tokens.colorBackground, border: `1px solid ${preset.tokens.colorBorder}` }}>
+                      {/* Mini hero strip */}
+                      <div className="px-3 pt-2.5 pb-2" style={{ backgroundColor: preset.tokens.colorSurface, borderBottom: `1px solid ${preset.tokens.colorBorder}` }}>
+                        <div className="text-[13px] font-black leading-tight mb-0.5"
+                          style={{ fontFamily: preset.displayFont, color: preset.tokens.colorTextPrimary, letterSpacing: preset.key === 'community' ? '-0.01em' : preset.key === 'professional' ? '0' : '-0.02em' }}>
+                          {preset.sampleTitle}
+                        </div>
+                        <div className="text-[9px]" style={{ fontFamily: preset.bodyFont, color: preset.tokens.colorTextSecondary }}>
+                          {preset.sampleMeta}
+                        </div>
+                      </div>
+                      {/* Mini job row */}
+                      <div className="px-3 py-2 flex items-center justify-between gap-2">
+                        <div>
+                          <div className="text-[10px] font-semibold" style={{ fontFamily: preset.displayFont, color: preset.tokens.colorTextPrimary }}>
+                            Frontend Engineer
+                          </div>
+                          <div className="text-[9px]" style={{ fontFamily: preset.bodyFont, color: preset.tokens.colorTextMuted }}>
+                            Remote · Full-time
+                          </div>
+                        </div>
+                        <span className="text-[9px] font-bold px-2 py-0.5 shrink-0"
+                          style={{
+                            backgroundColor: preset.tokens.colorPrimary,
+                            color: preset.tokens.colorPrimaryFg,
+                            borderRadius: preset.key === 'minimal' ? '6px' : preset.key === 'professional' ? '3px' : '12px',
+                          }}>
+                          Apply
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-[9px] font-medium" style={{ color: 'var(--color-text-muted)' }}>
+                      {preset.displayFontName} · {preset.bodyFontName}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* ── Advanced ── */}
+          <div className="border-b" style={{ borderColor: 'var(--color-border)' }}>
+            <button
+              type="button"
+              onClick={() => setAdvancedOpen(o => !o)}
+              className="w-full flex items-center justify-between px-5 py-3 text-left"
+            >
+              <span className="text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: 'var(--color-text-muted)' }}>
+                Advanced
+              </span>
+              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                {advancedOpen ? '▲' : '▼'}
+              </span>
+            </button>
+
+            {advancedOpen && (
+              <div className="px-5 pb-4">
+                <div className="mb-4 grid grid-cols-2 gap-1.5 rounded-xl p-1"
+                  style={{ backgroundColor: 'var(--color-surface-subtle)' }}>
+                  {([{ key: 'brand', label: 'Brand' }, { key: 'design', label: 'Design' }] as const).map(tab => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setActiveTab(tab.key)}
+                      className="py-1.5 rounded-lg text-[11px] font-semibold cursor-pointer border transition-all"
+                      style={{
+                        backgroundColor: activeTab === tab.key ? 'var(--color-surface)' : 'transparent',
+                        color: activeTab === tab.key ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                        borderColor: activeTab === tab.key ? 'var(--color-border)' : 'transparent',
+                      }}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Appearance form (visual fields only) ── */}
@@ -511,6 +734,8 @@ export default function AppearancePage() {
             {(Object.entries(t) as [keyof BoardTheme, string][]).map(([k, v]) => (
               <input key={k} type="hidden" name={k} value={v} />
             ))}
+
+            {advancedOpen && <div className="px-5 pt-2">
 
             {/* Primary colour */}
             {activeTab === 'brand' && (
@@ -1062,22 +1287,35 @@ export default function AppearancePage() {
             )}
 
 
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="w-full py-2.5 rounded-xl text-sm font-semibold border-0 cursor-pointer transition-all mb-2"
-              style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-primary-fg)', opacity: isSaving ? 0.7 : 1 }}
-            >
-              {isSaving ? 'Saving…' : 'Save appearance'}
-            </button>
+            </div> /* end advancedOpen */}
+
+            <div className="px-5 pt-4 pb-5">
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold border-0 cursor-pointer transition-all"
+                style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-primary-fg)', opacity: isSaving ? 0.7 : 1 }}
+              >
+                {isSaving ? 'Saving…' : 'Save appearance'}
+              </button>
+            </div>
           </Form>
 
 
         </div>
       </div>
 
-      {/* ── Right: live preview ── */}
-      <div className="flex-1 flex flex-col overflow-hidden"
+      {/* ── Mobile backdrop ── */}
+      {panelOpen && (
+        <div
+          className="md:hidden absolute inset-0 z-20"
+          style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}
+          onClick={() => setPanelOpen(false)}
+        />
+      )}
+
+      {/* ── Full-width live preview ── */}
+      <div className="absolute inset-0 flex flex-col overflow-hidden"
         style={{ backgroundColor: '#E8E6E1' }}>
 
         {/* Preview bar */}
@@ -1088,24 +1326,28 @@ export default function AppearancePage() {
             <span className="text-xs font-semibold tracking-widest"
               style={{ color: 'var(--color-text-muted)' }}>LIVE PREVIEW</span>
           </div>
-          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            Changes reflect instantly
-          </span>
+          <button
+            type="button"
+            onClick={() => setPanelOpen(o => !o)}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all"
+            style={{
+              borderColor: panelOpen ? 'var(--color-primary)' : 'var(--color-border)',
+              color: panelOpen ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+              backgroundColor: panelOpen ? 'color-mix(in srgb, var(--color-primary) 8%, var(--color-surface))' : 'var(--color-surface)',
+            }}
+          >
+            ◑ Customise
+          </button>
         </div>
 
         {/* Preview frame — board-preview class is the CSS scope boundary */}
-        <div className="board-preview flex-1 overflow-auto p-6">
+        <div className="board-preview flex-1 overflow-auto" style={{ backgroundColor: t.colorBackground }}>
           <style dangerouslySetInnerHTML={{ __html: previewCSS }} />
 
-          <div className="mx-auto rounded-2xl overflow-hidden"
-            style={{
-              maxWidth: '760px',
-              backgroundColor: t.colorBackground,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-            }}>
+          <div className="mx-auto" style={{ maxWidth: '860px' }}>
 
-            {/* Preview header */}
-            <div className="px-7 py-6 border-b"
+            {/* ── Nav ── */}
+            <div className="px-7 py-4 flex items-center justify-between border-b"
               style={{
                 backgroundColor:
                   t.headerStyle === 'coloured' ? t.colorPrimary :
@@ -1113,96 +1355,173 @@ export default function AppearancePage() {
                   t.colorSurface,
                 borderColor: t.headerStyle === 'minimal' ? t.colorBorder : 'transparent',
               }}>
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-9 h-9 rounded-xl"
-                  style={{ backgroundColor: t.colorPrimary }} />
-                <div>
-                  <div className="text-sm font-extrabold"
-                    style={{
-                      fontFamily: t.fontDisplay,
-                      color: t.headerStyle === 'minimal' ? t.colorTextPrimary : '#fff',
-                    }}>
+              <div className="flex items-center gap-2.5">
+                {logoUrl ? (
+                  <img src={logoUrl} alt={board.name}
+                    style={{ height: 28, width: 'auto', objectFit: 'contain', display: 'block', maxWidth: 140 }} />
+                ) : (
+                  <span className="text-sm font-extrabold"
+                    style={{ fontFamily: t.fontDisplay, color: t.headerStyle === 'minimal' ? t.colorTextPrimary : '#fff' }}>
                     {board.name}
-                  </div>
-                  <div className="text-xs"
-                    style={{ color: t.headerStyle === 'minimal' ? t.colorTextMuted : 'rgba(255,255,255,0.65)' }}>
-                    14 open roles
-                  </div>
-                </div>
+                  </span>
+                )}
               </div>
-              {introText && (
-                <p className="text-sm leading-relaxed m-0 max-w-md"
+              <div className="flex items-center gap-1">
+                <span className="text-xs px-3 py-1.5 rounded-lg"
+                  style={{ fontFamily: t.fontBody, color: t.headerStyle === 'minimal' ? t.colorTextSecondary : 'rgba(255,255,255,0.75)' }}>
+                  Browse
+                </span>
+                <span className="text-xs font-semibold px-4 py-1.5 rounded-lg"
                   style={{
                     fontFamily: t.fontBody,
-                    color: t.headerStyle === 'minimal' ? t.colorTextSecondary : 'rgba(255,255,255,0.8)',
+                    backgroundColor: t.colorAccent,
+                    color: t.colorAccentFg,
+                    borderRadius: t.buttonStyle === 'pill' ? '9999px' : t.buttonStyle === 'sharp' ? '3px' : '8px',
                   }}>
-                  {introText}
-                </p>
-              )}
-            </div>
-
-            {/* Preview search */}
-            <div className="px-7 py-4 border-b"
-              style={{ borderColor: t.colorBorder, backgroundColor: t.colorBackground }}>
-              <div className="flex items-center gap-2 px-3.5 py-2.5 border"
-                style={{
-                  border: `1px solid ${t.colorBorder}`,
-                  borderRadius:
-                    t.buttonStyle === 'pill'  ? '9999px' :
-                    t.buttonStyle === 'sharp' ? '4px' : '10px',
-                  backgroundColor: t.colorSurfaceSubtle,
-                }}>
-                <span style={{ color: t.colorTextMuted }}>🔍</span>
-                <span className="text-sm" style={{ fontFamily: t.fontBody, color: t.colorTextMuted }}>
-                  Search roles…
+                  Post a role
                 </span>
               </div>
             </div>
 
-            {/* Preview job cards */}
-            <div className="px-7 py-4" style={{ backgroundColor: t.colorBackground }}>
-              {[
-                { title: 'Senior Product Designer', loc: 'London · Hybrid', type: 'Full-time' },
-                { title: 'Frontend Engineer',        loc: 'Remote',          type: 'Full-time' },
-                { title: 'Growth Lead',              loc: 'New York · Onsite',type: 'Contract' },
-              ].map((j, i, arr) => (
-                <div key={i}
-                  className="flex justify-between items-center py-4"
-                  style={{ borderBottom: i < arr.length - 1 ? `1px solid ${t.colorBorder}` : 'none' }}>
-                  <div>
-                    <div className="text-sm font-bold"
-                      style={{ fontFamily: t.fontDisplay, color: t.colorTextPrimary }}>
-                      {j.title}
-                    </div>
-                    <div className="text-xs mt-0.5"
-                      style={{ fontFamily: t.fontBody, color: t.colorTextSecondary }}>
-                      {j.loc} · {j.type}
-                    </div>
+            {/* ── Hero ── */}
+            <div className="relative px-8 pt-10 pb-8"
+              style={{
+                backgroundImage: heroImageUrl ? `url(${heroImageUrl})` : undefined,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundColor: heroImageUrl ? undefined : t.colorSurface,
+              }}>
+              {heroImageUrl && (
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom right, rgba(0,0,0,0.52) 0%, rgba(0,0,0,0.28) 100%)', pointerEvents: 'none' }} />
+              )}
+              <div style={{ position: 'relative', zIndex: 1, maxWidth: 520 }}>
+                {/* Live badge */}
+                <div className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full mb-4"
+                  style={{
+                    backgroundColor: heroImageUrl ? 'rgba(255,255,255,0.15)' : t.colorSurfaceSubtle,
+                    color: heroImageUrl ? 'rgba(255,255,255,0.9)' : t.colorTextSecondary,
+                    border: `1px solid ${heroImageUrl ? 'rgba(255,255,255,0.2)' : t.colorBorder}`,
+                  }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: t.colorAccent, display: 'inline-block' }} />
+                  14 open roles
+                </div>
+
+                {/* Hero headline — font-size mapped to display font character */}
+                {(() => {
+                  const isUnbounded = t.fontDisplay.includes('Unbounded')
+                  const isFraunces = t.fontDisplay.includes('Fraunces')
+                  const fontSize = isUnbounded ? '1.45rem' : isFraunces ? '2.4rem' : '2.1rem'
+                  const letterSpacing = isUnbounded ? '-0.01em' : isFraunces ? '0' : '-0.03em'
+                  const lineHeight = isUnbounded ? '1.2' : isFraunces ? '1.1' : '1.15'
+                  const headingStyle = { fontFamily: t.fontDisplay, color: heroImageUrl ? '#fff' : t.colorTextPrimary, fontSize, letterSpacing, lineHeight, marginBottom: '0.75rem' }
+                  return boardConfig.heroHeadline ? (
+                    <div style={headingStyle} dangerouslySetInnerHTML={{ __html: boardConfig.heroHeadline }} />
+                  ) : (
+                    <h1 className="m-0 font-extrabold" style={headingStyle}>
+                      {board.name} Jobs
+                    </h1>
+                  )
+                })()}
+
+                {/* Tagline */}
+                {(boardConfig.tagline || introText) && (
+                  <p className="text-sm leading-relaxed mb-5 m-0"
+                    style={{ fontFamily: t.fontBody, color: heroImageUrl ? 'rgba(255,255,255,0.82)' : t.colorTextSecondary }}>
+                    {boardConfig.tagline || introText}
+                  </p>
+                )}
+
+                {/* Search bar */}
+                {boardConfig.showSearch && (
+                  <div className="flex items-center gap-2 px-4 py-3 border"
+                    style={{
+                      backgroundColor: t.colorSurface,
+                      border: `1px solid ${t.colorBorder}`,
+                      borderRadius: t.buttonStyle === 'pill' ? '9999px' : t.buttonStyle === 'sharp' ? '4px' : '12px',
+                      maxWidth: 420,
+                    }}>
+                    <span style={{ color: t.colorTextMuted, fontSize: 14 }}>🔍</span>
+                    <span className="text-sm flex-1" style={{ fontFamily: t.fontBody, color: t.colorTextMuted }}>
+                      Role, skill or company…
+                    </span>
+                    <span className="text-xs font-bold px-4 py-1.5"
+                      style={{
+                        backgroundColor: t.colorPrimary,
+                        color: t.colorPrimaryFg,
+                        borderRadius: t.buttonStyle === 'pill' ? '9999px' : t.buttonStyle === 'sharp' ? '3px' : '8px',
+                      }}>
+                      Search →
+                    </span>
                   </div>
-                  <button
-                    className="border-0 text-xs font-semibold cursor-pointer px-4 py-2"
+                )}
+              </div>
+            </div>
+
+            {/* ── Category pills ── */}
+            {boardConfig.categories && boardConfig.categories.length > 0 && (
+              <div className="px-8 pt-5 pb-2 flex flex-wrap gap-2" style={{ backgroundColor: t.colorBackground }}>
+                {boardConfig.categories.slice(0, 6).map((cat: string) => (
+                  <span key={cat} className="text-xs font-semibold px-3 py-1.5 border"
                     style={{
                       fontFamily: t.fontBody,
-                      backgroundColor: t.colorAccent,
-                      color: t.colorAccentFg,
-                      borderRadius:
-                        t.buttonStyle === 'pill'  ? '9999px' :
-                        t.buttonStyle === 'sharp' ? '3px' : '8px',
+                      borderRadius: t.buttonStyle === 'pill' ? '9999px' : t.buttonStyle === 'sharp' ? '3px' : '20px',
+                      borderColor: t.colorBorder,
+                      color: t.colorTextSecondary,
+                      backgroundColor: t.colorSurface,
                     }}>
-                    Apply →
-                  </button>
+                    {cat.charAt(0).toUpperCase() + cat.slice(1).replace(/-/g, ' ')}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* ── Job cards ── */}
+            <div className="px-8 py-4" style={{ backgroundColor: t.colorBackground }}>
+              {[
+                { title: 'Senior Product Designer', company: 'Acme Co', loc: 'London · Hybrid', type: 'Full-time', remote: 'hybrid' },
+                { title: 'Frontend Engineer',        company: 'Vercel',  loc: 'Remote',           type: 'Full-time', remote: 'remote' },
+                { title: 'Growth Lead',              company: 'Stripe',  loc: 'New York · On-site',type: 'Contract', remote: 'onsite' },
+              ].map((j, i, arr) => (
+                <div key={i}
+                  className="flex items-center justify-between py-4 gap-4"
+                  style={{ borderBottom: i < arr.length - 1 ? `1px solid ${t.colorBorder}` : 'none' }}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-xl border shrink-0"
+                      style={{ backgroundColor: t.colorSurfaceSubtle, borderColor: t.colorBorder }} />
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold truncate"
+                        style={{ fontFamily: t.fontDisplay, color: t.colorTextPrimary }}>
+                        {j.title}
+                      </div>
+                      <div className="text-xs mt-0.5"
+                        style={{ fontFamily: t.fontBody, color: t.colorTextSecondary }}>
+                        <strong>{j.company}</strong> · {j.loc}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="shrink-0 flex flex-col items-end gap-1">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded"
+                      style={{
+                        backgroundColor: j.remote === 'remote' ? `${t.colorAccent}22` : t.colorSurfaceSubtle,
+                        color: j.remote === 'remote' ? t.colorAccent : t.colorTextMuted,
+                      }}>
+                      {j.remote === 'remote' ? 'Remote' : j.remote === 'hybrid' ? 'Hybrid' : 'On-site'}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
 
-            {/* Preview footer */}
-            <div className="px-7 py-4 text-center text-xs border-t"
-              style={{ borderColor: t.colorBorder, color: t.colorTextMuted, backgroundColor: t.colorBackground }}>
-              Powered by <span className="font-extrabold" style={{ color: t.colorTextPrimary }}>Jobuki</span>
+            {/* ── Footer ── */}
+            <div className="px-8 py-5 text-center text-xs border-t"
+              style={{ borderColor: t.colorBorder, color: t.colorTextMuted, backgroundColor: t.colorBackground, fontFamily: t.fontBody }}>
+              {configFooterShowPoweredBy
+                ? <>Powered by <span className="font-extrabold" style={{ color: t.colorTextPrimary }}>Jobuki</span></>
+                : board.name}
             </div>
           </div>
         </div>
-      </div>
+      </div> {/* end preview */}
 
       {/* Toasts */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 w-[320px] max-w-[calc(100vw-2rem)] pointer-events-none">

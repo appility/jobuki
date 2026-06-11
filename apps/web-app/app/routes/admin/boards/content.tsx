@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useLoaderData, useActionData, Form, useNavigation } from 'react-router'
+import { useLoaderData, useActionData, Form, useNavigation, Link } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess, requireBoardInWorkspace } from '../../../lib/auth.server'
 import { getDb, boards } from '@jobuki/db'
@@ -176,8 +176,12 @@ export default function BoardContent() {
   ]
 
   return (
-    <div className="w-full p-10 max-w-2xl">
-      <h1 className="text-2xl font-extrabold mb-8" style={{ color: 'var(--color-text-primary)' }}>
+    <div className="w-full p-8 max-w-2xl">
+      <Link to={`/dashboard/boards/${board.id}`}
+        className="text-sm no-underline block mb-4" style={{ color: 'var(--color-text-muted)' }}>
+        ← {board.name}
+      </Link>
+      <h1 className="text-2xl font-extrabold mb-6" style={{ color: 'var(--color-text-primary)' }}>
         Content
       </h1>
 
