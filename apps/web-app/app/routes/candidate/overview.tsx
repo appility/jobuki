@@ -1,25 +1,26 @@
 import { Link, useLoaderData } from 'react-router'
 import type { LoaderFunctionArgs } from 'react-router'
-import { getDb, savedJobs, applications, candidateProfiles } from '@jobuki/db'
+import { getDb, savedJobs, applications, candidateProfiles, jobAlerts } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { requireUser } from '../../lib/auth.server'
 
 export async function loader(args: LoaderFunctionArgs) {
   const user = await requireUser(args, { type: 'job-seeker' })
   const db = getDb()
-  const [saved, applied, profile] = await Promise.all([
+  const [saved, applied, profile, alerts] = await Promise.all([
     db.select().from(savedJobs).where(eq(savedJobs.userId, user.id)),
     db.select().from(applications).where(eq(applications.candidateEmail, user.email)),
     db.query.candidateProfiles.findFirst({ where: eq(candidateProfiles.userId, user.id) }),
+    db.select().from(jobAlerts).where(eq(jobAlerts.userId, user.id)),
   ])
   const profileComplete = profile
     ? [profile.name, profile.headline, profile.bio, profile.cvUrl, profile.linkedinUrl].filter(Boolean).length
     : 0
-  return { user, savedCount: saved.length, appliedCount: applied.length, profileComplete, profileTotal: 5 }
+  return { user, savedCount: saved.length, appliedCount: applied.length, alertCount: alerts.length, profileComplete, profileTotal: 5 }
 }
 
 export default function CandidateOverview() {
-  const { user, savedCount, appliedCount, profileComplete, profileTotal } = useLoaderData<typeof loader>()
+  const { user, savedCount, appliedCount, alertCount, profileComplete, profileTotal } = useLoaderData<typeof loader>()
   const pct = Math.round((profileComplete / profileTotal) * 100)
 
   return (
@@ -31,10 +32,11 @@ export default function CandidateOverview() {
         </h1>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label: 'Saved jobs', value: savedCount, href: '/candidate/saved' },
           { label: 'Applications', value: appliedCount, href: '/candidate/applications' },
+          { label: 'Email alerts', value: alertCount, href: '/candidate/alerts' },
           { label: 'Profile', value: `${pct}%`, href: '/candidate/profile' },
         ].map(stat => (
           <Link key={stat.label} to={stat.href} className="card no-underline hover:-translate-y-px transition-transform block">
@@ -65,6 +67,7 @@ export default function CandidateOverview() {
         <div className="flex flex-wrap gap-2">
           <Link to="/jobs" className="btn-outline text-sm px-4 py-2">Browse jobs</Link>
           <Link to="/candidate/saved" className="btn-outline text-sm px-4 py-2">Saved jobs</Link>
+          <Link to="/candidate/alerts" className="btn-outline text-sm px-4 py-2">Manage alerts</Link>
           <Link to="/candidate/profile" className="btn-outline text-sm px-4 py-2">Edit profile</Link>
         </div>
       </div>

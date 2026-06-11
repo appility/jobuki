@@ -156,6 +156,36 @@ export const savedJobs = pgTable('saved_jobs', {
   userIdx:       index('saved_jobs_user_idx').on(t.userId),
 }))
 
+// ── Job Alerts ───────────────────────────────────────────────────────
+export const jobAlerts = pgTable('job_alerts', {
+  id:             text('id').primaryKey().$defaultFn(() => createId()),
+  userId:         text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  boardId:        text('board_id').references(() => boards.id, { onDelete: 'cascade' }),
+  searchTerm:     text('search_term').notNull(),
+  categories:     jsonb('categories').$type<string[]>().notNull().default([]),
+  remoteOnly:     boolean('remote_only').notNull().default(false),
+  enabled:        boolean('enabled').notNull().default(true),
+  lastNotifiedAt: timestamp('last_notified_at'),
+  createdAt:      timestamp('created_at').notNull().defaultNow(),
+  updatedAt:      timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ({
+  userEnabledIdx: index('job_alerts_user_enabled_idx').on(t.userId, t.enabled),
+  boardIdx: index('job_alerts_board_idx').on(t.boardId),
+}))
+
+export const jobAlertLog = pgTable('job_alert_log', {
+  id:            text('id').primaryKey().$defaultFn(() => createId()),
+  alertId:       text('alert_id').notNull().references(() => jobAlerts.id, { onDelete: 'cascade' }),
+  userId:        text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  jobCount:      integer('job_count').notNull(),
+  jobIds:        jsonb('job_ids').$type<string[]>().notNull().default([]),
+  status:        text('status').notNull().default('pending'),
+  resendEmailId: text('resend_email_id'),
+  sentAt:        timestamp('sent_at').notNull().defaultNow(),
+}, (t) => ({
+  alertSentIdx: index('job_alert_log_alert_sent_idx').on(t.alertId, t.sentAt),
+}))
+
 // ── Candidate Profiles ───────────────────────────────────────────────
 export const candidateProfiles = pgTable('candidate_profiles', {
   id:          text('id').primaryKey().$defaultFn(() => createId()),
@@ -194,6 +224,8 @@ export const applications = pgTable('applications', {
 export const usersRelations = relations(users, ({ many }) => ({
   workspaceMembers: many(workspaceMembers),
   adminAuditLogs: many(adminAuditLogs),
+  jobAlerts: many(jobAlerts),
+  jobAlertLog: many(jobAlertLog),
 }))
 
 export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
@@ -227,6 +259,7 @@ export const adminAuditLogsRelations = relations(adminAuditLogs, ({ one }) => ({
 export const boardsRelations = relations(boards, ({ one, many }) => ({
   workspace: one(workspaces, { fields: [boards.workspaceId], references: [workspaces.id] }),
   jobs:      many(jobs),
+  jobAlerts: many(jobAlerts),
 }))
 
 export const jobsRelations = relations(jobs, ({ one, many }) => ({
@@ -237,6 +270,17 @@ export const jobsRelations = relations(jobs, ({ one, many }) => ({
 export const applicationsRelations = relations(applications, ({ one }) => ({
   job:   one(jobs,   { fields: [applications.jobId],   references: [jobs.id] }),
   board: one(boards, { fields: [applications.boardId], references: [boards.id] }),
+}))
+
+export const jobAlertsRelations = relations(jobAlerts, ({ one, many }) => ({
+  user: one(users, { fields: [jobAlerts.userId], references: [users.id] }),
+  board: one(boards, { fields: [jobAlerts.boardId], references: [boards.id] }),
+  logs: many(jobAlertLog),
+}))
+
+export const jobAlertLogRelations = relations(jobAlertLog, ({ one }) => ({
+  alert: one(jobAlerts, { fields: [jobAlertLog.alertId], references: [jobAlerts.id] }),
+  user: one(users, { fields: [jobAlertLog.userId], references: [users.id] }),
 }))
 
 // ── Geo regions ──────────────────────────────────────────────────────

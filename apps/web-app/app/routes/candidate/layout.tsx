@@ -33,6 +33,7 @@ const NAV = [
   { to: '/candidate',              label: 'Overview',     end: true },
   { to: '/candidate/saved',        label: 'Saved jobs' },
   { to: '/candidate/applications', label: 'Applications' },
+  { to: '/candidate/alerts',       label: 'Email alerts' },
   { to: '/candidate/profile',      label: 'Profile' },
 ]
 
