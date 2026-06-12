@@ -7,16 +7,24 @@ import { requireUser } from '../../lib/auth.server'
 export async function loader(args: LoaderFunctionArgs) {
   const user = await requireUser(args, { type: 'job-seeker' })
   const db = getDb()
-  const [saved, applied, profile, alerts] = await Promise.all([
+  const [saved, applied, profile] = await Promise.all([
     db.select().from(savedJobs).where(eq(savedJobs.userId, user.id)),
     db.select().from(applications).where(eq(applications.candidateEmail, user.email)),
     db.query.candidateProfiles.findFirst({ where: eq(candidateProfiles.userId, user.id) }),
-    db.select().from(jobAlerts).where(eq(jobAlerts.userId, user.id)),
   ])
+
+  let alertCount = 0
+  try {
+    const alerts = await db.select().from(jobAlerts).where(eq(jobAlerts.userId, user.id))
+    alertCount = alerts.length
+  } catch (error: any) {
+    if (error?.code !== '42P01') throw error
+  }
+
   const profileComplete = profile
     ? [profile.name, profile.headline, profile.bio, profile.cvUrl, profile.linkedinUrl].filter(Boolean).length
     : 0
-  return { user, savedCount: saved.length, appliedCount: applied.length, alertCount: alerts.length, profileComplete, profileTotal: 5 }
+  return { user, savedCount: saved.length, appliedCount: applied.length, alertCount, profileComplete, profileTotal: 5 }
 }
 
 export default function CandidateOverview() {

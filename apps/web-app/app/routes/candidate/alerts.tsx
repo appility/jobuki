@@ -22,6 +22,15 @@ async function resolveCurrentBoard(request: Request) {
   }
 
   if (boardSlug) {
+
+function isMissingTableError(error: unknown) {
+  return Boolean(
+    error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    (error as { code?: string }).code === '42P01'
+  )
+}
     return db.query.boards.findFirst({ where: eq(boards.slug, boardSlug) })
   }
 
@@ -32,20 +41,30 @@ export async function loader(args: LoaderFunctionArgs) {
   const user = await requireUser(args, { type: 'job-seeker' })
   const db = getDb()
   const board = await resolveCurrentBoard(args.request)
-  const alerts = await db
-    .select({ alert: jobAlerts, boardName: boards.name })
-    .from(jobAlerts)
-    .leftJoin(boards, eq(jobAlerts.boardId, boards.id))
-    .where(eq(jobAlerts.userId, user.id))
-    .orderBy(desc(jobAlerts.createdAt))
+  let alertsAvailable = true
+  let alerts: Array<{ alert: typeof jobAlerts.$inferSelect; boardName: string | null }> = []
+
+  try {
+    alerts = await db
+      .select({ alert: jobAlerts, boardName: boards.name })
+      .from(jobAlerts)
+      .leftJoin(boards, eq(jobAlerts.boardId, boards.id))
+      .where(eq(jobAlerts.userId, user.id))
+      .orderBy(desc(jobAlerts.createdAt))
+  } catch (error: any) {
+    if (error?.code !== '42P01') throw error
+    alertsAvailable = false
+  }
 
   return {
     alerts: alerts.map(({ alert, boardName }) => ({
+    alertsAvailable,
       ...alert,
       boardName,
       categoriesText: alert.categories.join(', '),
     })),
     board: board ? { id: board.id, name: board.name } : null,
+    alertsAvailable,
   }
 }
 
@@ -55,6 +74,8 @@ export async function action(args: ActionFunctionArgs) {
   const form = await args.request.formData()
   const intent = String(form.get('intent') ?? '').trim()
   const alertId = String(form.get('alertId') ?? '').trim()
+
+  const alertsTableMissing = (error: unknown) => Boolean(error && typeof error === 'object' && 'code' in error && (error as { code?: string }).code === '42P01')
 
   if (intent === 'create') {
     const searchTerm = String(form.get('searchTerm') ?? '').trim()
@@ -66,13 +87,18 @@ export async function action(args: ActionFunctionArgs) {
       return { ok: false, error: 'Add a search term to create an alert.' }
     }
 
-    await db.insert(jobAlerts).values({
-      userId: user.id,
-      boardId,
-      searchTerm,
-      categories,
-      remoteOnly,
-    })
+    try {
+      await db.insert(jobAlerts).values({
+        userId: user.id,
+        boardId,
+        searchTerm,
+        categories,
+        remoteOnly,
+      })
+    } catch (error) {
+      if (!alertsTableMissing(error)) throw error
+      return { ok: false, error: 'Email alerts are not available yet in this environment.' }
+    }
 
     return { ok: true, message: 'Alert created.' }
   }
@@ -85,12 +111,22 @@ export async function action(args: ActionFunctionArgs) {
 
   if (intent === 'toggle') {
     const enabled = String(form.get('enabled') ?? 'true') === 'true'
-    await db.update(jobAlerts).set({ enabled, updatedAt: new Date() }).where(ownsAlert)
+    try {
+      await db.update(jobAlerts).set({ enabled, updatedAt: new Date() }).where(ownsAlert)
+    } catch (error) {
+      if (!alertsTableMissing(error)) throw error
+      return { ok: false, error: 'Email alerts are not available yet in this environment.' }
+    }
     return { ok: true, message: enabled ? 'Alert enabled.' : 'Alert paused.' }
   }
 
   if (intent === 'delete') {
-    await db.delete(jobAlerts).where(ownsAlert)
+    try {
+      await db.delete(jobAlerts).where(ownsAlert)
+    } catch (error) {
+      if (!alertsTableMissing(error)) throw error
+      return { ok: false, error: 'Email alerts are not available yet in this environment.' }
+    }
     return { ok: true, message: 'Alert deleted.' }
   }
 
@@ -103,9 +139,14 @@ export async function action(args: ActionFunctionArgs) {
       return { ok: false, error: 'Search term is required.' }
     }
 
-    await db.update(jobAlerts)
-      .set({ searchTerm, categories, remoteOnly, updatedAt: new Date() })
-      .where(ownsAlert)
+    try {
+      await db.update(jobAlerts)
+        .set({ searchTerm, categories, remoteOnly, updatedAt: new Date() })
+        .where(ownsAlert)
+    } catch (error) {
+      if (!alertsTableMissing(error)) throw error
+      return { ok: false, error: 'Email alerts are not available yet in this environment.' }
+    }
 
     return { ok: true, message: 'Alert updated.' }
   }
@@ -114,7 +155,7 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 export default function CandidateAlerts() {
-  const { alerts, board } = useLoaderData<typeof loader>()
+  const { alerts, board, alertsAvailable } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const saving = navigation.state === 'submitting'
@@ -139,6 +180,12 @@ export default function CandidateAlerts() {
       {actionData?.message && (
         <div className="rounded-xl px-4 py-3 text-sm font-semibold" style={{ backgroundColor: 'var(--color-success-bg)', color: 'var(--color-success)' }}>
           {actionData.message}
+        </div>
+      )}
+
+      {!alertsAvailable && (
+        <div className="rounded-xl px-4 py-3 text-sm font-semibold" style={{ backgroundColor: 'color-mix(in srgb, var(--color-warning) 14%, white)', color: 'var(--color-warning)' }}>
+          Email alerts are not active yet because the production database still needs the latest migration.
         </div>
       )}
 
@@ -169,7 +216,7 @@ export default function CandidateAlerts() {
           Remote roles only
         </label>
 
-        <button type="submit" className="btn-primary text-sm px-4 py-2" disabled={saving}>
+        <button type="submit" className="btn-primary text-sm px-4 py-2" disabled={saving || !alertsAvailable}>
           {saving ? 'Saving…' : 'Create alert'}
         </button>
       </Form>
