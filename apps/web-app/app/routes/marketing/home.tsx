@@ -1,7 +1,7 @@
 import { Form, Link, useLoaderData } from 'react-router'
 import type { LoaderFunctionArgs, MetaFunction } from 'react-router'
 import { getDb, boards, jobs } from '@jobuki/db'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, ilike, or, sql } from 'drizzle-orm'
 import { resolveJobBoardThemeConfig } from '@jobuki/types'
 import { resolveTheme, themeToCSS } from '../../lib/theme'
 import { deriveJobCategory, normalizeCategory, resolveBoardCategories, titleCaseCategory } from '../../lib/board-categories'
@@ -48,46 +48,67 @@ export async function loader({ request }: LoaderFunctionArgs) {
   })
   const boardCategories = resolveBoardCategories(boardConfig.categories)
 
-  const cacheKey = `board:${board.id}:publishedJobs`
-  let publishedJobs = cacheGet<typeof jobs.$inferSelect[]>(cacheKey)
-  if (!publishedJobs) {
-    publishedJobs = await db.query.jobs.findMany({
-      where: and(eq(jobs.boardId, board.id), eq(jobs.status, 'published')),
-      orderBy: [desc(jobs.createdAt)],
-    })
-    cacheSet(cacheKey, publishedJobs)
-  }
-
-  // Geo ranking — float region-relevant jobs to the top
-  const regions = await getGeoRegions()
-  const vRegion = visitorRegion(request, regions)
-  const rankedJobs = rankJobs(publishedJobs, vRegion, regions)
-
   const url = new URL(request.url)
   const q = (url.searchParams.get('q') ?? '').trim().toLowerCase()
   const location = (url.searchParams.get('location') ?? '').trim().toLowerCase()
   const category = normalizeCategory(url.searchParams.get('category') ?? url.searchParams.get('department'))
 
-  const filteredJobs = rankedJobs.filter((job) => {
-    const qMatch =
-      !q ||
-      job.title.toLowerCase().includes(q) ||
-      (job.company ?? '').toLowerCase().includes(q) ||
-      (job.location ?? '').toLowerCase().includes(q)
+  const LEAN_COLS = {
+    descriptionJson: false,
+    description: false,
+    requirements: false,
+    benefits: false,
+    applicationTips: false,
+    externalApplyUrl: false,
+    externalListingUrl: false,
+  } as const
 
-    const locationMatch = !location || normalizeLocation(job.location).toLowerCase() === location
-    const jobCategory = deriveJobCategory(job, boardCategories)
-    const categoryMatch = !category || jobCategory === category
+  const baseWhere = and(eq(jobs.boardId, board.id), eq(jobs.status, 'published'))
+  const hasFilters = Boolean(q || location || category)
 
-    return qMatch && locationMatch && categoryMatch
-  })
+  // Geo ranking — float region-relevant jobs to the top
+  const regions = await getGeoRegions()
+  const vRegion = visitorRegion(request, regions)
+
+  // When filters are active, query only the matching rows from DB (no full load).
+  // When no filters, use cache + geo-rank for the default board view.
+  let filteredJobs: (typeof jobs.$inferSelect)[]
+  let publishedJobs: Pick<typeof jobs.$inferSelect, 'primaryCategory' | 'categoryTags' | 'location' | 'company'>[]
+
+  if (hasFilters) {
+    const filterConditions = []
+    if (q) filterConditions.push(or(ilike(jobs.title, `%${q}%`), ilike(jobs.company, `%${q}%`), ilike(jobs.location, `%${q}%`)))
+    if (location) filterConditions.push(ilike(jobs.location, `%${location}%`))
+    if (category) filterConditions.push(or(eq(jobs.primaryCategory, category), sql`${jobs.categoryTags} @> ARRAY[${category}]::text[]`))
+    const filteredWhere = and(baseWhere, ...filterConditions)
+
+    const [filtered, meta] = await Promise.all([
+      db.query.jobs.findMany({ where: filteredWhere, orderBy: [desc(jobs.createdAt)], columns: LEAN_COLS }),
+      db.query.jobs.findMany({ where: baseWhere, columns: { primaryCategory: true, categoryTags: true, location: true, company: true } }),
+    ])
+    filteredJobs = filtered
+    publishedJobs = meta
+  } else {
+    const cacheKey = `board:${board.id}:publishedJobs`
+    let cached = cacheGet<typeof jobs.$inferSelect[]>(cacheKey)
+    if (!cached) {
+      cached = await db.query.jobs.findMany({
+        where: baseWhere,
+        orderBy: [desc(jobs.createdAt)],
+        columns: LEAN_COLS,
+      })
+      cacheSet(cacheKey, cached)
+    }
+    filteredJobs = rankJobs(cached, vRegion, regions)
+    publishedJobs = cached
+  }
 
   const locations = normalizeLocations(publishedJobs.map((job) => job.location))
 
   const derivedCategories = Array.from(
     new Set(
       publishedJobs
-        .map((job) => deriveJobCategory(job, boardCategories))
+        .map((job) => deriveJobCategory(job as any, boardCategories))
         .filter(Boolean)
     )
   ).sort((a, b) => a.localeCompare(b))
@@ -97,6 +118,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     label: titleCaseCategory(value),
   }))
 
+  const totalOpen = publishedJobs.length
   const totalCompanies = new Set(publishedJobs.map(j => j.company).filter(Boolean)).size
 
   const css = themeToCSS(resolveTheme(board.theme ?? {}), ':root', boardConfig.cssVariables)
@@ -105,7 +127,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     board,
     css,
     jobs: filteredJobs,
-    totalOpen: publishedJobs.length,
+    totalOpen,
     totalCompanies,
     geoRegions: regions.map(r => ({ slug: r.slug, label: r.label, flag: r.flag })),
     visitorRegionSlug: vRegion?.slug ?? null,

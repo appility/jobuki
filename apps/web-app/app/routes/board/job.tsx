@@ -44,6 +44,22 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     ),
     orderBy: [desc(jobs.createdAt)],
     limit: 3,
+    columns: {
+      id: true,
+      title: true,
+      company: true,
+      location: true,
+      remotePolicy: true,
+      employmentType: true,
+      primaryCategory: true,
+      categoryTags: true,
+      salaryMin: true,
+      salaryMax: true,
+      salaryCurrency: true,
+      salaryPeriod: true,
+      createdAt: true,
+      updatedAt: true,
+    },
   })
 
   return { job, board, similarJobs, isPreviewMode, boardCategories, isSaved, isSignedIn: Boolean(user) }

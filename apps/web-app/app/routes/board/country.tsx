@@ -7,6 +7,7 @@ import { deriveJobCategory, resolveBoardCategories, titleCaseCategory } from '..
 import { publicJobPath } from '../../lib/public-job-path'
 import { normalizeLocation } from '../../lib/normalize-location'
 import { getGeoRegions, scoreJob } from '../../lib/geo-ranking.server'
+import { cacheGet } from '../../lib/board-cache.server'
 
 const PAGE_SIZE = 20
 
@@ -36,9 +37,23 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   const page = Math.max(1, Number(url.searchParams.get('page') ?? '1'))
   const q = (url.searchParams.get('q') ?? '').trim().toLowerCase()
 
-  const allJobs = await db.query.jobs.findMany({
+  const LEAN_COLS = {
+    descriptionJson: false,
+    description: false,
+    requirements: false,
+    benefits: false,
+    applicationTips: false,
+    externalApplyUrl: false,
+    externalListingUrl: false,
+  } as const
+
+  type LeanJob = Awaited<ReturnType<typeof db.query.jobs.findMany<{ columns: typeof LEAN_COLS }>>>[0]
+
+  const cached = cacheGet<LeanJob[]>(`board:${board.id}:publishedJobs`)
+  const allJobs = cached ?? await db.query.jobs.findMany({
     where: and(eq(jobs.boardId, board.id), eq(jobs.status, 'published')),
     orderBy: [desc(jobs.createdAt)],
+    columns: LEAN_COLS,
   })
 
   // Filter to jobs that belong to this region

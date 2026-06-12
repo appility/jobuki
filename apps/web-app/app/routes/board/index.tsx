@@ -1,7 +1,7 @@
 import { Form, Link, useLoaderData, useOutletContext } from 'react-router'
 import type { LoaderFunctionArgs } from 'react-router'
 import { getDb, boards, jobs } from '@jobuki/db'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, count, desc, eq, ilike, or, sql } from 'drizzle-orm'
 import { resolveJobBoardThemeConfig, type Board } from '@jobuki/types'
 import { deriveJobCategory, normalizeCategory, resolveBoardCategories, titleCaseCategory } from '../../lib/board-categories'
 import { publicJobPath } from '../../lib/public-job-path'
@@ -76,11 +76,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   })
   const boardCategories = resolveBoardCategories(boardConfig.categories)
 
-  const allJobs = await db.query.jobs.findMany({
-    where: and(eq(jobs.boardId, board.id), eq(jobs.status, 'published')),
-    orderBy: [desc(jobs.createdAt)],
-  })
-
   const url = new URL(request.url)
   const q = (url.searchParams.get('q') ?? '').trim().toLowerCase()
   const location = (url.searchParams.get('location') ?? '').trim().toLowerCase()
@@ -88,32 +83,44 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const pageParam = Number(url.searchParams.get('page') ?? '1')
   const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1
 
-  const filteredJobs = allJobs.filter((job) => {
-    const qMatch =
-      !q ||
-      job.title.toLowerCase().includes(q) ||
-      (job.company ?? '').toLowerCase().includes(q) ||
-      (job.location ?? '').toLowerCase().includes(q)
+  const baseWhere = and(eq(jobs.boardId, board.id), eq(jobs.status, 'published'))
 
-    const locationMatch = !location || normalizeLocation(job.location).toLowerCase() === location
-    const categoryMatch = !category || deriveJobCategory(job, boardCategories) === category
+  // Build SQL filter conditions to avoid loading all rows into memory
+  const filterConditions = []
+  if (q) filterConditions.push(or(ilike(jobs.title, `%${q}%`), ilike(jobs.company, `%${q}%`), ilike(jobs.location, `%${q}%`)))
+  if (location) filterConditions.push(ilike(jobs.location, `%${location}%`))
+  if (category) filterConditions.push(or(eq(jobs.primaryCategory, category), sql`${jobs.categoryTags} @> ARRAY[${category}]::text[]`))
+  const filteredWhere = filterConditions.length > 0 ? and(baseWhere, ...filterConditions) : baseWhere
 
-    return qMatch && locationMatch && categoryMatch
-  })
+  const EXCLUDED_COLS = { descriptionJson: false, description: false, requirements: false, benefits: false, applicationTips: false, externalApplyUrl: false, externalListingUrl: false } as const
 
-  const totalFilteredJobs = filteredJobs.length
+  const [[{ totalJobs }], [{ totalFilteredJobs }], paginatedJobs, jobsMeta] = await Promise.all([
+    db.select({ totalJobs: count() }).from(jobs).where(baseWhere),
+    db.select({ totalFilteredJobs: count() }).from(jobs).where(filteredWhere),
+    db.query.jobs.findMany({
+      where: filteredWhere,
+      orderBy: [desc(jobs.createdAt)],
+      limit: PAGE_SIZE,
+      offset: Math.max(0, page - 1) * PAGE_SIZE,
+      columns: EXCLUDED_COLS,
+    }),
+    // Minimal meta query for building filter option lists (categories + locations)
+    db.query.jobs.findMany({
+      where: baseWhere,
+      columns: { primaryCategory: true, categoryTags: true, location: true, title: true, employmentType: true },
+    }),
+  ])
+
   const totalPages = Math.max(1, Math.ceil(totalFilteredJobs / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
-  const pageStart = (currentPage - 1) * PAGE_SIZE
-  const paginatedJobs = filteredJobs.slice(pageStart, pageStart + PAGE_SIZE)
 
-  const derivedCategories = Array.from(new Set(allJobs.map((job) => deriveJobCategory(job, boardCategories)).filter(Boolean))).sort()
+  const derivedCategories = Array.from(new Set(jobsMeta.map((job) => deriveJobCategory(job, boardCategories)).filter(Boolean))).sort()
   const categories = boardCategories.length ? boardCategories : derivedCategories
-  const locations = normalizeLocations(allJobs.map((job) => job.location))
+  const locations = normalizeLocations(jobsMeta.map((job) => job.location))
 
   return {
     jobs: paginatedJobs,
-    totalJobs: allJobs.length,
+    totalJobs,
     totalFilteredJobs,
     filters: { q, location, category },
     pagination: { page: currentPage, pageSize: PAGE_SIZE, totalPages },

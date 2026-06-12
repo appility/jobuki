@@ -1,5 +1,14 @@
-import type { jobs } from '@jobuki/db'
 import { BOARD_CATEGORY_RULES, resolveCategoryAlias } from './category-config'
+
+// Narrow input type so column-excluded query results still type-check.
+// description is optional — keyword fallback simply won't fire if absent.
+export type JobForCategory = {
+  primaryCategory?: string | null
+  categoryTags?: string[] | null
+  title: string
+  description?: string | null
+  employmentType: string
+}
 
 export function normalizeCategory(value: string | null | undefined) {
   const normalized = (value ?? '')
@@ -36,7 +45,7 @@ export function resolveBoardCategories(input: string[] | null | undefined) {
 }
 
 export function deriveJobCategory(
-  job: typeof jobs.$inferSelect,
+  job: JobForCategory,
   boardCategories: string[] = []
 ) {
   const configuredCategories = resolveBoardCategories(boardCategories)

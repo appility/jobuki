@@ -10,7 +10,20 @@ export async function loader(args: LoaderFunctionArgs) {
   const db = getDb()
 
   const rows = await db
-    .select({ job: jobs, boardName: boards.name, boardId: boards.id })
+    .select({
+      job: {
+        id: jobs.id,
+        title: jobs.title,
+        status: jobs.status,
+        externalSource: jobs.externalSource,
+        company: jobs.company,
+        location: jobs.location,
+        remotePolicy: jobs.remotePolicy,
+        createdAt: jobs.createdAt,
+      },
+      boardName: boards.name,
+      boardId: boards.id,
+    })
     .from(jobs)
     .innerJoin(boards, eq(jobs.boardId, boards.id))
     .where(eq(boards.workspaceId, workspace.id))

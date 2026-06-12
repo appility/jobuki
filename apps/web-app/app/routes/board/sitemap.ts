@@ -4,6 +4,7 @@ import { and, desc, eq } from 'drizzle-orm'
 import { resolveJobBoardThemeConfig } from '@jobuki/types'
 import { deriveJobCategory, resolveBoardCategories } from '../../lib/board-categories'
 import { publicJobPath } from '../../lib/public-job-path'
+import { cacheGet, cacheSet } from '../../lib/board-cache.server'
 
 function escapeXml(value: string) {
   return value
@@ -42,9 +43,25 @@ export async function loader({ request }: LoaderFunctionArgs) {
   })
   const boardCategories = resolveBoardCategories(boardConfig.categories)
 
+  const sitemapCacheKey = `board:${board.id}:sitemap`
+  const cachedXml = cacheGet<string>(sitemapCacheKey)
+  if (cachedXml) {
+    return new Response(cachedXml, {
+      headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=300' },
+    })
+  }
+
   const publishedJobs = await db.query.jobs.findMany({
     where: and(eq(jobs.boardId, board.id), eq(jobs.status, 'published')),
     orderBy: [desc(jobs.updatedAt), desc(jobs.createdAt)],
+    columns: {
+      id: true,
+      title: true,
+      primaryCategory: true,
+      categoryTags: true,
+      updatedAt: true,
+      createdAt: true,
+    },
   })
 
   const url = new URL(request.url)
@@ -69,6 +86,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 ${entries.map((entry) => `  <url>\n    <loc>${escapeXml(entry.loc)}</loc>\n    <lastmod>${entry.lastmod}</lastmod>\n  </url>`).join('\n')}
 </urlset>`
 
+  cacheSet(sitemapCacheKey, xml)
   return new Response(xml, {
     headers: {
       'Content-Type': 'application/xml; charset=utf-8',
