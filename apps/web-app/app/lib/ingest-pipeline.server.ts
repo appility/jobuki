@@ -1,6 +1,7 @@
 import { getDb, boards, jobs } from '@jobuki/db'
 import { and, eq, inArray } from 'drizzle-orm'
 import { cacheInvalidate } from './board-cache.server'
+import { INGEST_CATEGORY_RULES, SOURCE_PRIOR_RULES, resolveCategoryAlias, resolveSourceCategoryHint } from './category-config'
 
 
 type FeedSource =
@@ -79,6 +80,7 @@ export type IngestRequestBody = {
   limit?: number
   tags?: string[]
   category?: string
+  industry?: string
   searchTerm?: string | string[]
   remoteOnly?: boolean
   lookbackDays?: number
@@ -126,21 +128,11 @@ type SourceHealthEntry = {
 
 type IngestNormalizationContext = {
   requestCategory: string | null
+  requestIndustry: string | null
   requestTags: string[]
   requestSearchTerms: string[]
+  sourceUsed: SourceSelection
 }
-
-const CATEGORY_RULES: Array<{ category: string; keywords: string[] }> = [
-  { category: 'engineering', keywords: ['engineer', 'developer', 'typescript', 'backend', 'frontend', 'full stack', 'solidity', 'rust', 'golang', 'python'] },
-  { category: 'product', keywords: ['product manager', 'product owner', 'roadmap'] },
-  { category: 'design', keywords: ['designer', 'ux', 'ui', 'figma', 'product design'] },
-  { category: 'data', keywords: ['data', 'analytics', 'machine learning', 'ai', 'scientist'] },
-  { category: 'marketing', keywords: ['marketing', 'growth', 'seo', 'content', 'social'] },
-  { category: 'sales', keywords: ['sales', 'account executive', 'business development', 'bdr', 'partnership'] },
-  { category: 'operations', keywords: ['operations', 'ops', 'program manager', 'project manager'] },
-  { category: 'security', keywords: ['security', 'infosec', 'application security', 'devsecops'] },
-  { category: 'devrel', keywords: ['developer relations', 'devrel', 'advocate', 'community manager'] },
-]
 
 function unauthorized() {
   return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
@@ -244,7 +236,9 @@ function normalizeCategory(value?: string | null): string | null {
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
-  return normalized || null
+
+  const canonical = resolveCategoryAlias(normalized)
+  return canonical || null
 }
 
 const CATEGORY_FILTER_TERMS: Record<string, string[]> = {
@@ -292,16 +286,54 @@ function inferCategories(job: IncomingJob, context: IngestNormalizationContext):
   categoryTags: string[]
 } {
   const requestCategory = normalizeCategory(context.requestCategory)
+  const requestIndustry = normalizeCategory(context.requestIndustry)
   const haystack = [job.title ?? '', job.description ?? '', job.contractType ?? '', job.employmentType ?? ''].join(' ').toLowerCase()
 
-  const matchedCategories = CATEGORY_RULES
-    .filter((rule) => rule.keywords.some((keyword) => haystack.includes(keyword)))
-    .map((rule) => rule.category)
+  const sourceHint = [context.sourceUsed, job.externalSource ?? '']
+    .join(' ')
+    .toLowerCase()
+  const sourceMapping = resolveSourceCategoryHint(sourceHint)
+  const sourcePriorCategory = sourceMapping.primaryCategory ?? SOURCE_PRIOR_RULES
+    .find((rule) => rule.sourceTerms.some((term) => sourceHint.includes(term)))
+    ?.category ?? null
 
-  const primaryCategory = requestCategory ?? matchedCategories[0] ?? null
+  const scoredCategories = INGEST_CATEGORY_RULES
+    .map((rule) => {
+      const hits = rule.keywords.reduce((count, keyword) => count + (haystack.includes(keyword) ? 1 : 0), 0)
+      const score = hits / Math.max(rule.keywords.length, 1)
+      return { category: rule.category, hits, score }
+    })
+    .filter((entry) => entry.hits > 0)
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score
+      if (b.hits !== a.hits) return b.hits - a.hits
+      return a.category.localeCompare(b.category)
+    })
+
+  const matchedCategories = scoredCategories.map((entry) => entry.category)
+  const top = scoredCategories[0]
+  const second = scoredCategories[1]
+  const textConfidence = top
+    ? Math.max(0, Math.min(1, (top.score - (second?.score ?? 0)) + (top.hits >= 2 ? 0.2 : 0)))
+    : 0
+
+  const textCategory = top?.category ?? null
+  const forceSourceCategory = Boolean(sourceMapping.strategy === 'single-category' && sourceMapping.primaryCategory)
+  const chooseSourcePrior = Boolean(sourcePriorCategory && textConfidence < 0.35)
+
+  // If requestIndustry is provided, use it unless forced by source or explicit category
+  const industryCategory = requestIndustry && !requestCategory && !forceSourceCategory ? requestIndustry : null
+
+  const primaryCategory = requestCategory
+    ?? (forceSourceCategory
+      ? sourceMapping.primaryCategory
+      : (chooseSourcePrior ? sourcePriorCategory : industryCategory ?? textCategory ?? sourcePriorCategory ?? null))
+
   const categoryTags = uniqueTags([
     ...context.requestTags,
     ...context.requestSearchTerms,
+    ...sourceMapping.categories,
+    ...(sourcePriorCategory ? [sourcePriorCategory] : []),
     ...matchedCategories,
     ...(primaryCategory ? [primaryCategory] : []),
   ]).slice(0, 12)
@@ -962,6 +994,7 @@ export async function runIngest(body: IngestRequestBody) {
   const requestSearchTerms = parseSearchTerms(body.searchTerm)
   const requestTags = uniqueTags([...(body.tags ?? []), ...requestSearchTerms])
   const requestCategory = body.category ?? null
+  const requestIndustry = body.industry ?? null
   const sourceOptions: FetchSourceOptions = {
     limit,
     tags: requestTags,
@@ -1012,7 +1045,7 @@ export async function runIngest(body: IngestRequestBody) {
   const filteredIncoming = applyLookbackFilter(incomingJobs, Number.isFinite(lookbackDays) ? lookbackDays : undefined)
 
   const normalized = filteredIncoming
-    .map(job => normalizeIncomingJob(job, { requestCategory, requestTags, requestSearchTerms }))
+    .map(job => normalizeIncomingJob(job, { requestCategory, requestIndustry, requestTags, requestSearchTerms, sourceUsed }))
     .filter((job): job is NormalizedJob => Boolean(job))
 
   const filteredNormalized = normalized.filter(job =>

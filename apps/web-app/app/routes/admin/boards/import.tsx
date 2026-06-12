@@ -3,6 +3,7 @@ import { useLoaderData, useFetcher, Link } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess, requireBoardInWorkspace } from '../../../lib/auth.server'
 import { runIngest } from '../../../lib/ingest-pipeline.server'
+import { getIndustries, getIndustryCategories, getIndustryDisplayName } from '../../../lib/category-config'
 
 export async function loader(args: LoaderFunctionArgs) {
   const { workspace } = await requireWorkspaceAccess(args)
@@ -21,6 +22,7 @@ export async function action(args: ActionFunctionArgs) {
     const result = await runIngest({
       source: (g('source') || 'all') as any,
       searchTerm: g('searchTerm') || undefined,
+      industry: g('industry') || undefined,
       category: g('category') || undefined,
       limit: Number(g('limit')) || 200,
       boardId: board.id,
@@ -67,10 +69,14 @@ export default function BoardImport() {
   const fetcher = useFetcher<typeof action>()
 
   const [source, setSource] = useState('all')
+  const [industry, setIndustry] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [category, setCategory] = useState('')
+  const [location, setLocation] = useState('')
   const [limit, setLimit] = useState('200')
   const [previewPage, setPreviewPage] = useState(1)
+
+  const availableCategories = industry ? getIndustryCategories(industry) : []
 
   const data = fetcher.data as any
   const loading = fetcher.state !== 'idle'
@@ -81,7 +87,7 @@ export default function BoardImport() {
   function submit(intent: 'preview' | 'import', page = 1) {
     setPreviewPage(page)
     fetcher.submit(
-      { intent, source, searchTerm, category, limit, previewPage: String(page) },
+      { intent, source, industry, searchTerm, category, limit, previewPage: String(page) },
       { method: 'post' }
     )
   }
@@ -121,23 +127,48 @@ export default function BoardImport() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-bold uppercase tracking-[0.06em] mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>Search term</label>
+            <label className="block text-xs font-bold uppercase tracking-[0.06em] mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>Industry (optional)</label>
+            <select value={industry} onChange={e => {
+              setIndustry(e.target.value)
+              setCategory('')
+            }} className={INPUT} style={INPUT_STYLE}>
+              <option value="">Any industry</option>
+              {getIndustries().map(ind => (
+                <option key={ind} value={ind}>
+                  {getIndustryDisplayName(ind)}
+                </option>
+              ))}
+            </select>
+          </div>
+          {industry && (
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-[0.06em] mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>Category (optional)</label>
+              <select value={category} onChange={e => setCategory(e.target.value)} className={INPUT} style={INPUT_STYLE}>
+                <option value="">All categories</option>
+                {availableCategories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-[0.06em] mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>Search term (optional)</label>
             <input
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className={INPUT}
               style={INPUT_STYLE}
-              placeholder="e.g. typescript, blockchain, design…"
+              placeholder="e.g. typescript, london, remote…"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold uppercase tracking-[0.06em] mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>Category</label>
+            <label className="block text-xs font-bold uppercase tracking-[0.06em] mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>Location (optional)</label>
             <input
-              value={category}
-              onChange={e => setCategory(e.target.value)}
+              value={location}
+              onChange={e => setLocation(e.target.value)}
               className={INPUT}
               style={INPUT_STYLE}
-              placeholder="e.g. engineering, design, product…"
+              placeholder="e.g. london, berlin, new york…"
             />
           </div>
         </div>

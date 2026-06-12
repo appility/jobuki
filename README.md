@@ -86,3 +86,14 @@ Then hit `http://acme.localhost:3000`
 3. Set env vars (DATABASE_URL, CLERK keys, ROOT_DOMAIN)
 4. Add `railway.json` build config (already included)
 5. Point `*.jobuki.co` DNS to Railway via Cloudflare (proxy on, wildcard cert)
+
+
+
+<!-- sh -c 'curl -fsS -X POST -H "Authorization: Bearer $INGEST_SECRET" -H "Content-Type: application/json" -d "{\"source\":\"all\",\"limit\":500}" "http://$APP_INTERNAL_HOST/api/ingest-jobs" && echo Done' -->
+
+jobukiweb-app.railway.internal
+
+sh -c 'curl -fsS -X POST -H "Authorization: Bearer $INGEST_SECRET" -H "Content-Type: application/json" -d "{\"source\":\"all\",\"limit\":500}" "http://$APP_INTERNAL_HOST/api/ingest-jobs" && echo Done'
+
+
+<!-- 0 */6 * * * -->

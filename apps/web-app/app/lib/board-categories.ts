@@ -1,23 +1,14 @@
 import type { jobs } from '@jobuki/db'
-
-const CATEGORY_RULES: Array<{ category: string; keywords: string[] }> = [
-  { category: 'engineering', keywords: ['engineer', 'developer', 'typescript', 'backend', 'frontend', 'full stack', 'solidity', 'rust', 'golang', 'python'] },
-  { category: 'product', keywords: ['product manager', 'product owner', 'roadmap'] },
-  { category: 'design', keywords: ['designer', 'ux', 'ui', 'figma', 'product design'] },
-  { category: 'data', keywords: ['data', 'analytics', 'machine learning', 'ai', 'scientist'] },
-  { category: 'marketing', keywords: ['marketing', 'growth', 'seo', 'content', 'social'] },
-  { category: 'sales', keywords: ['sales', 'account executive', 'business development', 'bdr', 'partnership'] },
-  { category: 'operations', keywords: ['operations', 'ops', 'program manager', 'project manager'] },
-  { category: 'security', keywords: ['security', 'infosec', 'application security', 'devsecops'] },
-  { category: 'devrel', keywords: ['developer relations', 'devrel', 'advocate', 'community manager'] },
-]
+import { BOARD_CATEGORY_RULES, resolveCategoryAlias } from './category-config'
 
 export function normalizeCategory(value: string | null | undefined) {
-  return (value ?? '')
+  const normalized = (value ?? '')
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
+
+  return resolveCategoryAlias(normalized)
 }
 
 export function titleCaseCategory(value: string | null | undefined) {
@@ -72,7 +63,7 @@ export function deriveJobCategory(
     if (matchedConfigured) return matchedConfigured
   }
 
-  const inferred = CATEGORY_RULES.find((rule) => rule.keywords.some((keyword) => haystack.includes(keyword)))?.category ?? ''
+  const inferred = BOARD_CATEGORY_RULES.find((rule) => rule.keywords.some((keyword) => haystack.includes(keyword)))?.category ?? ''
 
   if (!configuredCategories.length) return inferred
   if (inferred && configuredCategories.includes(inferred)) return inferred

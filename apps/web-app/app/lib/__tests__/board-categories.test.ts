@@ -45,6 +45,13 @@ describe('normalizeCategory', () => {
     expect(normalizeCategory(null)).toBe('')
     expect(normalizeCategory(undefined)).toBe('')
   })
+
+  it('maps industry aliases to canonical categories', () => {
+    expect(normalizeCategory('RN')).toBe('health')
+    expect(normalizeCategory('ESG')).toBe('green')
+    expect(normalizeCategory('FinTech')).toBe('finance')
+    expect(normalizeCategory('Supply Chain')).toBe('logistics')
+  })
 })
 
 describe('titleCaseCategory', () => {
@@ -98,6 +105,11 @@ describe('deriveJobCategory', () => {
   it('infers design category', () => {
     const job = makeJob({ title: 'UX Designer', primaryCategory: null })
     expect(deriveJobCategory(job, [])).toBe('design')
+  })
+
+  it('infers apprenticeship category', () => {
+    const job = makeJob({ title: 'Software Engineering Apprenticeship', primaryCategory: null })
+    expect(deriveJobCategory(job, [])).toBe('apprenticeship')
   })
 
   it('returns empty string when no keyword match and board categories are set', () => {
