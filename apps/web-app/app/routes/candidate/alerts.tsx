@@ -22,15 +22,6 @@ async function resolveCurrentBoard(request: Request) {
   }
 
   if (boardSlug) {
-
-function isMissingTableError(error: unknown) {
-  return Boolean(
-    error &&
-    typeof error === 'object' &&
-    'code' in error &&
-    (error as { code?: string }).code === '42P01'
-  )
-}
     return db.query.boards.findFirst({ where: eq(boards.slug, boardSlug) })
   }
 
@@ -58,13 +49,11 @@ export async function loader(args: LoaderFunctionArgs) {
 
   return {
     alerts: alerts.map(({ alert, boardName }) => ({
-    alertsAvailable,
       ...alert,
       boardName,
       categoriesText: alert.categories.join(', '),
     })),
     board: board ? { id: board.id, name: board.name } : null,
-    alertsAvailable,
   }
 }
 
@@ -74,8 +63,6 @@ export async function action(args: ActionFunctionArgs) {
   const form = await args.request.formData()
   const intent = String(form.get('intent') ?? '').trim()
   const alertId = String(form.get('alertId') ?? '').trim()
-
-  const alertsTableMissing = (error: unknown) => Boolean(error && typeof error === 'object' && 'code' in error && (error as { code?: string }).code === '42P01')
 
   if (intent === 'create') {
     const searchTerm = String(form.get('searchTerm') ?? '').trim()
@@ -96,8 +83,8 @@ export async function action(args: ActionFunctionArgs) {
         remoteOnly,
       })
     } catch (error) {
-      if (!alertsTableMissing(error)) throw error
-      return { ok: false, error: 'Email alerts are not available yet in this environment.' }
+      console.error('[candidate-alerts] create failed', error)
+      return { ok: false }
     }
 
     return { ok: true, message: 'Alert created.' }
@@ -114,8 +101,8 @@ export async function action(args: ActionFunctionArgs) {
     try {
       await db.update(jobAlerts).set({ enabled, updatedAt: new Date() }).where(ownsAlert)
     } catch (error) {
-      if (!alertsTableMissing(error)) throw error
-      return { ok: false, error: 'Email alerts are not available yet in this environment.' }
+      console.error('[candidate-alerts] toggle failed', error)
+      return { ok: false }
     }
     return { ok: true, message: enabled ? 'Alert enabled.' : 'Alert paused.' }
   }
@@ -124,8 +111,8 @@ export async function action(args: ActionFunctionArgs) {
     try {
       await db.delete(jobAlerts).where(ownsAlert)
     } catch (error) {
-      if (!alertsTableMissing(error)) throw error
-      return { ok: false, error: 'Email alerts are not available yet in this environment.' }
+      console.error('[candidate-alerts] delete failed', error)
+      return { ok: false }
     }
     return { ok: true, message: 'Alert deleted.' }
   }
@@ -144,8 +131,8 @@ export async function action(args: ActionFunctionArgs) {
         .set({ searchTerm, categories, remoteOnly, updatedAt: new Date() })
         .where(ownsAlert)
     } catch (error) {
-      if (!alertsTableMissing(error)) throw error
-      return { ok: false, error: 'Email alerts are not available yet in this environment.' }
+      console.error('[candidate-alerts] update failed', error)
+      return { ok: false }
     }
 
     return { ok: true, message: 'Alert updated.' }
@@ -155,7 +142,7 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 export default function CandidateAlerts() {
-  const { alerts, board, alertsAvailable } = useLoaderData<typeof loader>()
+  const { alerts, board } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const saving = navigation.state === 'submitting'
@@ -180,12 +167,6 @@ export default function CandidateAlerts() {
       {actionData?.message && (
         <div className="rounded-xl px-4 py-3 text-sm font-semibold" style={{ backgroundColor: 'var(--color-success-bg)', color: 'var(--color-success)' }}>
           {actionData.message}
-        </div>
-      )}
-
-      {!alertsAvailable && (
-        <div className="rounded-xl px-4 py-3 text-sm font-semibold" style={{ backgroundColor: 'color-mix(in srgb, var(--color-warning) 14%, white)', color: 'var(--color-warning)' }}>
-          Email alerts are not active yet because the production database still needs the latest migration.
         </div>
       )}
 
@@ -216,7 +197,7 @@ export default function CandidateAlerts() {
           Remote roles only
         </label>
 
-        <button type="submit" className="btn-primary text-sm px-4 py-2" disabled={saving || !alertsAvailable}>
+        <button type="submit" className="btn-primary text-sm px-4 py-2" disabled={saving}>
           {saving ? 'Saving…' : 'Create alert'}
         </button>
       </Form>

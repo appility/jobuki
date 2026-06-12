@@ -25,7 +25,10 @@ const app = express()
 
 app.use(compression())
 app.use(morgan(IS_PROD ? 'combined' : 'dev'))
-app.use(express.static(join(appRoot, 'build/client'), { maxAge: IS_PROD ? '1y' : 0 }))
+app.use(express.static(join(appRoot, 'build/client'), {
+  maxAge: IS_PROD ? '1y' : 0,
+  immutable: IS_PROD,
+}))
 
 // ── Subdomain / custom domain resolution ─────────────────────────────
 app.use((req, _res, next) => {
