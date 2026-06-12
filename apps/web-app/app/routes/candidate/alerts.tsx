@@ -11,6 +11,14 @@ function parseCategories(input: FormDataEntryValue | null) {
     .filter(Boolean)
 }
 
+function getActionError(error: unknown, fallback: string) {
+  const code = (error as { code?: string } | null)?.code
+  if (code === '42P01') {
+    return 'Email alerts are temporarily unavailable while database setup is finishing. Please try again shortly.'
+  }
+  return fallback
+}
+
 async function resolveCurrentBoard(request: Request) {
   const boardSlug = request.headers.get('x-board-slug')
   const boardHostname = request.headers.get('x-board-hostname')
@@ -48,6 +56,7 @@ export async function loader(args: LoaderFunctionArgs) {
   }
 
   return {
+    alertsAvailable,
     alerts: alerts.map(({ alert, boardName }) => ({
       ...alert,
       boardName,
@@ -84,7 +93,7 @@ export async function action(args: ActionFunctionArgs) {
       })
     } catch (error) {
       console.error('[candidate-alerts] create failed', error)
-      return { ok: false }
+      return { ok: false, error: getActionError(error, 'Unable to create alert right now.') }
     }
 
     return { ok: true, message: 'Alert created.' }
@@ -102,7 +111,7 @@ export async function action(args: ActionFunctionArgs) {
       await db.update(jobAlerts).set({ enabled, updatedAt: new Date() }).where(ownsAlert)
     } catch (error) {
       console.error('[candidate-alerts] toggle failed', error)
-      return { ok: false }
+      return { ok: false, error: getActionError(error, 'Unable to update alert right now.') }
     }
     return { ok: true, message: enabled ? 'Alert enabled.' : 'Alert paused.' }
   }
@@ -112,7 +121,7 @@ export async function action(args: ActionFunctionArgs) {
       await db.delete(jobAlerts).where(ownsAlert)
     } catch (error) {
       console.error('[candidate-alerts] delete failed', error)
-      return { ok: false }
+      return { ok: false, error: getActionError(error, 'Unable to delete alert right now.') }
     }
     return { ok: true, message: 'Alert deleted.' }
   }
@@ -132,7 +141,7 @@ export async function action(args: ActionFunctionArgs) {
         .where(ownsAlert)
     } catch (error) {
       console.error('[candidate-alerts] update failed', error)
-      return { ok: false }
+      return { ok: false, error: getActionError(error, 'Unable to save alert changes right now.') }
     }
 
     return { ok: true, message: 'Alert updated.' }
@@ -142,7 +151,7 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 export default function CandidateAlerts() {
-  const { alerts, board } = useLoaderData<typeof loader>()
+  const { alerts, board, alertsAvailable } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const saving = navigation.state === 'submitting'
@@ -157,6 +166,12 @@ export default function CandidateAlerts() {
           Save a search and get notified when fresh roles match it.
         </p>
       </div>
+
+      {!alertsAvailable && (
+        <div className="rounded-xl px-4 py-3 text-sm font-semibold" style={{ backgroundColor: 'color-mix(in srgb, var(--color-warning) 14%, white)', color: 'var(--color-warning)' }}>
+          Alerts are temporarily unavailable while database setup is finishing. Please try again shortly.
+        </div>
+      )}
 
       {actionData?.error && (
         <div className="rounded-xl px-4 py-3 text-sm font-semibold" style={{ backgroundColor: 'color-mix(in srgb, var(--color-danger) 14%, white)', color: 'var(--color-danger)' }}>

@@ -112,6 +112,27 @@ Orchestrator: `scrape-pipeline.mjs`
    - Review any remaining admin list pages for full-row selects and narrow columns.
    - Add query/response-size logging for top read endpoints to catch regressions.
 
+3. `/candidate` Lighthouse remediation (score was 43 in sampled run).
+   Priority 1 (biggest paint wins):
+   - Reduce initial document response time on `/candidate` (observed root doc ~1.41s).
+   - Re-run with DB timing logs enabled to isolate app time vs DB time per request.
+   - Add server timing headers for auth lookup, board lookup, and candidate page loader queries.
+
+   Priority 2 (render-blocking path):
+   - Reduce blocking font CSS on candidate pages.
+   - Keep one font family for first paint; defer secondary display fonts.
+   - Ensure `font-display: swap` and prefer self-hosted critical fonts where practical.
+
+   Priority 3 (unused JS / third-party weight):
+   - Defer non-critical Clerk/UI code on candidate pages until interaction.
+   - Audit route-level code splitting for candidate routes to reduce initial JS.
+   - Re-check unused JS after split/defer changes (target was ~970 KiB estimated unused JS).
+
+   Verification checklist:
+   - Run Lighthouse in Incognito with extensions disabled.
+   - Capture 3 runs and compare median for FCP/LCP/TTI.
+   - Keep a baseline in `_todo/` with timestamped HTML outputs.
+
 ---
 
 ## Image moderation (deferred)

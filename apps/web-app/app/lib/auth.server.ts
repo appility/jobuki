@@ -4,6 +4,7 @@ import { redirect } from 'react-router'
 import { features, getDb, roles, users, workspaceMembers, workspaces, boards } from '@jobuki/db'
 import { and, eq } from 'drizzle-orm'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
+import { buildAuthPath } from './auth-flow'
 
 type Args = LoaderFunctionArgs | ActionFunctionArgs
 
@@ -52,7 +53,7 @@ export async function requireUser(
     const type = opts.type ?? 'board-creator'
     // Strip .data suffix (React Router Single Fetch) so redirectTo points to the real page
     const pathname = url.pathname.replace(/\.data$/, '')
-    throw redirect(`/sign-in?type=${type}&redirectTo=${encodeURIComponent(pathname + url.search)}`)
+    throw redirect(buildAuthPath({ type, mode: 'sign-in', redirectTo: pathname + url.search }))
   }
 
   const db = getDb()

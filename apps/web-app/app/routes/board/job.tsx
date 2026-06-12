@@ -11,6 +11,7 @@ import { RichTextRenderer } from '../../components/rich-text/RichTextRenderer'
 import { isTiptapDoc } from '../../lib/rich-text'
 import { deriveJobCategory, getDisplayCategoryTags, resolveBoardCategories, titleCaseCategory } from '../../lib/board-categories'
 import { publicJobPath } from '../../lib/public-job-path'
+import { buildJobSeekerAuthPath } from '../../lib/auth-flow'
 
 export async function loader({ params, request }: LoaderFunctionArgs) {
   const db = getDb()
@@ -93,9 +94,14 @@ export default function JobDetail() {
   const { board: layoutBoard } = useOutletContext<{ board: Board }>()
   const [saved, setSaved] = useState(initialSaved)
   const [savePending, setSavePending] = useState(false)
+  const authPath = buildJobSeekerAuthPath({ redirectTo: publicJobPath(job) })
+  const alertPath = isSignedIn ? '/candidate/alerts' : buildJobSeekerAuthPath({ redirectTo: '/candidate/alerts' })
 
   async function toggleSave() {
-    if (!isSignedIn) { window.location.href = '/candidate/start'; return }
+    if (!isSignedIn) {
+      window.location.href = authPath
+      return
+    }
     setSavePending(true)
     try {
       const fd = new FormData()
@@ -104,7 +110,10 @@ export default function JobDetail() {
       fd.set('intent', saved ? 'unsave' : 'save')
       const res = await fetch('/api/save-job', { method: 'POST', body: fd, credentials: 'include' })
       const data = await res.json()
-      if (data.unauthenticated) { window.location.href = '/candidate/start'; return }
+      if (data.unauthenticated) {
+        window.location.href = authPath
+        return
+      }
       if (data.ok) setSaved(s => !s)
     } finally {
       setSavePending(false)
@@ -267,6 +276,17 @@ export default function JobDetail() {
               >
                 {saved ? '♥ Saved' : '♡ Save role'}
               </button>
+              <Link
+                to={alertPath}
+                className="w-full mt-2 inline-flex items-center justify-center py-2.5 text-[13px] font-semibold rounded-xl border no-underline"
+                style={{
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-secondary)',
+                  backgroundColor: 'transparent',
+                }}
+              >
+                {isSignedIn ? 'Create email alert' : 'Sign up for email alerts'}
+              </Link>
             </section>
 
             <section className="rounded-[18px] border border-border bg-surface p-[22px]">

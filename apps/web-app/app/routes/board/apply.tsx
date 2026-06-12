@@ -8,6 +8,7 @@ import { getOptionalUser } from '../../lib/auth.server'
 import { parseCvFromUrl } from '../../lib/cv-parser.server'
 import { generateApplyContent } from '../../lib/apply-ai.server'
 import { deriveJobCategory } from '../../lib/board-categories'
+import { buildJobSeekerAuthPath } from '../../lib/auth-flow'
 
 export async function loader({ params, request }: LoaderFunctionArgs) {
   const db = getDb()
@@ -184,6 +185,7 @@ export default function ApplyPrep() {
   const [applying, setApplying] = useState(false)
   const coverLetterRef = useRef<HTMLTextAreaElement>(null)
   const navigate = useNavigate()
+  const authPath = buildJobSeekerAuthPath({ redirectTo: `/apply/${job.id}` })
 
   const interviewLinks = buildInterviewLinks(job.company, job.title, category)
 
@@ -196,8 +198,15 @@ export default function ApplyPrep() {
       fd.set('jobId', job.id)
       fd.set('boardId', job.boardId)
       fd.set('intent', saved ? 'unsave' : 'save')
-      await fetch('/api/save-job', { method: 'POST', body: fd, credentials: 'include' })
-      setSaved(s => !s)
+      const response = await fetch('/api/save-job', { method: 'POST', body: fd, credentials: 'include' })
+      const data = await response.json().catch(() => null)
+      if (data?.unauthenticated) {
+        window.location.href = authPath
+        return
+      }
+      if (data?.ok) {
+        setSaved(s => !s)
+      }
     } finally {
       setSavePending(false)
     }
@@ -217,7 +226,10 @@ export default function ApplyPrep() {
       savefd.set('boardId', job.boardId)
       savefd.set('intent', 'save')
       fetch('/api/save-job', { method: 'POST', body: savefd, credentials: 'include' })
-        .then(() => setSaved(true))
+        .then(async (response) => {
+          const data = await response.json().catch(() => null)
+          if (data?.ok) setSaved(true)
+        })
         .catch(() => {})
     }
     window.open(externalUrl, '_blank', 'noopener,noreferrer')
@@ -429,7 +441,7 @@ export default function ApplyPrep() {
               )}
               {!user && (
                 <p className="text-xs text-text-muted mt-3 text-center">
-                  <Link to="/candidate/start" className="font-semibold" style={{ color: 'var(--color-primary)' }}>
+                  <Link to={authPath} className="font-semibold" style={{ color: 'var(--color-primary)' }}>
                     Sign in
                   </Link>{' '}
                   to save this job and get a personalised cover letter.
