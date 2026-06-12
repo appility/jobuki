@@ -845,31 +845,6 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
 
       </main>
 
-      <footer className="jp-footer">
-        <div className="jp-f-logo">
-          {boardConfig.logoUrl ? (
-            <img src={boardConfig.logoUrl} alt={boardConfig.boardName} height={28} width="auto" style={{ height: 28, width: 'auto', objectFit: 'contain' }} />
-          ) : (
-            <><span className="jp-f-dot" />{boardConfig.boardName}</>
-          )}
-        </div>
-        <div className="jp-f-links">
-          <Link to="/jobs">Browse</Link>
-          {boardConfig.emptyState.ctaUrl && (
-            <a href={boardConfig.emptyState.ctaUrl} target="_blank" rel="noreferrer">Post a role</a>
-          )}
-          {boardConfig.pages?.about?.enabled && <Link to="/about">About</Link>}
-          {boardConfig.pages?.privacy?.enabled && <Link to="/privacy">Privacy</Link>}
-        </div>
-        <div className="jp-f-copy">© {new Date().getFullYear()} {boardConfig.boardName}</div>
-        {boardConfig.footer.showPoweredBy && (
-          <div className="jp-f-copy" style={{ marginTop: 8 }}>
-            Powered by <a href="https://jobuki.com" target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'inherit' }}>Jobuki</a>
-            {' · '}
-            <a href="https://jobuki.com" target="_blank" rel="noreferrer" style={{ fontWeight: 600, color: 'var(--vio)' }}>Create your own job board →</a>
-          </div>
-        )}
-      </footer>
     </div>
   )
 }

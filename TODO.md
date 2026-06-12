@@ -99,6 +99,21 @@ Orchestrator: `scrape-pipeline.mjs`
 
 ---
 
+## Deferred (pick up later)
+
+1. Reset DB migration history for fresh database baseline.
+   - Delete old files in `packages/db/migrations/*.sql` and `packages/db/migrations/meta/*`.
+   - Run `pnpm --filter @jobuki/db db:generate` to create one new baseline migration from current schema.
+   - Run `pnpm --filter @jobuki/db db:migrate` against new DB only.
+
+2. Egress hardening follow-up.
+   - Verify board-level pages are not selecting large text/json fields unless required.
+   - Add/confirm sitemap caching behavior and monitor crawler hit rate.
+   - Review any remaining admin list pages for full-row selects and narrow columns.
+   - Add query/response-size logging for top read endpoints to catch regressions.
+
+---
+
 ## Image moderation (deferred)
 - OpenAI moderation API already wired into image upload (`/api/upload-image`).
 - NSFW detection via `omni-moderation-latest` — free, no extra dependency.

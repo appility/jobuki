@@ -9,7 +9,7 @@ import { repairMojibake, sanitizeFeedHtml } from '../../lib/feed-html'
 import { resolveJobBoardThemeConfig, type Board } from '@jobuki/types'
 import { RichTextRenderer } from '../../components/rich-text/RichTextRenderer'
 import { isTiptapDoc } from '../../lib/rich-text'
-import { deriveJobCategory, resolveBoardCategories, titleCaseCategory } from '../../lib/board-categories'
+import { deriveJobCategory, getDisplayCategoryTags, resolveBoardCategories, titleCaseCategory } from '../../lib/board-categories'
 import { publicJobPath } from '../../lib/public-job-path'
 
 export async function loader({ params, request }: LoaderFunctionArgs) {
@@ -120,7 +120,7 @@ export default function JobDetail() {
 
   const postedAt = job.createdAt ? formatDate(job.createdAt) : null
   const categoryLabel = titleCaseCategory(deriveJobCategory(job, boardCategories))
-  const skillTags = Array.isArray(job.categoryTags) ? job.categoryTags.slice(0, 6) : []
+  const skillTags = getDisplayCategoryTags(job, boardCategories, 3)
   const remoteBadge = getRemoteBadge(job.remotePolicy)
   const categoryBadge = getCategoryBadge(categoryLabel)
   const compactSalary = formatCompactSalary(job.salaryMin, job.salaryMax, job.salaryCurrency)
@@ -355,24 +355,6 @@ export default function JobDetail() {
         </section>
       </main>
 
-      <footer className="py-8 border-t border-border bg-surface">
-        <div className="max-w-[1280px] mx-auto px-10 flex flex-col items-center gap-2">
-          <p className="text-xs text-center text-text-muted">
-            {layoutBoard.footerText || (
-              <>Powered by <span className="font-extrabold text-text-secondary">Jobuki</span></>
-            )}
-          </p>
-          <a
-            href="https://jobuki.com"
-            target="_blank"
-            rel="noreferrer"
-            className="text-[11px] font-semibold no-underline transition-colors"
-            style={{ color: 'var(--color-primary)' }}
-          >
-            Create your own job board →
-          </a>
-        </div>
-      </footer>
     </div>
   )
 }

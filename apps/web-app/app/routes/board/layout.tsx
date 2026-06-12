@@ -1,11 +1,11 @@
-import { Link, Outlet, useLoaderData } from 'react-router'
+import { Outlet, useLoaderData } from 'react-router'
 import type { LoaderFunctionArgs } from 'react-router'
-import { useUser } from '@clerk/react-router'
 import { getDb, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { themeToCSS, resolveTheme } from '../../lib/theme'
 import { resolveJobBoardThemeConfig } from '@jobuki/types'
 import { getGoogleFontsImport } from '../../lib/fonts'
+import { BoardSharedFooter, BoardSharedHeader } from '../../components/board-shared-chrome'
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const boardSlug     = request.headers.get('x-board-slug')
@@ -33,7 +33,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export default function BoardLayout() {
   const { board } = useLoaderData<typeof loader>()
-  const { user } = useUser()
 
   // No board (root domain / marketing) — render without board chrome
   if (!board) return <Outlet />
@@ -106,108 +105,14 @@ export default function BoardLayout() {
         }} />
       )}
 
-      <header
-        className="sticky top-0 z-40"
-        style={{
-          backgroundColor: 'color-mix(in srgb, var(--color-surface) var(--board-header-surface-mix), transparent)',
-          borderBottom: '1px solid var(--color-border)',
-          backdropFilter: 'blur(var(--board-header-blur))',
-          boxShadow: '0 1px 0 color-mix(in srgb, var(--color-border) 85%, transparent)',
-        }}
-      >
-        <div className="max-w-[1280px] mx-auto h-[62px] px-6 lg:px-10 flex items-center justify-between gap-4">
-
-          {/* Mobile: left spacer to balance avatar; Desktop: hidden */}
-          <div className="w-8 lg:hidden" />
-
-          {/* Logo — centered on mobile, left-aligned on desktop */}
-          <Link to="/" className="no-underline flex items-center gap-2.5 min-w-0 lg:flex-1">
-            {hasLogo ? (
-              <img
-                src={logoUrl}
-                alt={boardConfig.boardName}
-                width={156}
-                height={36}
-                loading="eager"
-                decoding="async"
-                fetchPriority="high"
-                style={{ height: 36, width: 'auto', display: 'block', objectFit: 'contain' }}
-              />
-            ) : (
-              <>
-                <svg className="w-7 h-7 shrink-0" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-                  <circle cx="14" cy="14" r="3" fill="var(--color-primary)" />
-                  <circle cx="14" cy="14" r="7" stroke="var(--color-primary)" strokeWidth="2" fill="none" strokeDasharray="3 2" />
-                  <circle cx="14" cy="14" r="12" stroke="var(--color-border)" strokeWidth="1.5" fill="none" />
-                </svg>
-                <span className="truncate text-[13px] font-extrabold tracking-[0.01em] font-display text-text-primary">
-                  {boardConfig.boardName}
-                </span>
-              </>
-            )}
-          </Link>
-
-          {/* Desktop nav — hidden on mobile */}
-          <div className="hidden lg:flex items-center gap-0.5">
-            <Link to="/jobs" className="px-3.5 py-2 text-[13px] font-medium rounded-[10px] transition-colors text-text-secondary">
-              Browse
-            </Link>
-            {boardConfig.pages?.about?.enabled && (
-              <Link to="/about" className="px-3.5 py-2 text-[13px] font-medium rounded-[10px] transition-colors text-text-secondary">
-                About
-              </Link>
-            )}
-            {boardConfig.pages?.privacy?.enabled && (
-              <Link to="/privacy" className="px-3.5 py-2 text-[13px] font-medium rounded-[10px] transition-colors text-text-secondary">
-                Privacy
-              </Link>
-            )}
-            {boardConfig.emptyState.ctaUrl && (
-              <a
-                href={boardConfig.emptyState.ctaUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="ml-2 px-5 py-[9px] text-[13px] font-bold rounded-[10px] no-underline transition-filter duration-150 bg-primary text-primary-fg"
-              >
-                Post a role
-              </a>
-            )}
-          </div>
-
-          {/* Right slot — avatar for candidates/hiring, Post a role CTA on mobile otherwise */}
-          <div className="flex items-center gap-2 lg:hidden">
-            {(() => {
-              const accountType = user?.unsafeMetadata?.accountType as string | undefined
-              const portalHref = accountType === 'job_seeker' ? '/candidate' : accountType === 'job_poster' ? '/hiring' : null
-              if (user && portalHref) return (
-                <Link to={portalHref} className="w-8 h-8 rounded-full overflow-hidden border border-border shrink-0">
-                  {user.imageUrl ? (
-                    <img src={user.imageUrl} alt={user.fullName ?? ''} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="w-full h-full flex items-center justify-center text-xs font-bold bg-primary text-primary-fg">
-                      {(user.fullName ?? user.primaryEmailAddress?.emailAddress ?? '?')[0].toUpperCase()}
-                    </span>
-                  )}
-                </Link>
-              )
-              if (boardConfig.emptyState.ctaUrl) return (
-                <a
-                  href={boardConfig.emptyState.ctaUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-4 py-2 text-[12px] font-bold rounded-[10px] no-underline bg-primary text-primary-fg"
-                >
-                  Post a role
-                </a>
-              )
-              return <div className="w-8" />
-            })()}
-          </div>
-
-        </div>
-      </header>
+      <BoardSharedHeader
+        boardName={boardConfig.boardName}
+        logoUrl={hasLogo ? logoUrl : null}
+        boardConfig={boardConfig}
+      />
 
       <Outlet context={{ board }} />
+      <BoardSharedFooter boardName={boardConfig.boardName} boardConfig={boardConfig} footerText={board.footerText} />
     </>
   )
 }

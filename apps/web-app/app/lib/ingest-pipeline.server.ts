@@ -299,7 +299,9 @@ function inferCategories(job: IncomingJob, context: IngestNormalizationContext):
 
   const scoredCategories = INGEST_CATEGORY_RULES
     .map((rule) => {
-      const hits = rule.keywords.reduce((count, keyword) => count + (haystack.includes(keyword) ? 1 : 0), 0)
+      // Use term-aware matching to avoid false positives from short tokens
+      // like "ui" matching words such as "build".
+      const hits = rule.keywords.reduce((count, keyword) => count + (hasTerm(haystack, keyword) ? 1 : 0), 0)
       const score = hits / Math.max(rule.keywords.length, 1)
       return { category: rule.category, hits, score }
     })

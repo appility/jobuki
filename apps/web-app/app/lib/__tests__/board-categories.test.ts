@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeCategory, titleCaseCategory, parseBoardCategories, resolveBoardCategories, deriveJobCategory } from '../board-categories'
+import { normalizeCategory, titleCaseCategory, parseBoardCategories, resolveBoardCategories, deriveJobCategory, getDisplayCategoryTags } from '../board-categories'
 
 const makeJob = (overrides: Partial<{ title: string; description: string; primaryCategory: string | null; categoryTags: string[]; employmentType: string }> = {}) => ({
   id: 'test',
@@ -126,5 +126,27 @@ describe('deriveJobCategory', () => {
   it('falls back to categoryTags when primaryCategory is null', () => {
     const job = makeJob({ primaryCategory: null, categoryTags: ['engineering', 'typescript'] })
     expect(deriveJobCategory(job, [])).toBe('engineering')
+  })
+
+  it('does not infer design from ui inside build', () => {
+    const job = makeJob({
+      title: 'Senior Full-Stack Engineer',
+      description: 'Build features end-to-end and help scale the platform.',
+      primaryCategory: null,
+    })
+    expect(deriveJobCategory(job, [])).toBe('engineering')
+  })
+})
+
+describe('getDisplayCategoryTags', () => {
+  it('returns strongest secondary categories and excludes the primary one', () => {
+    const job = makeJob({
+      title: 'Senior Full-Stack Engineer',
+      description: 'Build backend APIs, data models, AI workflows, and frontend experiences.',
+      primaryCategory: 'engineering',
+      categoryTags: ['engineering', 'design', 'data', 'marketing'],
+    })
+
+    expect(getDisplayCategoryTags(job, [], 3)).toEqual(['data'])
   })
 })

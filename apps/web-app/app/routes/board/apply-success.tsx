@@ -215,11 +215,6 @@ export default function ApplySuccess() {
 
       </main>
 
-      <footer className="board-container py-8 border-t border-border">
-        <p className="text-xs text-center text-text-muted">
-          {board.footerText || (<>Powered by <span className="font-extrabold text-text-secondary">Jobuki</span></>)}
-        </p>
-      </footer>
     </div>
   )
 }

@@ -151,6 +151,7 @@ export default function BoardJobsPage() {
 
   const boardConfig = resolveJobBoardThemeConfig(board.boardConfig, { boardName: board.name })
   const logoUrl = (boardConfig.logoUrl ?? '').trim()
+  const categoryPills = Array.from(new Set([...(options.categories ?? []), ...(filters.category ? [filters.category] : [])]))
 
   return (
     <div className="min-h-screen bg-background">
@@ -166,9 +167,9 @@ export default function BoardJobsPage() {
           {boardConfig.tagline && (
             <p className="text-sm text-text-secondary mb-4">{boardConfig.tagline}</p>
           )}
-          {options.categories.length > 0 && (
+          {categoryPills.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-5">
-              {options.categories.map((item) => (
+              {categoryPills.map((item) => (
                 <Link
                   key={item}
                   to={`/jobs/category/${item}`}
