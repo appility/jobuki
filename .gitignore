@@ -6,5 +6,6 @@ dist
 .DS_Store
 *.local
 _notes
+_accounts
 # local visual reference
 apps/web-app/app/public/demo.png
