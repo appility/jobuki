@@ -167,7 +167,6 @@ export function ErrorBoundary() {
 
         <div className="flex gap-3">
           <a href="/" className="btn-primary">Go to homepage</a>
-          <a href="/dashboard" className="btn-outline">Open dashboard</a>
         </div>
       </div>
     </div>

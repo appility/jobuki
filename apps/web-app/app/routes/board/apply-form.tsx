@@ -4,7 +4,8 @@ import { redirect } from 'react-router'
 import { getDb, jobs, applications } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import type { Board } from '@jobuki/types'
-import { requireUser } from '../../lib/auth.server'
+import { getJobSeekerTier, requireUser } from '../../lib/auth.server'
+import { getApplicationLimitStatus } from '../../lib/job-seeker-limits.server'
 
 export async function loader(args: LoaderFunctionArgs) {
   const user = await requireUser(args, { type: 'job-seeker' })
@@ -27,6 +28,14 @@ export async function action(args: ActionFunctionArgs) {
   const candidateName  = (form.get('candidateName') as string).trim()
 
   if (!candidateName)  return { error: 'Name is required.' }
+
+  const tier = await getJobSeekerTier(user)
+  const limit = await getApplicationLimitStatus(user.email, tier)
+  if (limit.isCapped) {
+    return {
+      error: `You've reached your ${limit.cap} application limit for this period. Please try again later.`,
+    }
+  }
 
   await db.insert(applications).values({
     jobId:          job.id,

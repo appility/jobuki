@@ -91,6 +91,43 @@ export async function requireUser(
   return user
 }
 
+export type JobSeekerTier = 'free' | 'paid'
+
+export async function getJobSeekerTier(user: { clerkUserId: string }): Promise<JobSeekerTier> {
+  const paidValues = new Set(
+    (process.env.JOB_SEEKER_PAID_PLAN_VALUES ?? 'paid,pro,plus,premium')
+      .split(',')
+      .map(v => v.trim().toLowerCase())
+      .filter(Boolean)
+  )
+
+  try {
+    const clerkUser = await clerk.users.getUser(user.clerkUserId)
+    const publicMeta = (clerkUser.publicMetadata ?? {}) as Record<string, unknown>
+    const unsafeMeta = (clerkUser.unsafeMetadata ?? {}) as Record<string, unknown>
+
+    const rawPlan =
+      publicMeta.jobSeekerPlan ??
+      unsafeMeta.jobSeekerPlan ??
+      publicMeta.plan ??
+      unsafeMeta.plan
+
+    const explicitPaid =
+      publicMeta.jobSeekerPaid === true ||
+      unsafeMeta.jobSeekerPaid === true
+
+    if (explicitPaid) return 'paid'
+
+    if (typeof rawPlan === 'string' && paidValues.has(rawPlan.trim().toLowerCase())) {
+      return 'paid'
+    }
+  } catch {
+    // Fallback to free if Clerk lookup fails.
+  }
+
+  return 'free'
+}
+
 export async function requirePlatformAdmin(args: Args) {
   const user = await requireUser(args)
 

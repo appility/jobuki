@@ -1,10 +1,12 @@
-import { Form, useActionData, useLoaderData, useNavigation } from 'react-router'
+import { Form, useActionData, useFetcher, useLoaderData, useNavigation } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getDb, candidateProfiles } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { requireUser } from '../../lib/auth.server'
 import { toPublicProfileHandle } from '../../lib/public-candidate-profile'
+import { Button } from '../../components/ui/Button'
+import { clearApplyAiCacheForUser } from '../../lib/apply-prep-cache.server'
 
 export async function loader(args: LoaderFunctionArgs) {
   const user = await requireUser(args, { type: 'job-seeker' })
@@ -19,6 +21,25 @@ export async function action(args: ActionFunctionArgs) {
   const user = await requireUser(args, { type: 'job-seeker' })
   const db = getDb()
   const form = await args.request.formData()
+  const intent = (form.get('intent') as string | null) ?? 'save'
+
+  if (intent === 'visibility') {
+    const publicProfileEnabled = form.get('publicProfileEnabled') === 'on'
+    const existing = await db.query.candidateProfiles.findFirst({
+      where: eq(candidateProfiles.userId, user.id),
+    })
+    if (existing) {
+      await db.update(candidateProfiles)
+        .set({ publicProfileEnabled, updatedAt: new Date() })
+        .where(eq(candidateProfiles.userId, user.id))
+    } else {
+      await db.insert(candidateProfiles).values({
+        userId: user.id,
+        publicProfileEnabled,
+      })
+    }
+    return { ok: true, intent: 'visibility' }
+  }
 
   const name        = (form.get('name') as string).trim()
   const headline    = (form.get('headline') as string).trim()
@@ -28,7 +49,6 @@ export async function action(args: ActionFunctionArgs) {
   const linkedinUrl = (form.get('linkedinUrl') as string).trim()
   const skillsRaw   = (form.get('skills') as string).trim()
   const skills      = skillsRaw ? skillsRaw.split(',').map(s => s.trim()).filter(Boolean) : []
-  const publicProfileEnabled = form.get('publicProfileEnabled') === 'on'
 
   const existing = await db.query.candidateProfiles.findFirst({
     where: eq(candidateProfiles.userId, user.id),
@@ -36,39 +56,65 @@ export async function action(args: ActionFunctionArgs) {
 
   if (existing) {
     await db.update(candidateProfiles)
-      .set({ name, headline, location, bio, cvUrl, linkedinUrl, skills, publicProfileEnabled, updatedAt: new Date() })
+      .set({ name, headline, location, bio, cvUrl, linkedinUrl, skills, updatedAt: new Date() })
       .where(eq(candidateProfiles.userId, user.id))
   } else {
     await db.insert(candidateProfiles)
-      .values({ userId: user.id, name, headline, location, bio, cvUrl, linkedinUrl, skills, publicProfileEnabled })
+      .values({ userId: user.id, name, headline, location, bio, cvUrl, linkedinUrl, skills })
   }
 
-  return { ok: true }
+  clearApplyAiCacheForUser(user.id)
+
+  return { ok: true, intent: 'save' }
 }
 
 export default function CandidateProfile() {
   const { profile } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
+  const visibilityFetcher = useFetcher<typeof action>()
   const saving = navigation.state === 'submitting'
+  const pendingIntent = navigation.state === 'submitting'
+    ? (navigation.formData?.get('intent') ?? 'save')
+    : null
   const [skillsInput, setSkillsInput] = useState((profile?.skills ?? []).join(', '))
   const [publicProfileEnabled, setPublicProfileEnabled] = useState(Boolean(profile?.publicProfileEnabled))
-  const publicHandle = profile && profile.publicProfileEnabled ? toPublicProfileHandle(profile.id) : null
-  const publicUrl = publicHandle ? `/profile/${publicHandle}` : null
+  const [copied, setCopied] = useState(false)
+  const urlInputRef = useRef<HTMLInputElement>(null)
+  const publicHandle = profile?.id && publicProfileEnabled ? toPublicProfileHandle(profile.id) : null
+  const publicUrlPath = publicHandle ? `/profile/${publicHandle}` : null
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const publicUrlFull = publicUrlPath ? `${origin}${publicUrlPath}` : null
+  const visibilitySaving = visibilityFetcher.state === 'submitting'
+
+  function updateVisibility(nextValue: boolean) {
+    setPublicProfileEnabled(nextValue)
+    const fd = new FormData()
+    fd.set('intent', 'visibility')
+    if (nextValue) fd.set('publicProfileEnabled', 'on')
+    visibilityFetcher.submit(fd, { method: 'post' })
+  }
+
+  function copyUrl() {
+    if (!publicUrlFull) return
+    navigator.clipboard.writeText(publicUrlFull).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   useEffect(() => {
     setPublicProfileEnabled(Boolean(profile?.publicProfileEnabled))
   }, [profile?.publicProfileEnabled])
-
   return (
     <div className="space-y-5 max-w-xl">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-xl font-extrabold font-display" style={{ color: 'var(--color-text-primary)' }}>
           Your profile
         </h2>
-        {publicUrl && (
+        {publicUrlPath && (
           <a
-            href={publicUrl}
+            href={publicUrlPath}
             target="_blank"
             rel="noreferrer"
             className="text-xs font-semibold no-underline"
@@ -82,13 +128,14 @@ export default function CandidateProfile() {
         Used to pre-fill apply forms and generate personalised cover letters.
       </p>
 
-      {actionData?.ok && (
+      {actionData?.ok && actionData.intent === 'save' && (
         <div className="rounded-xl px-4 py-3 text-sm font-semibold" style={{ backgroundColor: 'var(--color-success-bg)', color: 'var(--color-success)' }}>
           Profile saved.
         </div>
       )}
 
       <Form method="post" className="card p-6 space-y-5">
+        <input type="hidden" name="intent" value="save" />
         <Field label="Full name">
           <input name="name" defaultValue={profile?.name ?? ''} className="input w-full" placeholder="Jane Smith" />
         </Field>
@@ -117,40 +164,66 @@ export default function CandidateProfile() {
           <input name="linkedinUrl" type="url" defaultValue={profile?.linkedinUrl ?? ''} className="input w-full" placeholder="https://linkedin.com/in/…" />
         </Field>
 
-        <label className="flex items-center justify-between gap-4 rounded-2xl border px-4 py-3" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}>
+        <Button
+          type="submit"
+          variant="primary"
+          size="md"
+          className="w-full"
+          loading={saving && pendingIntent === 'save'}
+          loadingText="Saving…"
+        >
+          Save profile
+        </Button>
+      </Form>
+
+      {/* Public profile — separate form so toggle submits independently */}
+      <visibilityFetcher.Form method="post" className="card p-5">
+        <input type="hidden" name="intent" value="visibility" />
+        <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Public profile</p>
             <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-              Make your profile visible on a public link.
+              {publicProfileEnabled
+                ? 'Your profile is public and visible from your shared link.'
+                : 'Your profile is hidden. Toggle on to make it public.'}
+              {visibilitySaving ? ' Updating…' : ''}
             </p>
           </div>
-          <input
-            type="checkbox"
-            name="publicProfileEnabled"
-            checked={publicProfileEnabled}
-            onChange={(e) => setPublicProfileEnabled(e.target.checked)}
-            className="h-5 w-5 rounded border-border text-primary focus:ring-primary"
-          />
-        </label>
+          <div className="flex items-center">
+            <label className="relative inline-flex cursor-pointer items-center">
+              <input
+                type="checkbox"
+                name="publicProfileEnabled"
+                checked={publicProfileEnabled}
+                onChange={(e) => updateVisibility(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="h-6 w-11 rounded-full border-2 transition-colors peer-checked:bg-primary peer-checked:border-primary border-border bg-surface-subtle after:absolute after:left-[3px] after:top-[3px] after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5" />
+            </label>
+          </div>
+        </div>
 
-        <button type="submit" disabled={saving} className="btn-primary w-full py-3">
-          {saving ? 'Saving…' : 'Save profile'}
-        </button>
-      </Form>
-
-      <div className="card p-5">
-        <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Public profile</p>
-        <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-          {publicUrl
-            ? 'Share this link publicly. No login required.'
-            : 'Turn on the switch above to generate a public profile link.'}
-        </p>
-        {publicUrl && (
-          <a href={publicUrl} target="_blank" rel="noreferrer" className="text-sm mt-3 inline-block" style={{ color: 'var(--color-primary)' }}>
-            {publicUrl}
-          </a>
+        {publicUrlFull && (
+          <div className="mt-4 flex items-center gap-2">
+            <input
+              ref={urlInputRef}
+              type="text"
+              readOnly
+              value={publicUrlFull}
+              className="input flex-1 text-xs font-mono"
+              onFocus={(e) => e.currentTarget.select()}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={copyUrl}
+            >
+              {copied ? '✓ Copied' : 'Copy'}
+            </Button>
+          </div>
         )}
-      </div>
+      </visibilityFetcher.Form>
     </div>
   )
 }

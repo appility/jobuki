@@ -1,7 +1,8 @@
 import type { ActionFunctionArgs } from 'react-router'
 import { getDb, applications, candidateProfiles } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
-import { getOptionalUser } from '../../lib/auth.server'
+import { getJobSeekerTier, getOptionalUser } from '../../lib/auth.server'
+import { getApplicationLimitStatus } from '../../lib/job-seeker-limits.server'
 
 export async function action(args: ActionFunctionArgs) {
   const user = await getOptionalUser(args.request)
@@ -17,6 +18,12 @@ export async function action(args: ActionFunctionArgs) {
   if (!user) return Response.json({ ok: true, logged: false })
 
   const db = getDb()
+  const tier = await getJobSeekerTier(user)
+  const limit = await getApplicationLimitStatus(user.email, tier)
+  if (limit.isCapped) {
+    return Response.json({ ok: true, logged: false, capped: true })
+  }
+
   const profile = await db.query.candidateProfiles.findFirst({
     where: eq(candidateProfiles.userId, user.id),
   })

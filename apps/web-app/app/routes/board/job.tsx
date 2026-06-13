@@ -13,7 +13,8 @@ import { deriveJobCategory, getDisplayCategoryTags, resolveBoardCategories, titl
 import { publicJobPath } from '../../lib/public-job-path'
 import { buildJobSeekerAuthPath } from '../../lib/auth-flow'
 
-export async function loader({ params, request }: LoaderFunctionArgs) {
+export async function loader(args: LoaderFunctionArgs) {
+  const { params, request } = args
   const db = getDb()
   const job = await db.query.jobs.findFirst({ where: eq(jobs.id, params.jobId!) })
   if (!job || job.status !== 'published') throw new Response('Not found', { status: 404 })
@@ -32,7 +33,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   })
   const boardCategories = resolveBoardCategories(boardConfig.categories)
 
-  const clerkUserId = await getAuthUser({ params, request })
+  const clerkUserId = await getAuthUser(args)
   const user = clerkUserId ? await getOptionalUser(request) : null
   const isSaved = user ? Boolean(await db.query.savedJobs.findFirst({
     where: and(eq(savedJobs.userId, user.id), eq(savedJobs.jobId, job.id)),

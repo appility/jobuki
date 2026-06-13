@@ -55,9 +55,14 @@ export default function CandidateApplications() {
                     {[job.company, job.location].filter(Boolean).join(' · ')} · Applied {date}
                   </p>
                 </div>
-                <span className="text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0" style={{ backgroundColor: s.bg, color: s.fg }}>
-                  {s.label}
-                </span>
+                <div className="shrink-0 flex items-center gap-2">
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: s.bg, color: s.fg }}>
+                    {s.label}
+                  </span>
+                  <Link to={`/apply/${job.id}`} className="btn-outline text-xs px-3 py-1.5">
+                    Open prep
+                  </Link>
+                </div>
               </div>
             )
           })}

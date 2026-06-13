@@ -1,16 +1,10 @@
 import { Form, useActionData, useLoaderData, useNavigation } from 'react-router'
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
+import { Button } from '../../components/ui/Button'
 import { boards, getDb, jobAlerts } from '@jobuki/db'
 import { and, count, desc, eq } from 'drizzle-orm'
 import { requireUser } from '../../lib/auth.server'
 import { getMaxAlertsPerUser } from '../../lib/alert-limits'
-
-function parseCategories(input: FormDataEntryValue | null) {
-  return String(input ?? '')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean)
-}
 
 function getActionError(error: unknown, fallback: string) {
   const code = (error as { code?: string } | null)?.code
@@ -64,7 +58,6 @@ export async function loader(args: LoaderFunctionArgs) {
     alerts: alerts.map(({ alert, boardName }) => ({
       ...alert,
       boardName,
-      categoriesText: alert.categories.join(', '),
     })),
     board: board ? { id: board.id, name: board.name } : null,
   }
@@ -80,7 +73,6 @@ export async function action(args: ActionFunctionArgs) {
 
   if (intent === 'create') {
     const searchTerm = String(form.get('searchTerm') ?? '').trim()
-    const categories = parseCategories(form.get('categories'))
     const remoteOnly = form.get('remoteOnly') === 'on'
     const boardId = String(form.get('boardId') ?? '').trim() || null
 
@@ -110,7 +102,7 @@ export async function action(args: ActionFunctionArgs) {
         userId: user.id,
         boardId,
         searchTerm,
-        categories,
+        categories: [],
         remoteOnly,
       })
     } catch (error) {
@@ -150,7 +142,6 @@ export async function action(args: ActionFunctionArgs) {
 
   if (intent === 'update') {
     const searchTerm = String(form.get('searchTerm') ?? '').trim()
-    const categories = parseCategories(form.get('categories'))
     const remoteOnly = form.get('remoteOnly') === 'on'
 
     if (!searchTerm) {
@@ -159,7 +150,7 @@ export async function action(args: ActionFunctionArgs) {
 
     try {
       await db.update(jobAlerts)
-        .set({ searchTerm, categories, remoteOnly, updatedAt: new Date() })
+        .set({ searchTerm, remoteOnly, updatedAt: new Date() })
         .where(ownsAlert)
     } catch (error) {
       console.error('[candidate-alerts] update failed', error)
@@ -176,8 +167,11 @@ export default function CandidateAlerts() {
   const { alerts, board, alertsAvailable, maxAlertsPerUser, canCreateAlert } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
-  const saving = navigation.state === 'submitting'
-  const pendingForm = navigation.state === 'submitting' ? navigation.formData : null
+  const isSubmitting = navigation.state === 'submitting'
+  const pendingForm = isSubmitting ? navigation.formData : null
+  const pendingIntent = pendingForm ? String(pendingForm.get('intent') ?? '') : ''
+  const pendingAlertId = pendingForm ? String(pendingForm.get('alertId') ?? '') : ''
+  const saving = isSubmitting
 
   let optimisticAlerts = alerts
   if (pendingForm) {
@@ -186,7 +180,6 @@ export default function CandidateAlerts() {
 
     if (intent === 'create') {
       const searchTerm = String(pendingForm.get('searchTerm') ?? '').trim()
-      const categories = parseCategories(pendingForm.get('categories'))
       const remoteOnly = pendingForm.get('remoteOnly') === 'on'
       if (searchTerm) {
         optimisticAlerts = [
@@ -195,8 +188,7 @@ export default function CandidateAlerts() {
             userId: '__optimistic__',
             boardId: (String(pendingForm.get('boardId') ?? '').trim() || null),
             searchTerm,
-            categories,
-            categoriesText: categories.join(', '),
+            categories: [],
             remoteOnly,
             enabled: true,
             lastNotifiedAt: null,
@@ -216,14 +208,11 @@ export default function CandidateAlerts() {
         : alert)
     } else if (intent === 'update' && alertId) {
       const searchTerm = String(pendingForm.get('searchTerm') ?? '').trim()
-      const categories = parseCategories(pendingForm.get('categories'))
       const remoteOnly = pendingForm.get('remoteOnly') === 'on'
       optimisticAlerts = alerts.map((alert) => alert.id === alertId
         ? {
             ...alert,
             searchTerm: searchTerm || alert.searchTerm,
-            categories,
-            categoriesText: categories.join(', '),
             remoteOnly,
           }
         : alert)
@@ -248,21 +237,22 @@ export default function CandidateAlerts() {
         <input name="searchTerm" className="input w-full" placeholder="Product designer, Rust engineer, marketing lead..." />
       </label>
 
-      <label className="block space-y-1.5">
-        <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Categories</span>
-        <input name="categories" className="input w-full" placeholder="Design, Engineering, Growth" />
-        <span className="text-xs block" style={{ color: 'var(--color-text-muted)' }}>Separate multiple categories with commas.</span>
-      </label>
-
       <label className="inline-flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
         <input type="checkbox" name="remoteOnly" className="h-4 w-4" />
         Remote roles only
       </label>
 
       <div className="pt-1">
-        <button type="submit" className="btn-primary text-sm px-4 py-2" disabled={saving || !canCreateAlertNow}>
-          {!canCreateAlertNow ? `Limit reached (${maxAlertsPerUser})` : saving ? 'Saving…' : 'Create alert'}
-        </button>
+        <Button
+          type="submit"
+          variant="primary"
+          size="sm"
+          disabled={!canCreateAlertNow}
+          loading={isSubmitting && pendingIntent === 'create'}
+          loadingText="Creating…"
+        >
+          {!canCreateAlertNow ? `Limit reached (${maxAlertsPerUser})` : 'Create alert'}
+        </Button>
       </div>
 
       {!canCreateAlertNow && (
@@ -330,7 +320,6 @@ export default function CandidateAlerts() {
                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                     {alert.boardName ?? 'All boards'}
                     {alert.remoteOnly ? ' · Remote only' : ''}
-                    {alert.categories.length ? ` · ${alert.categories.join(', ')}` : ''}
                   </p>
                 </div>
                 <span
@@ -346,15 +335,10 @@ export default function CandidateAlerts() {
                 </span>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
+              <div>
                 <label className="block space-y-1.5">
                   <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Search term</span>
                   <input name="searchTerm" defaultValue={alert.searchTerm} className="input w-full" />
-                </label>
-
-                <label className="block space-y-1.5">
-                  <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Categories</span>
-                  <input name="categories" defaultValue={alert.categoriesText} className="input w-full" />
                 </label>
               </div>
 
@@ -365,21 +349,44 @@ export default function CandidateAlerts() {
 
               <div className="flex flex-wrap gap-2">
                 <input type="hidden" name="enabled" value={String(!alert.enabled)} />
-                <button type="submit" name="intent" value="update" className="btn-primary text-sm px-4 py-2" disabled={saving}>
+                <Button
+                  type="submit"
+                  name="intent"
+                  value="update"
+                  variant="primary"
+                  size="sm"
+                  loading={isSubmitting && pendingIntent === 'update' && pendingAlertId === alert.id}
+                  loadingText="Saving…"
+                  disabled={isSubmitting}
+                >
                   Save changes
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
                   name="intent"
                   value="toggle"
-                  className="btn-outline text-sm px-4 py-2"
-                  disabled={saving}
+                  variant="outline"
+                  size="sm"
+                  loading={isSubmitting && pendingIntent === 'toggle' && pendingAlertId === alert.id}
+                  loadingText={alert.enabled ? 'Pausing…' : 'Resuming…'}
+                  disabled={isSubmitting}
+                  style={alert.enabled ? { color: 'var(--color-text-muted)' } : undefined}
                 >
-                  {alert.enabled ? 'Pause alert' : 'Resume alert'}
-                </button>
-                <button type="submit" name="intent" value="delete" className="btn-outline text-sm px-4 py-2" disabled={saving}>
+                  {alert.enabled ? '⏸ Pause' : '▶ Resume'}
+                </Button>
+                <Button
+                  type="submit"
+                  name="intent"
+                  value="delete"
+                  variant="outline"
+                  size="sm"
+                  loading={isSubmitting && pendingIntent === 'delete' && pendingAlertId === alert.id}
+                  loadingText="Deleting…"
+                  disabled={isSubmitting}
+                  style={{ color: 'var(--color-danger)' }}
+                >
                   Delete
-                </button>
+                </Button>
               </div>
               </Form>
             ))}

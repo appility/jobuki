@@ -1,14 +1,14 @@
 import { useLoaderData, useOutletContext, Link, useNavigate } from 'react-router'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { LoaderFunctionArgs } from 'react-router'
 import { getDb, jobs, savedJobs, candidateProfiles } from '@jobuki/db'
 import { and, eq } from 'drizzle-orm'
 import type { Board } from '@jobuki/types'
-import { requireUser } from '../../lib/auth.server'
-import { parseCvFromUrl } from '../../lib/cv-parser.server'
-import { generateApplyContent } from '../../lib/apply-ai.server'
+import { getJobSeekerTier, requireUser } from '../../lib/auth.server'
 import { deriveJobCategory } from '../../lib/board-categories'
 import { buildJobSeekerAuthPath } from '../../lib/auth-flow'
+import { buildApplyAiCacheKey, readApplyAiCache, type ApplyAiContent } from '../../lib/apply-prep-cache.server'
+import { getApplicationLimitStatus } from '../../lib/job-seeker-limits.server'
 
 export async function loader(args: LoaderFunctionArgs) {
   const { params } = args
@@ -22,7 +22,6 @@ export async function loader(args: LoaderFunctionArgs) {
 
   let profile = null
   let isSaved = false
-  let aiContent = null
 
   const [savedRow, profileRow] = await Promise.all([
     db.query.savedJobs.findFirst({
@@ -35,40 +34,24 @@ export async function loader(args: LoaderFunctionArgs) {
   isSaved = Boolean(savedRow)
   profile = profileRow ?? null
 
-  // Generate AI content — use cached tips if no profile, otherwise always personalise
-  const cvText = profile?.cvUrl ? await parseCvFromUrl(profile.cvUrl) : null
+  const tier = await getJobSeekerTier(user)
+  const applicationLimit = await getApplicationLimitStatus(user.email, tier)
+  const aiPrepAllowed = tier === 'paid' && !applicationLimit.isCapped
 
-  if (!profile && job.applicationTips) {
+  // Fast path: never block route load on AI generation.
+  // If we already have cached content we render it immediately; otherwise client fetches it asynchronously.
+  let aiContent: ApplyAiContent | null = null
+
+  if (aiPrepAllowed && !profile && job.applicationTips) {
     aiContent = { tips: job.applicationTips.tips, coverLetter: undefined, matchSummary: undefined }
-  } else {
-    aiContent = await generateApplyContent(
-      {
-        title: job.title,
-        company: job.company,
-        description: job.description,
-        requirements: job.requirements,
-        category: deriveJobCategory(job, []),
-      },
-      profile ? {
-        name: profile.name,
-        headline: profile.headline,
-        bio: profile.bio,
-        skills: profile.skills ?? [],
-        cvText,
-      } : undefined
-    )
-
-    // Cache generic tips on the job row (no profile = not personalised)
-    if (!profile && aiContent.tips.length > 0) {
-      await db.update(jobs)
-        .set({ applicationTips: { tips: aiContent.tips, generatedAt: new Date().toISOString() } })
-        .where(eq(jobs.id, job.id))
-    }
+  } else if (aiPrepAllowed && profile) {
+    const cacheKey = buildApplyAiCacheKey(user.id, job, profile)
+    aiContent = readApplyAiCache(cacheKey)
   }
 
   const category = deriveJobCategory(job, [])
 
-  return { job, user, profile, isSaved, aiContent, externalUrl, isExternal, category, cvText: cvText ? true : false }
+  return { job, user, profile, isSaved, aiContent, externalUrl, isExternal, category, tier, aiPrepAllowed, applicationLimit }
 }
 
 function toSlug(s: string) {
@@ -169,11 +152,13 @@ function buildInterviewLinks(company: string | null, title: string, category: st
 }
 
 export default function ApplyPrep() {
-  const { job, user, profile, isSaved, aiContent, externalUrl, isExternal, category } = useLoaderData<typeof loader>()
+  const { job, user, profile, isSaved, aiContent, externalUrl, isExternal, category, tier, aiPrepAllowed, applicationLimit } = useLoaderData<typeof loader>()
   const { board } = useOutletContext<{ board: Board }>()
 
   const [saved, setSaved] = useState(isSaved)
   const [savePending, setSavePending] = useState(false)
+  const [prepContent, setPrepContent] = useState<ApplyAiContent | null>(aiContent)
+  const [prepLoading, setPrepLoading] = useState(aiPrepAllowed && !aiContent)
   const [coverLetter, setCoverLetter] = useState(aiContent?.coverLetter ?? '')
   const [copied, setCopied] = useState(false)
   const [checklist, setChecklist] = useState({ cv: false, linkedin: false, coverLetter: false })
@@ -185,6 +170,31 @@ export default function ApplyPrep() {
   const interviewLinks = buildInterviewLinks(job.company, job.title, category)
 
   const allChecked = checklist.cv && checklist.linkedin && checklist.coverLetter
+
+  useEffect(() => {
+    if (!aiPrepAllowed || prepContent) return
+
+    let cancelled = false
+    setPrepLoading(true)
+
+    fetch(`/api/apply-prep?jobId=${encodeURIComponent(job.id)}`, { credentials: 'include' })
+      .then(async (response) => {
+        if (!response.ok) return null
+        return response.json().catch(() => null)
+      })
+      .then((data) => {
+        if (cancelled || !data?.ok || !data.aiContent) return
+        setPrepContent(data.aiContent)
+        if (!coverLetter) setCoverLetter(data.aiContent.coverLetter ?? '')
+      })
+      .finally(() => {
+        if (!cancelled) setPrepLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [aiPrepAllowed, job.id, prepContent, coverLetter])
 
   async function toggleSave() {
     setSavePending(true)
@@ -284,127 +294,150 @@ export default function ApplyPrep() {
               </div>
             </div>
 
-            {/* Match summary */}
-            {aiContent?.matchSummary && (
-              <div className="rounded-[18px] border border-border bg-surface px-7 py-6">
-                <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-3 text-text-secondary">
-                  Profile Match
-                </h2>
-                <p className="text-sm leading-relaxed text-text-primary">{aiContent.matchSummary}</p>
-              </div>
-            )}
-
-            {/* AI Tips */}
-            {aiContent?.tips && aiContent.tips.length > 0 && (
-              <div className="rounded-[18px] border border-border bg-surface px-7 py-6">
-                <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-4 text-text-secondary">
-                  Application Tips
-                </h2>
-                <ul className="space-y-3">
-                  {aiContent.tips.map((tip: string, i: number) => (
-                    <li key={i} className="flex items-start gap-3 text-sm text-text-primary">
-                      <span className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold mt-0.5"
-                        style={{ backgroundColor: 'color-mix(in srgb, var(--color-primary) 12%, transparent)', color: 'var(--color-primary)' }}>
-                        {i + 1}
-                      </span>
-                      <span className="leading-relaxed">{tip}</span>
-                    </li>
-                  ))}
-                </ul>
-                {!profile && (
-                  <p className="mt-4 text-xs text-text-muted border-t border-border pt-4">
-                    <Link to="/candidate/profile" className="font-semibold" style={{ color: 'var(--color-primary)' }}>
-                      Complete your profile
-                    </Link>{' '}
-                    to get personalised tips and a cover letter tailored to your background.
-                  </p>
+            {aiPrepAllowed ? (
+              <>
+                {/* Match summary */}
+                {prepContent?.matchSummary && (
+                  <div className="rounded-[18px] border border-border bg-surface px-7 py-6">
+                    <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-3 text-text-secondary">
+                      Profile Match
+                    </h2>
+                    <p className="text-sm leading-relaxed text-text-primary">{prepContent.matchSummary}</p>
+                  </div>
                 )}
-              </div>
-            )}
 
-            {/* Cover letter */}
-            {aiContent?.coverLetter && (
-              <div className="rounded-[18px] border border-border bg-surface px-7 py-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-text-secondary">
-                    Cover Letter Draft
-                  </h2>
-                  <button
-                    type="button"
-                    onClick={copyLetter}
-                    className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all"
-                    style={{ borderColor: 'var(--color-border)', color: copied ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}
-                  >
-                    {copied ? '✓ Copied' : 'Copy'}
-                  </button>
-                </div>
-                <textarea
-                  ref={coverLetterRef}
-                  value={coverLetter}
-                  onChange={e => setCoverLetter(e.target.value)}
-                  rows={14}
-                  className="w-full text-sm leading-relaxed rounded-xl border p-4 resize-y outline-none focus:ring-2 transition-all"
-                  style={{
-                    borderColor: 'var(--color-border)',
-                    backgroundColor: 'var(--color-surface-subtle)',
-                    color: 'var(--color-text-primary)',
-                  }}
-                />
-                <p className="text-[11px] text-text-muted mt-2">Edit freely — this is your draft to customise.</p>
-              </div>
-            )}
+                {prepLoading && !prepContent && (
+                  <div className="rounded-[18px] border border-border bg-surface px-7 py-6">
+                    <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-3 text-text-secondary">
+                      AI Prep
+                    </h2>
+                    <p className="text-sm leading-relaxed text-text-primary">Preparing you for this role...</p>
+                    <p className="text-xs mt-2 text-text-muted">Generating tailored tips and a draft cover letter now.</p>
+                  </div>
+                )}
 
-            {/* Interview prep */}
-            <div className="rounded-[18px] border border-border bg-surface px-7 py-6">
-              <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-4 text-text-secondary">
-                Interview Prep
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {interviewLinks.map(link => (
-                  <a
-                    key={link.url}
-                    href={link.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3 no-underline transition-all hover:-translate-y-px"
-                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-text-primary">{link.label}</p>
-                      <p className="text-xs text-text-muted">{link.hint}</p>
+                {/* AI Tips */}
+                {prepContent?.tips && prepContent.tips.length > 0 && (
+                  <div className="rounded-[18px] border border-border bg-surface px-7 py-6">
+                    <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-4 text-text-secondary">
+                      Application Tips
+                    </h2>
+                    <ul className="space-y-3">
+                      {prepContent.tips.map((tip: string, i: number) => (
+                        <li key={i} className="flex items-start gap-3 text-sm text-text-primary">
+                          <span className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold mt-0.5"
+                            style={{ backgroundColor: 'color-mix(in srgb, var(--color-primary) 12%, transparent)', color: 'var(--color-primary)' }}>
+                            {i + 1}
+                          </span>
+                          <span className="leading-relaxed">{tip}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {!profile && (
+                      <p className="mt-4 text-xs text-text-muted border-t border-border pt-4">
+                        <Link to="/candidate/profile" className="font-semibold" style={{ color: 'var(--color-primary)' }}>
+                          Complete your profile
+                        </Link>{' '}
+                        to get personalised tips and a cover letter tailored to your background.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Cover letter */}
+                {prepContent?.coverLetter && (
+                  <div className="rounded-[18px] border border-border bg-surface px-7 py-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-text-secondary">
+                        Cover Letter Draft
+                      </h2>
+                      <button
+                        type="button"
+                        onClick={copyLetter}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all"
+                        style={{ borderColor: 'var(--color-border)', color: copied ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}
+                      >
+                        {copied ? '✓ Copied' : 'Copy'}
+                      </button>
                     </div>
-                    <span className="text-text-muted text-sm">↗</span>
-                  </a>
-                ))}
-              </div>
-            </div>
-
-            {/* Checklist */}
-            <div className="rounded-[18px] border border-border bg-surface px-7 py-6">
-              <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-4 text-text-secondary">
-                Before You Apply
-              </h2>
-              <div className="space-y-3">
-                {[
-                  { key: 'cv', label: 'CV is up to date', hint: profile?.cvUrl ? `Saved: ${profile.cvUrl.slice(0, 40)}…` : 'Add your CV URL to your profile' },
-                  { key: 'linkedin', label: 'LinkedIn profile is current', hint: profile?.linkedinUrl ? profile.linkedinUrl : 'Make sure your LinkedIn is up to date' },
-                  { key: 'coverLetter', label: 'Cover letter ready', hint: aiContent?.coverLetter ? 'Your draft is above — edit and copy it' : 'Prepare a tailored cover letter' },
-                ].map(item => (
-                  <label key={item.key} className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={checklist[item.key as keyof typeof checklist]}
-                      onChange={e => setChecklist(c => ({ ...c, [item.key]: e.target.checked }))}
-                      className="mt-0.5 shrink-0"
+                    <textarea
+                      ref={coverLetterRef}
+                      value={coverLetter}
+                      onChange={e => setCoverLetter(e.target.value)}
+                      rows={14}
+                      className="w-full text-sm leading-relaxed rounded-xl border p-4 resize-y outline-none focus:ring-2 transition-all"
+                      style={{
+                        borderColor: 'var(--color-border)',
+                        backgroundColor: 'var(--color-surface-subtle)',
+                        color: 'var(--color-text-primary)',
+                      }}
                     />
-                    <div>
-                      <p className="text-sm font-semibold text-text-primary">{item.label}</p>
-                      <p className="text-xs text-text-muted">{item.hint}</p>
-                    </div>
-                  </label>
-                ))}
+                    <p className="text-[11px] text-text-muted mt-2">Edit freely — this is your draft to customise.</p>
+                  </div>
+                )}
+
+                {/* Interview prep */}
+                <div className="rounded-[18px] border border-border bg-surface px-7 py-6">
+                  <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-4 text-text-secondary">
+                    Interview Prep
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {interviewLinks.map(link => (
+                      <a
+                        key={link.url}
+                        href={link.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3 no-underline transition-all hover:-translate-y-px"
+                        style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-text-primary">{link.label}</p>
+                          <p className="text-xs text-text-muted">{link.hint}</p>
+                        </div>
+                        <span className="text-text-muted text-sm">↗</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Checklist */}
+                <div className="rounded-[18px] border border-border bg-surface px-7 py-6">
+                  <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-4 text-text-secondary">
+                    Before You Apply
+                  </h2>
+                  <div className="space-y-3">
+                    {[
+                      { key: 'cv', label: 'CV is up to date', hint: profile?.cvUrl ? `Saved: ${profile.cvUrl.slice(0, 40)}…` : 'Add your CV URL to your profile' },
+                      { key: 'linkedin', label: 'LinkedIn profile is current', hint: profile?.linkedinUrl ? profile.linkedinUrl : 'Make sure your LinkedIn is up to date' },
+                      { key: 'coverLetter', label: 'Cover letter ready', hint: prepContent?.coverLetter ? 'Your draft is above — edit and copy it' : 'Prepare a tailored cover letter' },
+                    ].map(item => (
+                      <label key={item.key} className="flex items-start gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checklist[item.key as keyof typeof checklist]}
+                          onChange={e => setChecklist(c => ({ ...c, [item.key]: e.target.checked }))}
+                          className="mt-0.5 shrink-0"
+                        />
+                        <div>
+                          <p className="text-sm font-semibold text-text-primary">{item.label}</p>
+                          <p className="text-xs text-text-muted">{item.hint}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-[18px] border border-border bg-surface px-7 py-6">
+                <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-3 text-text-secondary">Apply</h2>
+                <p className="text-sm leading-relaxed text-text-primary">
+                  {tier === 'free'
+                    ? 'AI prep is not included on the free plan. You can still apply immediately.'
+                    : `You've reached your ${applicationLimit.cap} application limit for this period. You can still view this role and apply where available.`}
+                </p>
               </div>
-            </div>
+            )}
           </div>
 
           {/* ── Sidebar ── */}
@@ -415,7 +448,7 @@ export default function ApplyPrep() {
               <h2 className="text-[10px] font-extrabold uppercase tracking-[0.1em] mb-4 text-text-secondary">
                 Ready to apply?
               </h2>
-              {!allChecked && (
+              {aiPrepAllowed && !allChecked && (
                 <p className="text-xs text-text-muted mb-4">
                   Tick the checklist when you're ready — or apply now if you're good to go.
                 </p>

@@ -3,8 +3,9 @@ import type { LoaderFunctionArgs } from 'react-router'
 import { getDb, jobs, candidateProfiles, applications } from '@jobuki/db'
 import { and, eq } from 'drizzle-orm'
 import type { Board } from '@jobuki/types'
-import { requireUser } from '../../lib/auth.server'
+import { getJobSeekerTier, requireUser } from '../../lib/auth.server'
 import { deriveJobCategory } from '../../lib/board-categories'
+import { getApplicationLimitStatus } from '../../lib/job-seeker-limits.server'
 
 type InterviewTip = { q: string; hint: string }
 
@@ -142,6 +143,11 @@ export async function loader(args: LoaderFunctionArgs) {
 
     if (isExternal) {
       try {
+        const tier = await getJobSeekerTier(user)
+        const limit = await getApplicationLimitStatus(user.email, tier)
+        if (limit.isCapped) {
+          trackedInApplications = false
+        } else {
         const existing = await db.query.applications.findFirst({
           where: and(eq(applications.jobId, job.id), eq(applications.candidateEmail, user.email)),
         })
@@ -160,6 +166,7 @@ export async function loader(args: LoaderFunctionArgs) {
         }
 
         trackedInApplications = true
+        }
       } catch {
         trackedInApplications = false
       }

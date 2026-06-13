@@ -19,6 +19,7 @@ export default [
   route('api/cron/process-alerts', 'routes/api/cron.process-alerts.ts'),
   route('api/save-job', 'routes/api/save-job.ts'),
   route('api/log-apply', 'routes/api/log-apply.ts'),
+  route('api/apply-prep', 'routes/api/apply-prep.ts'),
   route('health', 'routes/health.ts'),
   route('admin', 'routes/platform-admin/index.tsx'),
 

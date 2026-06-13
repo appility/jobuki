@@ -1,0 +1,1 @@
+ALTER TABLE "candidate_profiles" ADD COLUMN IF NOT EXISTS "public_profile_enabled" boolean DEFAULT false NOT NULL;
