@@ -106,7 +106,7 @@ export default function JobDetail() {
   const [saved, setSaved] = useState(initialSaved)
   const [savePending, setSavePending] = useState(false)
   const needsJobSeekerAuth = !isSignedIn || accountType === 'job_poster' || accountType === 'board_creator'
-  const authPath = buildJobSeekerAuthPath({ redirectTo: publicJobPath(job) })
+  const authPath = buildJobSeekerAuthPath({ redirectTo: `/apply/${job.id}` })
   const alertAuthPath = buildJobSeekerAuthPath({ redirectTo: '/candidate/alerts' })
   const applyHref = needsJobSeekerAuth ? authPath : `/apply/${job.id}`
   const alertPath = needsJobSeekerAuth ? alertAuthPath : '/candidate/alerts'
@@ -149,8 +149,16 @@ export default function JobDetail() {
   const remoteBadge = getRemoteBadge(job.remotePolicy)
   const categoryBadge = getCategoryBadge(categoryLabel)
   const compactSalary = formatCompactSalary(job.salaryMin, job.salaryMax, job.salaryCurrency)
-  const companyMark = companyInitials(job.company)
   const externalApplyHref = job.externalApplyUrl || job.externalListingUrl
+  const sourceHref = externalApplyHref
+    || extractFirstExternalHref(job.description)
+    || extractFirstExternalHref(
+      typeof job.descriptionJson === 'string'
+        ? job.descriptionJson
+        : job.descriptionJson
+          ? JSON.stringify(job.descriptionJson)
+          : null,
+    )
 
   return (
     <div
@@ -176,33 +184,19 @@ export default function JobDetail() {
                 <span style={{ color: categoryBadge.fg }}>{categoryLabel || 'General'}</span>
               </div>
 
-              <div className="flex items-start gap-4 mb-4">
-                <div className="w-[52px] h-[52px] rounded-[12px] border border-border bg-background shrink-0 overflow-hidden flex items-center justify-center">
-                  {job.companyLogoUrl ? (
-                    <img
-                      src={job.companyLogoUrl}
-                      alt={job.company ?? ''}
-                      className="w-full h-full object-contain p-1.5"
-                      onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextSibling as HTMLElement).style.display = 'flex' }}
-                    />
-                  ) : null}
-                  <span className="text-sm font-extrabold font-display text-text-secondary" style={{ display: job.companyLogoUrl ? 'none' : 'flex' }}>{companyMark}</span>
-                </div>
+              <div className="mb-4">
+                <h1
+                  className="text-[23px] font-extrabold leading-[1.15] tracking-[-0.03em] mb-2 font-display text-text-primary"
+                >
+                  {job.title}
+                </h1>
 
-                <div className="flex-1 min-w-0">
-                  <h1
-                    className="text-[23px] font-extrabold leading-[1.15] tracking-[-0.03em] mb-2 font-display text-text-primary"
-                  >
-                    {job.title}
-                  </h1>
-
-                  <div className="flex items-center gap-2.5 text-[13px] flex-wrap text-text-secondary">
-                    {job.company ? <span className="text-text-primary font-bold">{job.company}</span> : null}
-                    <Dot />
-                    <span>{job.location || 'Remote / Global'}</span>
-                    <Dot />
-                    <span className="text-border-strong font-semibold">{postedAt || 'Recently posted'}</span>
-                  </div>
+                <div className="flex items-center gap-2.5 text-[13px] flex-wrap text-text-secondary">
+                  {job.company ? <span className="text-text-primary font-bold">{job.company}</span> : null}
+                  {job.company && job.location ? <Dot /> : null}
+                  {job.location ? <span>{job.location}</span> : null}
+                  {job.company || job.location ? <Dot /> : null}
+                  <span className="text-border-strong font-semibold">{postedAt || 'Recently posted'}</span>
                 </div>
               </div>
 
@@ -231,6 +225,8 @@ export default function JobDetail() {
                     key={tag}
                     to={`/jobs/category/${encodeURIComponent(tag.toLowerCase())}`}
                     className="text-[11px] font-semibold px-2.5 py-1 rounded-[7px] border border-border bg-surface text-text-secondary no-underline hover:border-primary hover:text-primary transition-colors"
+                    title="See all jobs with this tag"
+                    aria-label={`See all jobs with tag ${tag}`}
                   >
                     {tag}
                   </Link>
@@ -314,21 +310,22 @@ export default function JobDetail() {
               <MetaRow label="Type" value={TYPE_LABEL[job.employmentType] ?? job.employmentType} />
               <MetaRow label="Category" value={categoryLabel || 'General'} />
               <MetaRow label="Posted" value={postedAt} />
-              {job.externalSource && job.externalListingUrl ? (
+              {sourceHref ? (
                 <div className="pt-3 mt-1">
                   <a
-                    href={job.externalListingUrl}
+                    href={sourceHref}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="text-[11px] no-underline hover:underline text-text-muted"
+                    className="text-[11px] font-semibold no-underline hover:underline"
+                    style={{ color: 'var(--color-primary)' }}
                   >
-                    Originally listed on {job.externalSource}
+                    View source ↗
                   </a>
                 </div>
               ) : null}
             </section>
 
-            {!isPreviewMode ? (
+            {!isPreviewMode && !isSignedIn ? (
             <section className="rounded-[18px] border p-[22px]" style={{ borderColor: 'var(--color-border-inverse)', backgroundColor: 'var(--color-panel-strong)' }}>
               <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] mb-2" style={{ fontFamily: "'Unbounded', var(--font-display), sans-serif", color: 'color-mix(in srgb, var(--color-panel-strong-fg) 40%, transparent)' }}>
                 Hiring?
@@ -415,17 +412,6 @@ function getCategoryBadge(category: string) {
   return map[category] ?? { bg: 'var(--color-surface-subtle)', fg: 'var(--color-text-secondary)' }
 }
 
-function companyInitials(company: string | null | undefined) {
-  const safe = (company ?? '').trim()
-  if (!safe) return 'JB'
-  return safe
-    .split(/\s+/)
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
-}
-
 function formatCompactSalary(min: number | null, max: number | null, currency: string) {
   if (!min && !max) return null
 
@@ -468,6 +454,18 @@ function MetaRow({ label, value }: { label: string; value: string | null | undef
 function formatDate(value: string | Date) {
   const date = value instanceof Date ? value : new Date(value)
   return new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' }).format(date)
+}
+
+function extractFirstExternalHref(input: string | null | undefined) {
+  if (!input) return null
+
+  const anchorMatch = input.match(/<a\b[^>]*href=["']([^"']+)["'][^>]*>/i)
+  if (anchorMatch?.[1] && /^https?:\/\//i.test(anchorMatch[1])) {
+    return anchorMatch[1]
+  }
+
+  const urlMatch = input.match(/https?:\/\/[^\s"'<>]+/i)
+  return urlMatch?.[0] ?? null
 }
 
 function toSafeRichHtml(input: string) {

@@ -220,11 +220,7 @@ export default function ApplyPrep() {
   async function handleApply() {
     if (!externalUrl) return
     setApplying(true)
-    const fd = new FormData()
-    fd.set('jobId', job.id)
-    fd.set('boardId', job.boardId)
-    // Log the application and auto-save the job — both non-blocking
-    fetch('/api/log-apply', { method: 'POST', body: fd, credentials: 'include' }).catch(() => {})
+    // External applies are only tracked after explicit confirmation on the success screen.
     if (!saved) {
       const savefd = new FormData()
       savefd.set('jobId', job.id)
@@ -491,6 +487,19 @@ export default function ApplyPrep() {
                   <span className="text-sm text-text-primary capitalize">{row.value}</span>
                 </div>
               ))}
+              {externalUrl && (
+                <div className="pt-3">
+                  <a
+                    href={externalUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-semibold no-underline"
+                    style={{ color: 'var(--color-primary)' }}
+                  >
+                    Open original listing ↗
+                  </a>
+                </div>
+              )}
             </div>
 
             {/* Profile nudge */}

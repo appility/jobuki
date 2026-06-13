@@ -933,7 +933,11 @@ function guessCompanyLogoUrl(company: string | null | undefined): string | null 
     .trim()
     .replace(/\s+/g, '')
   if (!domain || domain.length < 2) return null
-  return `https://logo.clearbit.com/${domain}.com`
+
+  const token = (process.env.LOGO_DEV_PUBLISHABLE_KEY ?? process.env.LOGO_DEV_TOKEN ?? '').trim()
+  const base = (process.env.LOGO_DEV_BASE_URL ?? 'https://img.logo.dev').replace(/\/$/, '')
+  const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : ''
+  return `${base}/${domain}.com${tokenQuery}`
 }
 
 function normalizeExternalUrl(value: string | null | undefined): string | null {

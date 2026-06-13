@@ -1,5 +1,5 @@
-import { Link, useLoaderData, useOutletContext } from 'react-router'
-import type { LoaderFunctionArgs } from 'react-router'
+import { Form, Link, redirect, useActionData, useLoaderData, useNavigation, useOutletContext } from 'react-router'
+import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
 import { getDb, jobs, candidateProfiles, applications } from '@jobuki/db'
 import { and, eq } from 'drizzle-orm'
 import type { Board } from '@jobuki/types'
@@ -127,6 +127,54 @@ function buildInterviewLinks(company: string | null, title: string, category: st
   return byCategory[category ?? ''] ?? [glassdoor, linkedin]
 }
 
+export async function action(args: ActionFunctionArgs) {
+  const { params, request } = args
+  const user = await requireUser(args, { type: 'job-seeker' })
+  const db = getDb()
+  const job = await db.query.jobs.findFirst({ where: eq(jobs.id, params.jobId!) })
+  if (!job) throw new Response('Not found', { status: 404 })
+
+  const form = await request.formData()
+  const intent = String(form.get('intent') ?? '')
+  if (intent !== 'confirm_external_applied') {
+    return { ok: false as const, error: 'Invalid request.' }
+  }
+
+  const isExternal = Boolean(job.externalApplyUrl || job.externalListingUrl)
+  if (!isExternal) {
+    return redirect('/candidate/applications')
+  }
+
+  const tier = await getJobSeekerTier(user)
+  const limit = await getApplicationLimitStatus(user.email, tier)
+  if (limit.isCapped) {
+    return {
+      ok: false as const,
+      error: `You've reached your ${limit.cap} application limit for this period.`,
+    }
+  }
+
+  const existing = await db.query.applications.findFirst({
+    where: and(eq(applications.jobId, job.id), eq(applications.candidateEmail, user.email)),
+  })
+
+  if (!existing) {
+    const profile = await db.query.candidateProfiles.findFirst({ where: eq(candidateProfiles.userId, user.id) })
+    await db.insert(applications).values({
+      jobId: job.id,
+      boardId: job.boardId,
+      candidateName: profile?.name ?? user.name ?? 'Unknown',
+      candidateEmail: user.email,
+      candidatePhone: null,
+      coverLetter: null,
+      cvUrl: profile?.cvUrl ?? null,
+      linkedinUrl: profile?.linkedinUrl ?? null,
+    })
+  }
+
+  return redirect('/candidate/applications')
+}
+
 export async function loader(args: LoaderFunctionArgs) {
   const { params } = args
   const db = getDb()
@@ -143,30 +191,10 @@ export async function loader(args: LoaderFunctionArgs) {
 
     if (isExternal) {
       try {
-        const tier = await getJobSeekerTier(user)
-        const limit = await getApplicationLimitStatus(user.email, tier)
-        if (limit.isCapped) {
-          trackedInApplications = false
-        } else {
         const existing = await db.query.applications.findFirst({
           where: and(eq(applications.jobId, job.id), eq(applications.candidateEmail, user.email)),
         })
-
-        if (!existing) {
-          await db.insert(applications).values({
-            jobId: job.id,
-            boardId: job.boardId,
-            candidateName: profile?.name ?? user.name ?? 'Unknown',
-            candidateEmail: user.email,
-            candidatePhone: null,
-            coverLetter: null,
-            cvUrl: profile?.cvUrl ?? null,
-            linkedinUrl: profile?.linkedinUrl ?? null,
-          })
-        }
-
-        trackedInApplications = true
-        }
+        trackedInApplications = Boolean(existing)
       } catch {
         trackedInApplications = false
       }
@@ -185,9 +213,14 @@ export async function loader(args: LoaderFunctionArgs) {
 }
 
 export default function ApplySuccess() {
+  const actionData = useActionData<typeof action>()
+  const navigation = useNavigation()
   const { job, profile, interviewTips, followUp, resources, trackedInApplications } = useLoaderData<typeof loader>()
   const { board } = useOutletContext<{ board: Board }>()
   const isExternal = Boolean(job.externalApplyUrl || job.externalListingUrl)
+  const confirmingExternalApply =
+    navigation.state === 'submitting' &&
+    navigation.formData?.get('intent') === 'confirm_external_applied'
   const profileCompletion = profile ? getProfileCompletion(profile) : null
   const shouldPromptProfileSetup = !profile || (profileCompletion?.percentage ?? 0) < PROFILE_COMPLETENESS_THRESHOLD
   const shouldPromptProfileRefresh = Boolean(
@@ -212,10 +245,21 @@ export default function ApplySuccess() {
           <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
             {isExternal
               ? trackedInApplications
-                ? `You've opened the application for ${job.title}${job.company ? ` at ${job.company}` : ''}. It's been saved to your applications.`
-                : `You've opened the application for ${job.title}${job.company ? ` at ${job.company}` : ''}. Sign in to track it in your applications.`
+                ? `You've confirmed your application for ${job.title}${job.company ? ` at ${job.company}` : ''}. It's saved in your applications.`
+                : `Once you've completed the external application for ${job.title}${job.company ? ` at ${job.company}` : ''}, confirm below to track it in your applications.`
               : `Your application for ${job.title}${job.company ? ` at ${job.company}` : ''} has been sent.`}
           </p>
+          {isExternal && !trackedInApplications && (
+            <Form method="post" className="mt-4">
+              <input type="hidden" name="intent" value="confirm_external_applied" />
+              <button type="submit" className="btn-primary text-sm px-5 py-2.5" disabled={confirmingExternalApply}>
+                {confirmingExternalApply ? 'Saving…' : 'I applied fully — add to my applications'}
+              </button>
+              {actionData?.ok === false && actionData.error ? (
+                <p className="text-xs mt-2" style={{ color: 'var(--color-danger)' }}>{actionData.error}</p>
+              ) : null}
+            </Form>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

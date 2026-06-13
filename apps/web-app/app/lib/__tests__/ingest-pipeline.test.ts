@@ -45,7 +45,7 @@ function guessCompanyLogoUrl(company: string | null | undefined): string | null 
     .trim()
     .replace(/\s+/g, '')
   if (!domain || domain.length < 2) return null
-  return `https://logo.clearbit.com/${domain}.com`
+  return `https://img.logo.dev/${domain}.com`
 }
 
 // Description footer cleaner patterns (from extract-jobs.mjs)
@@ -117,15 +117,15 @@ describe('normalizeEmploymentType', () => {
 })
 
 describe('guessCompanyLogoUrl', () => {
-  it('returns clearbit URL for company name', () => {
-    expect(guessCompanyLogoUrl('Acme Corp')).toBe('https://logo.clearbit.com/acme.com')
-    expect(guessCompanyLogoUrl('Google')).toBe('https://logo.clearbit.com/google.com')
+  it('returns logo.dev URL for company name', () => {
+    expect(guessCompanyLogoUrl('Acme Corp')).toBe('https://img.logo.dev/acme.com')
+    expect(guessCompanyLogoUrl('Google')).toBe('https://img.logo.dev/google.com')
   })
 
   it('strips common suffixes', () => {
-    expect(guessCompanyLogoUrl('Acme Technologies')).toBe('https://logo.clearbit.com/acme.com')
-    expect(guessCompanyLogoUrl('Blockchain Labs')).toBe('https://logo.clearbit.com/blockchain.com')
-    expect(guessCompanyLogoUrl('Acme Ltd')).toBe('https://logo.clearbit.com/acme.com')
+    expect(guessCompanyLogoUrl('Acme Technologies')).toBe('https://img.logo.dev/acme.com')
+    expect(guessCompanyLogoUrl('Blockchain Labs')).toBe('https://img.logo.dev/blockchain.com')
+    expect(guessCompanyLogoUrl('Acme Ltd')).toBe('https://img.logo.dev/acme.com')
   })
 
   it('returns null for null/empty', () => {

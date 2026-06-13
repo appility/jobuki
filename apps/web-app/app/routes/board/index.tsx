@@ -8,6 +8,7 @@ import { publicJobPath } from '../../lib/public-job-path'
 import { normalizeLocation, normalizeLocations } from '../../lib/normalize-location'
 
 const PAGE_SIZE = 10
+const LOGO_DEV_PUBLIC_KEY = (import.meta.env.VITE_LOGO_DEV_PUBLISHABLE_KEY ?? '').trim()
 
 const JOB_WORDS = /\b(jobs|job|roles|role|careers|career|work|hiring|vacancies|vacancy|positions|position|opportunities)\b/i
 function boardPageTitle(name: string) {
@@ -30,6 +31,74 @@ function companyInitials(name: string | null | undefined) {
     .join('')
     .slice(0, 2)
     .toUpperCase()
+}
+
+function companyInitialsSwatch(name: string | null | undefined) {
+  const safe = (name ?? '').trim().toLowerCase()
+  const seed = safe
+    .split('')
+    .reduce((sum, ch) => sum + ch.charCodeAt(0), 0)
+  const hue = seed % 360
+  return {
+    backgroundColor: `hsl(${hue} 45% 94%)`,
+    color: `hsl(${hue} 44% 30%)`,
+    borderColor: `hsl(${hue} 36% 82%)`,
+  }
+}
+
+function inferCompanyDomain(company: string | null | undefined) {
+  if (!company) return null
+  const domain = company
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+(inc|ltd|llc|corp|co|group|labs|technologies|tech|protocol|network|networks|foundation|dao|finance|capital|ventures|studio|studios|digital|solutions|services|platform|platforms|systems)$/i, '')
+    .trim()
+    .replace(/\s+/g, '')
+  return domain.length >= 2 ? `${domain}.com` : null
+}
+
+function buildLogoDevUrl(domain: string) {
+  const tokenQuery = LOGO_DEV_PUBLIC_KEY ? `?token=${encodeURIComponent(LOGO_DEV_PUBLIC_KEY)}` : ''
+  return `https://img.logo.dev/${domain}${tokenQuery}`
+}
+
+function normalizeCompanyLogoUrl(rawUrl: string | null | undefined, company: string | null | undefined) {
+  const trimmed = (rawUrl ?? '').trim()
+
+  if (!trimmed) {
+    const inferredDomain = inferCompanyDomain(company)
+    return inferredDomain ? buildLogoDevUrl(inferredDomain) : ''
+  }
+
+  if (trimmed.includes('img.logo.dev/')) {
+    return trimmed
+  }
+
+  try {
+    const parsed = new URL(trimmed)
+
+    if (parsed.hostname === 'logo.clearbit.com') {
+      const domain = parsed.pathname.replace(/^\//, '').trim()
+      return domain ? buildLogoDevUrl(domain) : trimmed
+    }
+
+    if (parsed.hostname === 'www.google.com' && parsed.pathname === '/s2/favicons') {
+      const domain = parsed.searchParams.get('domain')
+      return domain ? buildLogoDevUrl(domain) : trimmed
+    }
+  } catch {
+    return trimmed
+  }
+
+  return trimmed
+}
+
+function handleCompanyLogoError(event: React.SyntheticEvent<HTMLImageElement>) {
+  const image = event.currentTarget
+  image.style.display = 'none'
+  const fallback = image.parentElement?.querySelector('[data-company-initials]') as HTMLElement | null
+  if (fallback) fallback.style.display = 'flex'
 }
 
 function remoteBadge(remotePolicy: string) {
@@ -224,7 +293,7 @@ export default function BoardJobsPage() {
 
         <section className="mt-5">
           <p className="text-xs font-semibold mb-3" style={{ color: 'var(--color-text-muted)' }}>
-            {totalFilteredJobs} role{totalFilteredJobs === 1 ? '' : 's'} found
+            {totalFilteredJobs.toLocaleString('en-GB')} role{totalFilteredJobs === 1 ? '' : 's'} found
           </p>
 
         {filteredJobs.length === 0 ? (
@@ -239,6 +308,9 @@ export default function BoardJobsPage() {
                 const category = deriveJobCategory(job, boardCategories)
                 const remote = remoteBadge(job.remotePolicy)
                 const cat = categoryBadge(category || 'all')
+                const logoUrl = normalizeCompanyLogoUrl(job.companyLogoUrl, job.company)
+                const hasLogo = logoUrl.length > 0
+                const initialsSwatch = companyInitialsSwatch(job.company)
                 return (
                   <Link
                     key={job.id}
@@ -247,16 +319,25 @@ export default function BoardJobsPage() {
                   >
                     <div className="flex items-center justify-between gap-4">
                       <div className="min-w-0 flex items-center gap-4 flex-1">
-                        <div className="w-[42px] h-[42px] rounded-[10px] border border-border bg-background shrink-0 overflow-hidden flex items-center justify-center">
-                          {job.companyLogoUrl ? (
+                        <div
+                          className="w-[42px] h-[42px] rounded-[10px] border border-border bg-background shrink-0 overflow-hidden flex items-center justify-center"
+                          style={hasLogo ? undefined : initialsSwatch}
+                        >
+                          {hasLogo ? (
                             <img
-                              src={job.companyLogoUrl}
+                              src={logoUrl}
                               alt={job.company ?? ''}
                               className="w-full h-full object-contain p-1"
-                              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextSibling as HTMLElement).style.display = 'flex' }}
+                              onError={handleCompanyLogoError}
                             />
                           ) : null}
-                          <span className="text-xs font-extrabold font-display text-text-secondary" style={{ display: job.companyLogoUrl ? 'none' : 'flex' }}>{companyInitials(job.company)}</span>
+                          <span
+                            data-company-initials
+                            className="text-xs font-extrabold font-display text-text-secondary"
+                            style={{ display: hasLogo ? 'none' : 'flex' }}
+                          >
+                            {companyInitials(job.company)}
+                          </span>
                         </div>
 
                         <div className="min-w-0">
