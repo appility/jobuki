@@ -337,7 +337,7 @@ export default function PlatformAdminPage() {
               Platform admin
             </h1>
             <p className="text-sm max-w-2xl" style={{ color: 'var(--color-text-secondary)' }}>
-              Review every user, inspect the system role catalog, and update workspace membership roles from one place.
+              Manage platform admin access, workspace member roles, and role feature permissions.
             </p>
           </div>
         </div>
@@ -433,11 +433,10 @@ export default function PlatformAdminPage() {
 
                   <div className="mt-5 rounded-2xl border overflow-hidden"
                     style={{ borderColor: 'var(--color-border)' }}>
-                    <div className="grid grid-cols-[minmax(0,1.1fr)_120px_120px_210px] gap-3 px-4 py-3 text-xs font-semibold"
+                    <div className="grid grid-cols-[minmax(0,1.2fr)_130px_180px] gap-3 px-4 py-3 text-xs font-semibold"
                       style={{ backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-muted)' }}>
                       <span>Workspace</span>
                       <span>Current role</span>
-                      <span>Plan</span>
                       <span>Update</span>
                     </div>
                     {entry.workspaceMembers.length === 0 ? (
@@ -447,14 +446,11 @@ export default function PlatformAdminPage() {
                     ) : entry.workspaceMembers.map((membership) => {
                       const isSavingRole = navigation.state === 'submitting'
                         && String(navigation.formData?.get('membershipId')) === membership.id
-                      const isSavingPlan = navigation.state === 'submitting'
-                        && String(navigation.formData?.get('workspaceId')) === membership.workspaceId
                       const roleFormId = `role-form-${membership.id}`
-                      const planFormId = `plan-form-${membership.id}`
 
                       return (
                         <div key={membership.id}
-                          className="grid grid-cols-[minmax(0,1.1fr)_120px_120px_210px] gap-3 px-4 py-3 items-center border-t"
+                          className="grid grid-cols-[minmax(0,1.2fr)_130px_180px] gap-3 px-4 py-3 items-center border-t"
                           style={{ borderColor: 'var(--color-border)' }}>
                           <div>
                             <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
@@ -480,27 +476,9 @@ export default function PlatformAdminPage() {
                             </select>
                           </Form>
 
-                          <Form id={planFormId} method="post">
-                            <input type="hidden" name="intent" value="update_workspace_plan" />
-                            <input type="hidden" name="workspaceId" value={membership.workspaceId} />
-                            <select
-                              name="plan"
-                              defaultValue={membership.workspace.plan}
-                              className="input text-sm"
-                              aria-label={`Plan for ${membership.workspace.name}`}
-                            >
-                              {WORKSPACE_PLANS.map((plan) => (
-                                <option key={plan} value={plan}>{plan}</option>
-                              ))}
-                            </select>
-                          </Form>
-
                           <div className="flex items-center gap-2">
                             <button type="submit" form={roleFormId} className="btn-outline text-sm" disabled={isSavingRole}>
                               {isSavingRole ? 'Saving…' : 'Save role'}
-                            </button>
-                            <button type="submit" form={planFormId} className="btn-primary text-sm" disabled={isSavingPlan}>
-                              {isSavingPlan ? 'Saving…' : 'Save plan'}
                             </button>
                           </div>
                         </div>

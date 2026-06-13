@@ -138,6 +138,29 @@ export async function requirePlatformAdmin(args: Args) {
   return { user }
 }
 
+// API-safe platform admin guard: no redirects, only 401/403 responses.
+export async function requirePlatformAdminApi(request: Request) {
+  const { userId } = await getAuth({ request } as any)
+  if (!userId) {
+    throw new Response('Unauthorized', { status: 401 })
+  }
+
+  const db = getDb()
+  const user = await db.query.users.findFirst({
+    where: eq(users.clerkUserId, userId),
+  })
+
+  if (!user) {
+    throw new Response('Unauthorized', { status: 401 })
+  }
+
+  if (!user.isPlatformAdmin && !isSuperUserEmail(user.email)) {
+    throw new Response('Forbidden', { status: 403 })
+  }
+
+  return { user }
+}
+
 export async function userHasWorkspaceFeature(userId: string, workspaceId: string, featureKey: string) {
   const db = getDb()
   const user = await db.query.users.findFirst({

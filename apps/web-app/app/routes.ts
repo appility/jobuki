@@ -20,8 +20,12 @@ export default [
   route('api/save-job', 'routes/api/save-job.ts'),
   route('api/log-apply', 'routes/api/log-apply.ts'),
   route('api/apply-prep', 'routes/api/apply-prep.ts'),
+  route('api/admin/access-check', 'routes/api/admin.access-check.ts'),
   route('health', 'routes/health.ts'),
-  route('admin', 'routes/platform-admin/index.tsx'),
+  layout('routes/platform-admin/layout.tsx', [
+    route('admin', 'routes/platform-admin/index.tsx'),
+    route('admin/tiers', 'routes/platform-admin/tiers.tsx'),
+  ]),
 
   // ── Onboarding (auth required, no workspace needed) ────────────────
   route('dashboard/onboarding', 'routes/admin/onboarding.tsx'),
