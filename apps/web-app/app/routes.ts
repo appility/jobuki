@@ -26,13 +26,6 @@ export default [
   // ── Onboarding (auth required, no workspace needed) ────────────────
   route('dashboard/onboarding', 'routes/admin/onboarding.tsx'),
   route('candidate/start', 'routes/candidate/start.tsx'),
-  layout('routes/candidate/layout.tsx', [
-    route('candidate',                  'routes/candidate/overview.tsx'),
-    route('candidate/saved',            'routes/candidate/saved.tsx'),
-    route('candidate/applications',     'routes/candidate/applications.tsx'),
-    route('candidate/alerts',           'routes/candidate/alerts.tsx'),
-    route('candidate/profile',          'routes/candidate/profile.tsx'),
-  ]),
   route('hiring/start',        'routes/hiring/start.tsx'),
   layout('routes/hiring/layout.tsx', [
     route('hiring',              'routes/hiring/index.tsx'),
@@ -62,18 +55,27 @@ export default [
     route('dashboard/applications',   'routes/admin/applications/index.tsx'),
   ]),
 
-  // ── Public board (resolved from subdomain/custom domain by server) ─
+  // ── Shared board/candidate shell ─────────────────────────────────
   route('sitemap.xml', 'routes/board/sitemap.ts'),
-  layout('routes/board/layout.tsx', [
-    index('routes/marketing/home.tsx'),
-    route('jobs',        'routes/board/index.tsx'),
-    route('jobs/category/:category', 'routes/board/category.tsx'),
-    route('about',   'routes/board/about.tsx'),
-    route('privacy', 'routes/board/privacy.tsx'),
-    route('jobs/:jobId', 'routes/board/job-legacy.tsx'),
-    route('jobs/:jobId/:jobTitle',  'routes/board/job.tsx'),
-    route('apply/:jobId', 'routes/board/apply.tsx'),
-    route('apply/:jobId/form', 'routes/board/apply-form.tsx'),
-    route('apply/:jobId/success', 'routes/board/apply-success.tsx'),
+  layout('routes/shared-shell.tsx', [
+    layout('routes/candidate/layout.tsx', [
+      route('candidate',                  'routes/candidate/overview.tsx'),
+      route('candidate/saved',            'routes/candidate/saved.tsx'),
+      route('candidate/applications',     'routes/candidate/applications.tsx'),
+      route('candidate/alerts',           'routes/candidate/alerts.tsx'),
+      route('candidate/profile',          'routes/candidate/profile.tsx'),
+    ]),
+    layout('routes/board/layout.tsx', [
+      index('routes/marketing/home.tsx'),
+      route('jobs',        'routes/board/index.tsx'),
+      route('jobs/category/:category', 'routes/board/category.tsx'),
+      route('about',   'routes/board/about.tsx'),
+      route('privacy', 'routes/board/privacy.tsx'),
+      route('jobs/:jobId', 'routes/board/job-legacy.tsx'),
+      route('jobs/:jobId/:jobTitle',  'routes/board/job.tsx'),
+      route('apply/:jobId', 'routes/board/apply.tsx'),
+      route('apply/:jobId/form', 'routes/board/apply-form.tsx'),
+      route('apply/:jobId/success', 'routes/board/apply-success.tsx'),
+    ]),
   ]),
 ] satisfies RouteConfig

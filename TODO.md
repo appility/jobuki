@@ -2,6 +2,46 @@
 
 ## In progress / next up
 
+### Shared header shell refactor (remove candidate nav blink)
+
+Goal:
+- Keep one persistent header/footer shell mounted while navigating between board pages and candidate hub pages.
+- Remove remount flash caused by switching between separate layout trees.
+
+Scope:
+1. Add a parent shell route that wraps both board and candidate branches.
+2. Move `BoardSharedHeader` and `BoardSharedFooter` rendering to that parent shell.
+3. Move board theme/font injection (`fontImport`, CSS vars) to that parent shell so it is not re-injected on branch switches.
+4. Keep candidate side-nav and candidate auth guard where they are (candidate layout), but remove duplicate top header/footer there.
+5. Keep board route behavior identical (jobs/about/privacy/apply) with no URL or auth regressions.
+
+Implementation steps:
+1. Add new route layout file for shared shell and register it in `app/routes.ts`.
+2. Centralize board context lookup in shell loader (slug/hostname/custom domain resolution).
+3. Expose shell context to children via outlet context instead of recomputing in both layouts.
+4. Refactor `routes/board/layout.tsx` to stop rendering shared header/footer and only render route outlet concerns.
+5. Refactor `routes/candidate/layout.tsx` to stop rendering shared header/footer and only render candidate frame + outlet.
+6. Ensure avatar dropdown links remain `Link` + prefetch and close menu without hard reload.
+
+Risk checklist:
+- Candidate pages currently require auth and board-themed shell. Preserve both.
+- Root domain marketing pages should not accidentally render board shell.
+- Board-not-found behavior must remain graceful.
+- Theme CSS and font import must remain deterministic and not duplicate in head/body.
+
+Verification:
+1. Manual:
+   - Open avatar menu on board job page, click My dashboard (`/candidate`) and confirm no top-nav blink.
+   - Navigate back to jobs and confirm no shell remount flash.
+2. Functional:
+   - `/jobs`, `/jobs/:jobId/:jobTitle`, `/apply/:jobId`, `/candidate`, `/candidate/profile` all render correctly.
+   - Candidate auth redirect still works when signed out.
+3. Build:
+   - `pnpm build` passes.
+
+Estimate:
+- 2-4 hours implementation + verification.
+
 1. Move uploads to server-side proxy (most robust for multi-tenant custom domains).
    Browser uploads to app endpoint, server uploads to R2.
    Then R2 CORS no longer depends on tenant domains at all.

@@ -1,76 +1,27 @@
-import { Outlet, useLoaderData } from 'react-router'
-import type { LoaderFunctionArgs } from 'react-router'
-import { getDb, boards } from '@jobuki/db'
-import { eq } from 'drizzle-orm'
-import { themeToCSS, resolveTheme } from '../../lib/theme'
-import { resolveJobBoardThemeConfig } from '@jobuki/types'
-import { getGoogleFontsImport } from '../../lib/fonts'
-import { BoardSharedFooter, BoardSharedHeader } from '../../components/board-shared-chrome'
+import { Outlet, useOutletContext } from 'react-router'
+import type { JobBoardThemeConfig } from '@jobuki/types'
 
-export async function loader({ request }: LoaderFunctionArgs) {
-  const boardSlug     = request.headers.get('x-board-slug')
-  const boardHostname = request.headers.get('x-board-hostname')
-  const boardType     = request.headers.get('x-board-type')
-  const db = getDb()
-
-  let board = null
-
-  if (boardType === 'custom' && boardHostname) {
-    board = await db.query.boards.findFirst({
-      where: eq(boards.customDomain, boardHostname),
-    })
-  } else if (boardSlug) {
-    board = await db.query.boards.findFirst({
-      where: eq(boards.slug, boardSlug),
-    })
-  }
-
-  // Board sub-routes (jobs, apply, etc.) handle their own 404 — layout is graceful
-  if (!board || board.status !== 'live') return { board: null }
-
-  return { board }
+type SharedShellContext = {
+  board: any | null
+  boardConfig: JobBoardThemeConfig
 }
 
 export default function BoardLayout() {
-  const { board } = useLoaderData<typeof loader>()
+  const { board, boardConfig } = useOutletContext<SharedShellContext>()
 
-  // No board (root domain / marketing) — render without board chrome
+  // Root-domain marketing pages render through this branch without a board.
   if (!board) return <Outlet />
-
-  const boardConfig = resolveJobBoardThemeConfig(board.boardConfig, {
-    boardName: board.name,
-    tagline: board.introText ?? undefined,
-    logoUrl: board.logoUrl ?? undefined,
-    headerImageUrl: board.heroImageUrl ?? undefined,
-    brandColor: (board.theme as any)?.colorPrimary,
-    accentColor: (board.theme as any)?.colorAccent,
-    backgroundColor: (board.theme as any)?.colorBackground,
-  })
-  const theme = resolveTheme(board.theme ?? {})
-  const css = themeToCSS(theme, ':root', boardConfig.cssVariables)
-  const fontImport = getGoogleFontsImport(theme.fontDisplay, theme.fontBody)
-  const logoUrl = (boardConfig.logoUrl ?? '').trim()
-  const hasLogo = logoUrl.length > 0
 
   const integrations = boardConfig.integrations ?? {}
 
   return (
     <>
-      {/* Per-board font injection — applies to all pages on this board */}
-      <style dangerouslySetInnerHTML={{ __html: fontImport }} />
-      {/* Per-board CSS variable injection — this is the entire theming system */}
-      <style dangerouslySetInnerHTML={{ __html: css }} />
-      {/* Preload hero image so browser discovers it before CSS is parsed */}
-      {board.heroImageUrl && (
-        <link rel="preload" as="image" href={board.heroImageUrl} fetchpriority="high" />
-      )}
-
-      {/* ── SEO ── */}
+      {/* SEO hints configured per board */}
       {boardConfig.seo?.noindex && <meta name="robots" content="noindex,nofollow" />}
       {boardConfig.seo?.ogImageUrl && <meta property="og:image" content={boardConfig.seo.ogImageUrl} />}
       {boardConfig.seo?.metaDescription && <meta name="description" content={boardConfig.seo.metaDescription} />}
 
-      {/* ── Tracking scripts ── */}
+      {/* Optional board-level tracking snippets */}
       {integrations.googleTagManagerId && (
         <script dangerouslySetInnerHTML={{ __html:
           `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${integrations.googleTagManagerId}');`
@@ -105,18 +56,7 @@ export default function BoardLayout() {
         }} />
       )}
 
-      <div className="min-h-screen flex flex-col">
-        <BoardSharedHeader
-          boardName={boardConfig.boardName}
-          logoUrl={hasLogo ? logoUrl : null}
-          boardConfig={boardConfig}
-        />
-
-        <div className="flex-1">
-          <Outlet context={{ board }} />
-        </div>
-        <BoardSharedFooter boardName={boardConfig.boardName} boardConfig={boardConfig} footerText={board.footerText} />
-      </div>
+      <Outlet context={{ board }} />
     </>
   )
 }

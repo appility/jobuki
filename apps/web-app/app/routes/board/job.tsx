@@ -156,8 +156,7 @@ export default function JobDetail() {
     <div
       className="min-h-screen font-body"
       style={{
-        background:
-          'radial-gradient(circle at 8% 12%, color-mix(in srgb, var(--color-primary) var(--board-ambient-primary), transparent) 0%, transparent 34%), radial-gradient(circle at 92% 84%, color-mix(in srgb, var(--color-accent) var(--board-ambient-accent), transparent) 0%, transparent 36%), var(--color-background)',
+        background: 'var(--color-background)',
       }}
     >
       <main className="max-w-[1280px] mx-auto px-6 lg:px-10 pt-9 pb-20">

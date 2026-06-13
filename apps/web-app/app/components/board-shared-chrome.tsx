@@ -134,11 +134,11 @@ export function BoardSharedHeader({ boardName, logoUrl, boardConfig, navMode = '
                   </div>
 
                   {portalHref && (
-                    <MenuItem onClick={() => { setMenuOpen(false); navigate(portalHref) }}>
+                    <MenuLinkItem to={portalHref} onNavigate={() => setMenuOpen(false)}>
                       My dashboard
-                    </MenuItem>
+                    </MenuLinkItem>
                   )}
-                  <MenuItem onClick={() => { setMenuOpen(false); navigate('/jobs') }}>Browse jobs</MenuItem>
+                  <MenuLinkItem to="/jobs" onNavigate={() => setMenuOpen(false)}>Browse jobs</MenuLinkItem>
                   <MenuItem onClick={() => { setMenuOpen(false); openUserProfile() }}>Manage account</MenuItem>
 
                   <div className="border-t my-1" style={{ borderColor: 'var(--color-border)' }} />
@@ -202,5 +202,21 @@ function MenuItem({ children, onClick, danger }: { children: React.ReactNode; on
     >
       {children}
     </button>
+  )
+}
+
+function MenuLinkItem({ children, to, onNavigate }: { children: React.ReactNode; to: string; onNavigate: () => void }) {
+  return (
+    <Link
+      to={to}
+      prefetch="intent"
+      onClick={onNavigate}
+      className="block w-full text-left px-4 py-2.5 text-[13px] font-medium no-underline transition-colors"
+      style={{ color: 'var(--color-text-primary)', backgroundColor: 'transparent' }}
+      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-surface-subtle)')}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+    >
+      {children}
+    </Link>
   )
 }
