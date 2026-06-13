@@ -91,9 +91,7 @@ export const meta: MetaFunction<typeof loader> = ({ data, location }) => {
   const description = `Apply for ${job.title}${locationPart} at ${board.name}.`
 
   // Build canonical URL - respects custom domains and subdomains
-  const url = new URL(location)
-  const pageUrl = `${url.protocol}//${url.hostname}${url.pathname}`
-  const canonicalUrl = pageUrl.split('?')[0] // Remove query params
+  const canonicalUrl = location.pathname.split('?')[0] // Remove query params
 
   const tags: any[] = [
     { title },
