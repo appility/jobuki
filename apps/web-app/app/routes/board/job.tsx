@@ -11,7 +11,7 @@ import { RichTextRenderer } from '../../components/rich-text/RichTextRenderer'
 import { isTiptapDoc } from '../../lib/rich-text'
 import { deriveJobCategory, getDisplayCategoryTags, resolveBoardCategories, titleCaseCategory } from '../../lib/board-categories'
 import { publicJobPath } from '../../lib/public-job-path'
-import { buildJobSeekerAuthPath } from '../../lib/auth-flow'
+import { buildCandidateAuthPath } from '../../lib/auth-flow'
 
 export async function loader(args: LoaderFunctionArgs) {
   const { params, request } = args
@@ -77,7 +77,7 @@ export async function loader(args: LoaderFunctionArgs) {
   }
 }
 
-export const meta: MetaFunction<typeof loader> = ({ data }) => {
+export const meta: MetaFunction<typeof loader> = ({ data, location }) => {
   if (!data) {
     return [
       { title: 'Job | Jobuki' },
@@ -85,11 +85,123 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
     ]
   }
 
-  const locationPart = data.job.location ? ` in ${data.job.location}` : ''
-  return [
-    { title: `${data.job.title} | ${data.board.name}` },
-    { name: 'description', content: `Apply for ${data.job.title}${locationPart} at ${data.board.name}.` },
+  const { job, board } = data
+  const locationPart = job.location ? ` in ${job.location}` : ''
+  const title = `${job.title} | ${board.name}`
+  const description = `Apply for ${job.title}${locationPart} at ${board.name}.`
+
+  // Build canonical URL - respects custom domains and subdomains
+  const url = new URL(location)
+  const pageUrl = `${url.protocol}//${url.hostname}${url.pathname}`
+  const canonicalUrl = pageUrl.split('?')[0] // Remove query params
+
+  const tags: any[] = [
+    { title },
+    { name: 'description', content: description },
+    // Canonical tag to prevent duplicate content issues across subdomains/custom domains
+    { rel: 'canonical', href: canonicalUrl },
+    // OG tags for social media
+    { property: 'og:title', content: title },
+    { property: 'og:description', content: description },
+    { property: 'og:type', content: 'website' },
+    { property: 'og:url', content: canonicalUrl },
   ]
+
+  // Add company logo as OG image if available
+  if (job.companyLogoUrl) {
+    tags.push({ property: 'og:image', content: job.companyLogoUrl })
+    tags.push({ property: 'og:image:alt', content: `${job.company} logo` })
+  } else if (board.logoUrl) {
+    // Fallback to board logo
+    tags.push({ property: 'og:image', content: board.logoUrl })
+    tags.push({ property: 'og:image:alt', content: `${board.name} logo` })
+  }
+
+  // JSON-LD: Breadcrumb navigation (dynamic for each board)
+  const breadcrumbData = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Home',
+        item: `${url.protocol}//${url.hostname}/`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Jobs',
+        item: `${url.protocol}//${url.hostname}/jobs`,
+      },
+      ...(job.primaryCategory ? [{
+        '@type': 'ListItem' as const,
+        position: 3,
+        name: job.primaryCategory.charAt(0).toUpperCase() + job.primaryCategory.slice(1),
+        item: `${url.protocol}//${url.hostname}/jobs/category/${encodeURIComponent(job.primaryCategory)}`,
+      }] : []),
+      {
+        '@type': 'ListItem',
+        position: (job.primaryCategory ? 4 : 3),
+        name: job.title,
+        item: canonicalUrl,
+      },
+    ],
+  }
+
+  tags.push({
+    tag: 'script',
+    props: {
+      type: 'application/ld+json',
+      dangerouslySetInnerHTML: { __html: JSON.stringify(breadcrumbData) },
+    },
+  })
+
+  // JSON-LD: Job posting schema
+  const jobPostingData = {
+    '@context': 'https://schema.org/',
+    '@type': 'JobPosting',
+    title: job.title,
+    description: job.description,
+    url: canonicalUrl,
+    hiringOrganization: {
+      '@type': 'Organization',
+      name: job.company || board.name,
+      ...(board.logoUrl && { logo: board.logoUrl }),
+      sameAs: board.customDomain ? `https://${board.customDomain}` : undefined,
+    },
+    jobLocation: {
+      '@type': 'Place',
+      address: {
+        '@type': 'PostalAddress',
+        addressCountry: 'GB', // Adjust based on your data
+        ...(job.location && { addressLocality: job.location }),
+      },
+    },
+    ...(job.salaryMin && job.salaryMax && {
+      baseSalary: {
+        '@type': 'PriceSpecification',
+        priceCurrency: job.salaryCurrency || 'GBP',
+        price: `${job.salaryMin}-${job.salaryMax}`,
+        ...(job.salaryPeriod && { priceValidUntil: job.salaryPeriod }),
+      },
+    }),
+    employmentType: job.employmentType?.toUpperCase() || 'FULL_TIME',
+    datePosted: job.createdAt?.toISOString(),
+    ...(job.applicationDeadline && {
+      validThrough: new Date(job.applicationDeadline).toISOString(),
+    }),
+  }
+
+  tags.push({
+    tag: 'script',
+    props: {
+      type: 'application/ld+json',
+      dangerouslySetInnerHTML: { __html: JSON.stringify(jobPostingData) },
+    },
+  })
+
+  return tags
 }
 
 const REMOTE_LABEL: Record<string, string> = {
@@ -105,9 +217,9 @@ export default function JobDetail() {
   const { board: layoutBoard } = useOutletContext<{ board: Board }>()
   const [saved, setSaved] = useState(initialSaved)
   const [savePending, setSavePending] = useState(false)
-  const needsJobSeekerAuth = !isSignedIn || accountType === 'job_poster' || accountType === 'board_creator'
-  const authPath = buildJobSeekerAuthPath({ redirectTo: `/apply/${job.id}` })
-  const alertAuthPath = buildJobSeekerAuthPath({ redirectTo: '/candidate/alerts' })
+  const needsJobSeekerAuth = !isSignedIn || accountType === 'publisher' || accountType === 'board_creator'
+  const authPath = buildCandidateAuthPath({ redirectTo: `/apply/${job.id}` })
+  const alertAuthPath = buildCandidateAuthPath({ redirectTo: '/candidate/alerts' })
   const applyHref = needsJobSeekerAuth ? authPath : `/apply/${job.id}`
   const alertPath = needsJobSeekerAuth ? alertAuthPath : '/candidate/alerts'
   const applyLabel = 'Apply'

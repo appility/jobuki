@@ -22,15 +22,22 @@ export default [
   route('api/apply-prep', 'routes/api/apply-prep.ts'),
   route('api/admin/access-check', 'routes/api/admin.access-check.ts'),
   route('health', 'routes/health.ts'),
+  route('robots.txt', 'routes/robots.ts'),
+
+  // ── Platform Admin (Jobuki staff only) ──────────────────────────────
   layout('routes/platform-admin/layout.tsx', [
     route('admin', 'routes/platform-admin/index.tsx'),
     route('admin/tiers', 'routes/platform-admin/tiers.tsx'),
+    route('admin/publishers', 'routes/platform-admin/publishers.tsx'),
+    route('admin/candidates', 'routes/platform-admin/candidates.tsx'),
   ]),
 
   // ── Onboarding (auth required, no workspace needed) ────────────────
   route('dashboard/onboarding', 'routes/admin/onboarding.tsx'),
   route('candidate/start', 'routes/candidate/start.tsx'),
   route('hiring/start',        'routes/hiring/start.tsx'),
+
+  // ── Hiring Flow ────────────────────────────────────────────────────
   layout('routes/hiring/layout.tsx', [
     route('hiring',              'routes/hiring/index.tsx'),
     route('hiring/listings',     'routes/hiring/listings.tsx'),
@@ -39,18 +46,18 @@ export default [
     route('hiring/status',       'routes/hiring/status.tsx'),
   ]),
 
-  // ── Admin (auth + workspace required) ─────────────────────────────
+  // ── Board Creator Dashboard (auth + workspace required) ────────────
   layout('routes/admin/layout.tsx', [
     route('dashboard',                'routes/admin/dashboard.tsx'),
     route('dashboard/boards',         'routes/admin/boards/index.tsx'),
     route('dashboard/boards/new',     'routes/admin/boards/new.tsx'),
     route('dashboard/boards/:id',        'routes/admin/boards/show.tsx'),
+    route('dashboard/boards/:id/appearance', 'routes/admin/appearance.tsx'),
     route('dashboard/boards/:id/content',       'routes/admin/boards/content.tsx'),
     route('dashboard/boards/:id/import',        'routes/admin/boards/import.tsx'),
     route('dashboard/boards/:id/domain',        'routes/admin/boards/domain.tsx'),
     route('dashboard/boards/:id/integrations',  'routes/admin/boards/integrations.tsx'),
     route('dashboard/boards/:id/settings',      'routes/admin/boards/settings.tsx'),
-    route('dashboard/appearance/:id',    'routes/admin/appearance.tsx'),
     route('dashboard/jobs',           'routes/admin/jobs/index.tsx'),
     route('dashboard/jobs/new',       'routes/admin/jobs/new.tsx'),
     route('dashboard/jobs/:id',       'routes/admin/jobs/edit.tsx'),
@@ -59,7 +66,7 @@ export default [
     route('dashboard/applications',   'routes/admin/applications/index.tsx'),
   ]),
 
-  // ── Shared board/candidate shell ─────────────────────────────────
+  // ── Public Job Board & Candidate Shell ─────────────────────────────
   route('sitemap.xml', 'routes/board/sitemap.ts'),
   layout('routes/shared-shell.tsx', [
     layout('routes/candidate/layout.tsx', [

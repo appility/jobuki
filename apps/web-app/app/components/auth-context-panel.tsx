@@ -14,13 +14,13 @@ type Copy = {
 }
 
 const SIGN_IN_COPY: Record<AuthUserType, Copy> = {
-  'job-seeker': {
-    kicker: 'Job seeker access',
+  'candidate': {
+    kicker: 'Candidate access',
     title: 'Welcome back',
     copy: 'Sign in to track applications and manage your candidate profile.',
   },
-  'job-poster': {
-    kicker: 'Job poster access',
+  'publisher': {
+    kicker: 'Publisher access',
     title: 'Welcome back',
     copy: 'Sign in to manage submitted listings and paid posting activity.',
   },
@@ -32,13 +32,13 @@ const SIGN_IN_COPY: Record<AuthUserType, Copy> = {
 }
 
 const SIGN_UP_COPY: Record<AuthUserType, Copy> = {
-  'job-seeker': {
-    kicker: 'Job seeker account',
+  'candidate': {
+    kicker: 'Candidate account',
     title: 'Track your applications in one place',
     copy: 'Create an account to manage your profile and follow the status of your applications.',
   },
-  'job-poster': {
-    kicker: 'Job poster account',
+  'publisher': {
+    kicker: 'Publisher account',
     title: 'Post paid listings with control',
     copy: 'Create an account to submit and manage job listings as an advertiser.',
   },
@@ -66,11 +66,11 @@ export function AuthContextPanel({ userType, mode, redirectTo }: AuthContextPane
         <Link to={buildAuthPath({ type: 'board-creator', mode, redirectTo })} className="btn-outline text-xs px-3 py-1.5">
           Board creator
         </Link>
-        <Link to={buildAuthPath({ type: 'job-poster', mode, redirectTo })} className="btn-outline text-xs px-3 py-1.5">
-          Job poster
+        <Link to={buildAuthPath({ type: 'publisher', mode, redirectTo })} className="btn-outline text-xs px-3 py-1.5">
+          Publisher
         </Link>
-        <Link to={buildAuthPath({ type: 'job-seeker', mode, redirectTo })} className="btn-outline text-xs px-3 py-1.5">
-          Job seeker
+        <Link to={buildAuthPath({ type: 'candidate', mode, redirectTo })} className="btn-outline text-xs px-3 py-1.5">
+          Candidate
         </Link>
       </div>
     </aside>

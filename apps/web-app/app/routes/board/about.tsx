@@ -29,16 +29,20 @@ export default function AboutPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-14 pb-24">
-      <h1 className="text-3xl font-extrabold tracking-tight mb-8 font-display"
-        style={{ color: 'var(--color-text-primary)' }}>
-        About {boardConfig.boardName}
-      </h1>
-      <div
-        className="prose prose-sm max-w-none"
-        style={{ color: 'var(--color-text-primary)' }}
-        dangerouslySetInnerHTML={{ __html: about.content }}
-      />
+    <div className="mx-auto" style={{ maxWidth: '860px' }}>
+      <div className="px-8 py-8 border-b" style={{ borderColor: 'var(--color-border)' }}>
+        <h1 className="text-4xl font-extrabold tracking-tight m-0"
+          style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-display)' }}>
+          About {boardConfig.boardName}
+        </h1>
+      </div>
+      <div className="px-8 py-8">
+        <div
+          className="prose prose-sm max-w-none"
+          style={{ color: 'var(--color-text-primary)' }}
+          dangerouslySetInnerHTML={{ __html: about.content }}
+        />
+      </div>
     </div>
   )
 }

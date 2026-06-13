@@ -8,9 +8,9 @@ import { AuthContextPanel } from '../components/auth-context-panel'
 export default function SignInPage() {
   const [searchParams] = useSearchParams()
   const { userType, redirectTo } = getAuthContextFromSearchParams(searchParams)
-  const fallbackByType = userType === 'job-seeker'
+  const fallbackByType = userType === 'candidate'
     ? '/candidate/start'
-    : userType === 'job-poster'
+    : userType === 'publisher'
       ? '/hiring/start'
       : '/dashboard'
   const redirectTarget = redirectTo ?? fallbackByType

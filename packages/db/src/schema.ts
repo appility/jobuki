@@ -13,7 +13,7 @@ export const remotePolicyEnum    = pgEnum('remote_policy',     ['remote', 'hybri
 export const employmentTypeEnum  = pgEnum('employment_type',   ['full-time', 'part-time', 'contract', 'freelance', 'internship'])
 export const applicationStatusEnum = pgEnum('application_status', ['new', 'reviewing', 'shortlisted', 'rejected', 'hired'])
 export const planEnum            = pgEnum('plan',              ['free', 'growth', 'scale'])
-export const accountTypeEnum     = pgEnum('account_type',      ['board_creator', 'job_seeker', 'job_poster'])
+export const accountTypeEnum     = pgEnum('account_type',      ['board_creator', 'candidate', 'publisher'])
 
 // ── Users ────────────────────────────────────────────────────────────
 export const users = pgTable('users', {

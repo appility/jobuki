@@ -3,7 +3,7 @@ import type { LoaderFunctionArgs } from 'react-router'
 import { requireUser } from '../../lib/auth.server'
 
 export async function loader(args: LoaderFunctionArgs) {
-  await requireUser(args, { type: 'job-seeker' })
+  await requireUser(args, { type: 'candidate' })
   return null
 }
 

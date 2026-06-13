@@ -10,8 +10,11 @@ type Args = LoaderFunctionArgs | ActionFunctionArgs
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! })
 
-function parseAccountType(input: unknown): 'board_creator' | 'job_seeker' | 'job_poster' | null {
-  if (input === 'board_creator' || input === 'job_seeker' || input === 'job_poster') return input
+function parseAccountType(input: unknown): 'board_creator' | 'candidate' | 'publisher' | null {
+  if (input === 'board_creator' || input === 'candidate' || input === 'publisher') return input
+  // Support old values for backward compatibility during migration
+  if (input === 'job_seeker') return 'candidate'
+  if (input === 'job_poster') return 'publisher'
   return null
 }
 
@@ -45,7 +48,7 @@ export async function getOptionalUser(request: Request) {
 
 export async function requireUser(
   args: Args,
-  opts: { type?: 'job-seeker' | 'job-poster' | 'board-creator' } = {}
+  opts: { type?: 'candidate' | 'publisher' | 'board-creator' } = {}
 ) {
   const clerkUserId = await getAuthUser(args)
   if (!clerkUserId) {
@@ -68,8 +71,8 @@ export async function requireUser(
     // Prefer account type from Clerk metadata; fall back to the type hint from the sign-in context
     const metaType = parseAccountType((clerkUser.unsafeMetadata as any)?.accountType)
       ?? parseAccountType((clerkUser.publicMetadata as any)?.accountType)
-    const defaultType = opts.type === 'job-seeker' ? 'job_seeker'
-      : opts.type === 'job-poster' ? 'job_poster'
+    const defaultType = opts.type === 'candidate' ? 'candidate'
+      : opts.type === 'publisher' ? 'publisher'
       : 'board_creator'
     const accountType = metaType ?? defaultType
     const [created] = await db
@@ -253,8 +256,8 @@ export async function requireWorkspaceAccess(args: Args) {
   }
 
   if (!result) {
-    if (user.accountType === 'job_seeker') throw redirect('/candidate')
-    if (user.accountType === 'job_poster') throw redirect('/hiring/start')
+    if (user.accountType === 'candidate') throw redirect('/candidate')
+    if (user.accountType === 'publisher') throw redirect('/hiring/start')
     throw redirect('/dashboard/onboarding')
   }
   return { user, workspace: result.workspace, role: result.role }
@@ -263,12 +266,12 @@ export async function requireWorkspaceAccess(args: Args) {
 export async function requirePosterAccess(args: Args) {
   const user = await requireUser(args)
 
-  if (user.accountType === 'job_seeker') {
+  if (user.accountType === 'candidate') {
     throw redirect('/candidate')
   }
 
-  if (user.accountType !== 'job_poster') {
-    throw redirect('/sign-in?type=job-poster')
+  if (user.accountType !== 'publisher') {
+    throw redirect('/sign-in?type=publisher')
   }
 
   return { user }

@@ -32,12 +32,20 @@ export default function PrivacyPage() {
   })
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-14 pb-24">
-      <div
-        className="prose prose-sm max-w-none"
-        style={{ color: 'var(--color-text-primary)' }}
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+    <div className="mx-auto" style={{ maxWidth: '860px' }}>
+      <div className="px-8 py-8 border-b" style={{ borderColor: 'var(--color-border)' }}>
+        <h1 className="text-4xl font-extrabold tracking-tight m-0"
+          style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-display)' }}>
+          Privacy Policy
+        </h1>
+      </div>
+      <div className="px-8 py-8">
+        <div
+          className="prose prose-sm max-w-none"
+          style={{ color: 'var(--color-text-primary)' }}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      </div>
     </div>
   )
 }

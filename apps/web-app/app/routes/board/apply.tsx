@@ -6,7 +6,7 @@ import { and, eq } from 'drizzle-orm'
 import type { Board } from '@jobuki/types'
 import { getJobSeekerTier, requireUser } from '../../lib/auth.server'
 import { deriveJobCategory } from '../../lib/board-categories'
-import { buildJobSeekerAuthPath } from '../../lib/auth-flow'
+import { buildCandidateAuthPath } from '../../lib/auth-flow'
 import { buildApplyAiCacheKey, readApplyAiCache, type ApplyAiContent } from '../../lib/apply-prep-cache.server'
 import { getApplicationLimitStatus } from '../../lib/job-seeker-limits.server'
 
@@ -165,7 +165,7 @@ export default function ApplyPrep() {
   const [applying, setApplying] = useState(false)
   const coverLetterRef = useRef<HTMLTextAreaElement>(null)
   const navigate = useNavigate()
-  const authPath = buildJobSeekerAuthPath({ redirectTo: `/apply/${job.id}` })
+  const authPath = buildCandidateAuthPath({ redirectTo: `/apply/${job.id}` })
 
   const interviewLinks = buildInterviewLinks(job.company, job.title, category)
 

@@ -17,9 +17,12 @@ type BoardSharedFooterProps = {
 }
 
 function getPortalHref(accountType?: string) {
+  if (accountType === 'candidate') return '/candidate'
+  if (accountType === 'publisher') return '/hiring'
+  if (accountType === 'board_creator') return '/dashboard'
+  // Support old values for backward compatibility
   if (accountType === 'job_seeker') return '/candidate'
   if (accountType === 'job_poster') return '/hiring'
-  if (accountType === 'board_creator') return '/dashboard'
   return null
 }
 

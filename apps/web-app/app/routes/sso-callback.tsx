@@ -9,9 +9,9 @@ export default function SSOCallback() {
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return
     const accountType = user?.unsafeMetadata?.accountType as string | undefined
-    if (accountType === 'job_seeker') {
+    if (accountType === 'candidate') {
       navigate('/candidate/start')
-    } else if (accountType === 'job_poster') {
+    } else if (accountType === 'publisher') {
       navigate('/hiring/start')
     } else {
       navigate('/dashboard')

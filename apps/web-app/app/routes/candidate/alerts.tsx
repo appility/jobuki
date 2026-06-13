@@ -32,7 +32,7 @@ async function resolveCurrentBoard(request: Request) {
 }
 
 export async function loader(args: LoaderFunctionArgs) {
-  const user = await requireUser(args, { type: 'job-seeker' })
+  const user = await requireUser(args, { type: 'candidate' })
   const db = getDb()
   const board = await resolveCurrentBoard(args.request)
   const maxAlertsPerUser = getMaxAlertsPerUser()
@@ -64,7 +64,7 @@ export async function loader(args: LoaderFunctionArgs) {
 }
 
 export async function action(args: ActionFunctionArgs) {
-  const user = await requireUser(args, { type: 'job-seeker' })
+  const user = await requireUser(args, { type: 'candidate' })
   const db = getDb()
   const maxAlertsPerUser = getMaxAlertsPerUser()
   const form = await args.request.formData()

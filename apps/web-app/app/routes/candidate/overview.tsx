@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm'
 import { requireUser } from '../../lib/auth.server'
 
 export async function loader(args: LoaderFunctionArgs) {
-  const user = await requireUser(args, { type: 'job-seeker' })
+  const user = await requireUser(args, { type: 'candidate' })
   const db = getDb()
   const [saved, applied, profile] = await Promise.all([
     db.select().from(savedJobs).where(eq(savedJobs.userId, user.id)),

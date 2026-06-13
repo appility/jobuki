@@ -10,6 +10,8 @@ export async function loader(args: LoaderFunctionArgs) {
 const NAV_ITEMS = [
   { to: '/admin', label: 'Permissions' },
   { to: '/admin/tiers', label: 'Tiers' },
+  { to: '/admin/publishers', label: 'Publishers' },
+  { to: '/admin/candidates', label: 'Candidates' },
 ]
 
 export default function PlatformAdminLayout() {

@@ -9,7 +9,7 @@ import { Button } from '../../components/ui/Button'
 import { clearApplyAiCacheForUser } from '../../lib/apply-prep-cache.server'
 
 export async function loader(args: LoaderFunctionArgs) {
-  const user = await requireUser(args, { type: 'job-seeker' })
+  const user = await requireUser(args, { type: 'candidate' })
   const db = getDb()
   const profile = await db.query.candidateProfiles.findFirst({
     where: eq(candidateProfiles.userId, user.id),
@@ -18,7 +18,7 @@ export async function loader(args: LoaderFunctionArgs) {
 }
 
 export async function action(args: ActionFunctionArgs) {
-  const user = await requireUser(args, { type: 'job-seeker' })
+  const user = await requireUser(args, { type: 'candidate' })
   const db = getDb()
   const form = await args.request.formData()
   const intent = (form.get('intent') as string | null) ?? 'save'

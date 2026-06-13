@@ -36,9 +36,15 @@ export default function SignUpPage() {
 
     try {
       const parsed = JSON.parse(raw) as Partial<PersistedSignUpContext>
-      const userType = parsed.userType === 'job-seeker' || parsed.userType === 'job-poster' || parsed.userType === 'board-creator'
-        ? parsed.userType
-        : 'board-creator'
+      let userType = parsed.userType
+      // Support old values
+      if (userType === 'job-seeker') userType = 'candidate'
+      if (userType === 'job-poster') userType = 'publisher'
+      if (userType === 'candidate' || userType === 'publisher' || userType === 'board-creator') {
+        // valid
+      } else {
+        userType = 'board-creator'
+      }
       const redirectTo = typeof parsed.redirectTo === 'string' ? parsed.redirectTo : null
       setPersistedContext({ userType, redirectTo })
     } catch {
@@ -56,16 +62,16 @@ export default function SignUpPage() {
     return persistedContext?.redirectTo ?? null
   }, [persistedContext?.redirectTo, queryRedirectTo, searchParams])
 
-  const fallbackByType = userType === 'job-seeker'
+  const fallbackByType = userType === 'candidate'
     ? '/candidate/start'
-    : userType === 'job-poster'
+    : userType === 'publisher'
       ? '/hiring/start'
       : '/dashboard'
   const afterSignUpUrl = requestedPath ?? fallbackByType
-  const accountTypeMetadata = userType === 'job-seeker'
-    ? 'job_seeker'
-    : userType === 'job-poster'
-      ? 'job_poster'
+  const accountTypeMetadata = userType === 'candidate'
+    ? 'candidate'
+    : userType === 'publisher'
+      ? 'publisher'
       : 'board_creator'
   const signInUrl = buildAuthPath({ type: userType, mode: 'sign-in', redirectTo: afterSignUpUrl })
 

@@ -3,7 +3,7 @@ import type { LoaderFunctionArgs } from 'react-router'
 import { requireUser, getWorkspaceForUser } from '../../lib/auth.server'
 
 export async function loader(args: LoaderFunctionArgs) {
-  const user = await requireUser(args, { type: 'job-seeker' })
+  const user = await requireUser(args, { type: 'candidate' })
   const workspaceMembership = await getWorkspaceForUser(user.id)
   if (workspaceMembership) {
     return { mode: 'creator' as const, user }

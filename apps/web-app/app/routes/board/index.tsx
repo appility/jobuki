@@ -1,5 +1,5 @@
 import { Form, Link, useLoaderData, useOutletContext } from 'react-router'
-import type { LoaderFunctionArgs } from 'react-router'
+import type { LoaderFunctionArgs, MetaFunction } from 'react-router'
 import { getDb, boards, jobs } from '@jobuki/db'
 import { and, count, desc, eq, ilike, or, sql } from 'drizzle-orm'
 import { resolveJobBoardThemeConfig, type Board } from '@jobuki/types'
@@ -196,6 +196,55 @@ export async function loader({ request }: LoaderFunctionArgs) {
     options: { categories, locations },
     boardCategories,
   }
+}
+
+export const meta: MetaFunction<typeof loader> = ({ location }) => {
+  // Board info comes from outlet context, not loader data
+  // So we build minimal SEO tags based on location
+  const url = new URL(location)
+  const canonicalUrl = `${url.protocol}//${url.hostname}/jobs`
+  const pageTitle = 'Jobs'
+  const description = 'Find and apply for open job opportunities. Browse, filter, and apply to roles that match your skills.'
+
+  const tags: any[] = [
+    { title: pageTitle },
+    { name: 'description', content: description },
+    { rel: 'canonical', href: canonicalUrl },
+    { property: 'og:title', content: pageTitle },
+    { property: 'og:description', content: description },
+    { property: 'og:type', content: 'website' },
+    { property: 'og:url', content: canonicalUrl },
+  ]
+
+  // Breadcrumb for jobs listing
+  const breadcrumbData = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Home',
+        item: `${url.protocol}//${url.hostname}/`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Jobs',
+        item: canonicalUrl,
+      },
+    ],
+  }
+
+  tags.push({
+    tag: 'script',
+    props: {
+      type: 'application/ld+json',
+      dangerouslySetInnerHTML: { __html: JSON.stringify(breadcrumbData) },
+    },
+  })
+
+  return tags
 }
 
 export default function BoardJobsPage() {

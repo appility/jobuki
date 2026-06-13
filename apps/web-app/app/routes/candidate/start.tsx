@@ -5,15 +5,15 @@ import { eq } from 'drizzle-orm'
 import { requireUser, getWorkspaceForUser } from '../../lib/auth.server'
 
 export async function loader(args: LoaderFunctionArgs) {
-  const user = await requireUser(args, { type: 'job-seeker' })
+  const user = await requireUser(args, { type: 'candidate' })
   const workspaceMembership = await getWorkspaceForUser(user.id)
   if (workspaceMembership) throw redirect('/dashboard')
 
-  if (user.accountType !== 'job_seeker') {
+  if (user.accountType !== 'candidate') {
     const db = getDb()
     await db
       .update(users)
-      .set({ accountType: 'job_seeker', updatedAt: new Date() })
+      .set({ accountType: 'candidate', updatedAt: new Date() })
       .where(eq(users.id, user.id))
   }
 

@@ -1,4 +1,4 @@
-export type AuthUserType = 'job-seeker' | 'job-poster' | 'board-creator'
+export type AuthUserType = 'candidate' | 'publisher' | 'board-creator'
 export type AuthMode = 'sign-in' | 'sign-up'
 
 export function toSafeLocalPath(input: string | null | undefined): string | null {
@@ -9,9 +9,13 @@ export function toSafeLocalPath(input: string | null | undefined): string | null
 }
 
 export function parseAuthUserType(input: string | null | undefined): AuthUserType {
-  if (input === 'job-seeker' || input === 'job-poster' || input === 'board-creator') {
+  // Support new values
+  if (input === 'candidate' || input === 'publisher' || input === 'board-creator') {
     return input
   }
+  // Support old values for backward compatibility
+  if (input === 'job-seeker') return 'candidate'
+  if (input === 'job-poster') return 'publisher'
   return 'board-creator'
 }
 
@@ -35,9 +39,9 @@ export function buildAuthPath(options: {
   return `/${mode}?${params.toString()}`
 }
 
-export function buildJobSeekerAuthPath(options?: { mode?: AuthMode; redirectTo?: string | null }) {
+export function buildCandidateAuthPath(options?: { mode?: AuthMode; redirectTo?: string | null }) {
   return buildAuthPath({
-    type: 'job-seeker',
+    type: 'candidate',
     mode: options?.mode,
     redirectTo: options?.redirectTo,
   })
