@@ -29,6 +29,11 @@ type MatchedJob = {
   boardName: string
 }
 
+type AlertMatches = {
+  row: AlertRow
+  matches: MatchedJob[]
+}
+
 export type ProcessJobAlertsOptions = {
   dryRun?: boolean
   limit?: number
@@ -193,37 +198,53 @@ async function findMatchesForAlert(row: AlertRow) {
   return candidates.filter((job) => matchesAlert(job, row.alert)).slice(0, MAX_EMAIL_MATCHES)
 }
 
-async function sendAlertEmail(row: AlertRow, matches: MatchedJob[]) {
+async function sendDigestEmail(items: AlertMatches[]) {
+  if (items.length === 0) return null
+
+  const row = items[0].row
   const resend = getResendClient()
   const from = getResendFrom()
-  const label = row.board?.name ?? 'Jobuki'
-  const subject = `${matches.length} new ${label} jobs for \"${row.alert.searchTerm}\"`
+  const totalMatches = items.reduce((sum, item) => sum + item.matches.length, 0)
+  const subject = `${totalMatches} new job${totalMatches === 1 ? '' : 's'} across ${items.length} alert${items.length === 1 ? '' : 's'}`
   const intro = row.user.name ? `Hi ${row.user.name.split(' ')[0]},` : 'Hi,'
 
   const html = [
     `<p>${escapeHtml(intro)}</p>`,
-    `<p>We found ${matches.length} new job${matches.length === 1 ? '' : 's'} matching <strong>${escapeHtml(row.alert.searchTerm)}</strong>.</p>`,
-    '<ul>',
-    ...matches.map((job) => {
-      const meta = [job.company, job.location, job.remotePolicy === 'remote' ? 'Remote' : job.remotePolicy === 'hybrid' ? 'Hybrid' : null]
-        .filter(Boolean)
-        .join(' · ')
-      return `<li><a href="${escapeHtml(buildJobUrl(job))}">${escapeHtml(job.title)}</a>${meta ? ` <span style="color:#666">(${escapeHtml(meta)})</span>` : ''}</li>`
+    `<p>We found ${totalMatches} new job${totalMatches === 1 ? '' : 's'} matching your active alerts.</p>`,
+    ...items.flatMap((item) => {
+      const label = item.row.board?.name ?? 'All boards'
+      return [
+        `<h3 style="margin:20px 0 8px">${escapeHtml(item.row.alert.searchTerm)} <span style="font-weight:400;color:#666">(${escapeHtml(label)})</span></h3>`,
+        '<ul>',
+        ...item.matches.map((job) => {
+          const meta = [job.company, job.location, job.remotePolicy === 'remote' ? 'Remote' : job.remotePolicy === 'hybrid' ? 'Hybrid' : null]
+            .filter(Boolean)
+            .join(' · ')
+          return `<li><a href="${escapeHtml(buildJobUrl(job))}">${escapeHtml(job.title)}</a>${meta ? ` <span style="color:#666">(${escapeHtml(meta)})</span>` : ''}</li>`
+        }),
+        '</ul>',
+      ]
     }),
-    '</ul>',
     '<p>You can pause or update this alert from your candidate dashboard.</p>',
   ].join('')
 
   const text = [
     intro,
     '',
-    `We found ${matches.length} new job${matches.length === 1 ? '' : 's'} matching "${row.alert.searchTerm}".`,
+    `We found ${totalMatches} new job${totalMatches === 1 ? '' : 's'} matching your active alerts.`,
     '',
-    ...matches.map((job) => {
-      const meta = [job.company, job.location, job.remotePolicy === 'remote' ? 'Remote' : job.remotePolicy === 'hybrid' ? 'Hybrid' : null]
-        .filter(Boolean)
-        .join(' · ')
-      return `- ${job.title}${meta ? ` (${meta})` : ''}\n  ${buildJobUrl(job)}`
+    ...items.flatMap((item) => {
+      const label = item.row.board?.name ?? 'All boards'
+      return [
+        `Alert: ${item.row.alert.searchTerm} (${label})`,
+        ...item.matches.map((job) => {
+          const meta = [job.company, job.location, job.remotePolicy === 'remote' ? 'Remote' : job.remotePolicy === 'hybrid' ? 'Hybrid' : null]
+            .filter(Boolean)
+            .join(' · ')
+          return `- ${job.title}${meta ? ` (${meta})` : ''}\n  ${buildJobUrl(job)}`
+        }),
+        '',
+      ]
     }),
     '',
     'You can pause or update this alert from your candidate dashboard.',
@@ -261,6 +282,8 @@ export async function processJobAlerts(options: ProcessJobAlertsOptions = {}): P
     results: [],
   }
 
+  const byUser = new Map<string, AlertMatches[]>()
+
   for (const row of alerts) {
     const matches = await findMatchesForAlert(row)
     summary.matchedJobs += matches.length
@@ -288,53 +311,67 @@ export async function processJobAlerts(options: ProcessJobAlertsOptions = {}): P
       continue
     }
 
+    const existing = byUser.get(row.user.id) ?? []
+    existing.push({ row, matches })
+    byUser.set(row.user.id, existing)
+  }
+
+  if (dryRun) {
+    return summary
+  }
+
+  for (const items of byUser.values()) {
     try {
-      const resendEmailId = await sendAlertEmail(row, matches)
+      const resendEmailId = await sendDigestEmail(items)
       const sentAt = new Date()
 
-      await db.insert(jobAlertLog).values({
-        alertId: row.alert.id,
-        userId: row.user.id,
-        jobCount: matches.length,
-        jobIds: matches.map((job) => job.id),
-        status: 'sent',
-        resendEmailId,
-        sentAt,
-      })
+      for (const item of items) {
+        await db.insert(jobAlertLog).values({
+          alertId: item.row.alert.id,
+          userId: item.row.user.id,
+          jobCount: item.matches.length,
+          jobIds: item.matches.map((job) => job.id),
+          status: 'sent',
+          resendEmailId,
+          sentAt,
+        })
 
-      await db
-        .update(jobAlerts)
-        .set({ lastNotifiedAt: sentAt, updatedAt: sentAt })
-        .where(eq(jobAlerts.id, row.alert.id))
+        await db
+          .update(jobAlerts)
+          .set({ lastNotifiedAt: sentAt, updatedAt: sentAt })
+          .where(eq(jobAlerts.id, item.row.alert.id))
 
-      summary.sent += 1
-      summary.results.push({
-        alertId: row.alert.id,
-        email: row.user.email,
-        searchTerm: row.alert.searchTerm,
-        matches: matches.length,
-        status: 'sent',
-      })
+        summary.sent += 1
+        summary.results.push({
+          alertId: item.row.alert.id,
+          email: item.row.user.email,
+          searchTerm: item.row.alert.searchTerm,
+          matches: item.matches.length,
+          status: 'sent',
+        })
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown email error'
 
-      await db.insert(jobAlertLog).values({
-        alertId: row.alert.id,
-        userId: row.user.id,
-        jobCount: matches.length,
-        jobIds: matches.map((job) => job.id),
-        status: 'failed',
-      })
+      for (const item of items) {
+        await db.insert(jobAlertLog).values({
+          alertId: item.row.alert.id,
+          userId: item.row.user.id,
+          jobCount: item.matches.length,
+          jobIds: item.matches.map((job) => job.id),
+          status: 'failed',
+        })
 
-      summary.failed += 1
-      summary.results.push({
-        alertId: row.alert.id,
-        email: row.user.email,
-        searchTerm: row.alert.searchTerm,
-        matches: matches.length,
-        status: 'failed',
-        error: message,
-      })
+        summary.failed += 1
+        summary.results.push({
+          alertId: item.row.alert.id,
+          email: item.row.user.email,
+          searchTerm: item.row.alert.searchTerm,
+          matches: item.matches.length,
+          status: 'failed',
+          error: message,
+        })
+      }
     }
   }
 

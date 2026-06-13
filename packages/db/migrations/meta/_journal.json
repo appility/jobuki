@@ -120,6 +120,13 @@
       "when": 1781564543791,
       "tag": "0016_chunky_spiral",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1781650943791,
+      "tag": "0017_opt_in_public_profiles",
+      "breakpoints": true
     }
   ]
 }

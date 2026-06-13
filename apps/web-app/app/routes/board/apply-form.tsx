@@ -4,32 +4,35 @@ import { redirect } from 'react-router'
 import { getDb, jobs, applications } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import type { Board } from '@jobuki/types'
+import { requireUser } from '../../lib/auth.server'
 
-export async function loader({ params }: LoaderFunctionArgs) {
+export async function loader(args: LoaderFunctionArgs) {
+  const user = await requireUser(args, { type: 'job-seeker' })
+  const { params } = args
   const db = getDb()
   const job = await db.query.jobs.findFirst({ where: eq(jobs.id, params.jobId!) })
   if (!job || job.status !== 'published') throw new Response('Not found', { status: 404 })
   if (job.externalApplyUrl || job.externalListingUrl) throw new Response('Not found', { status: 404 })
-  return { job }
+  return { job, user }
 }
 
-export async function action({ params, request }: ActionFunctionArgs) {
+export async function action(args: ActionFunctionArgs) {
+  const user = await requireUser(args, { type: 'job-seeker' })
+  const { params, request } = args
   const db = getDb()
   const job = await db.query.jobs.findFirst({ where: eq(jobs.id, params.jobId!) })
   if (!job || job.status !== 'published') throw new Response('Not found', { status: 404 })
 
   const form = await request.formData()
   const candidateName  = (form.get('candidateName') as string).trim()
-  const candidateEmail = (form.get('candidateEmail') as string).trim()
 
   if (!candidateName)  return { error: 'Name is required.' }
-  if (!candidateEmail) return { error: 'Email is required.' }
 
   await db.insert(applications).values({
     jobId:          job.id,
     boardId:        job.boardId,
     candidateName,
-    candidateEmail,
+    candidateEmail: user.email,
     candidatePhone: (form.get('candidatePhone') as string).trim() || null,
     coverLetter:    (form.get('coverLetter') as string).trim() || null,
     cvUrl:          (form.get('cvUrl') as string).trim() || null,
@@ -40,7 +43,7 @@ export async function action({ params, request }: ActionFunctionArgs) {
 }
 
 export default function Apply() {
-  const { job } = useLoaderData<typeof loader>()
+  const { job, user } = useLoaderData<typeof loader>()
   const { board } = useOutletContext<{ board: Board }>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
@@ -72,9 +75,8 @@ export default function Apply() {
                 placeholder="Jane Smith" required autoFocus />
             </FormField>
 
-            <FormField label="Email address" required>
-              <input name="candidateEmail" type="email" className="input w-full"
-                placeholder="jane@example.com" required />
+            <FormField label="Email address" hint="From your signed-in account">
+              <input type="email" className="input w-full" value={user.email} readOnly disabled />
             </FormField>
 
             <FormField label="Phone number" hint="Optional">

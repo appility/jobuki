@@ -4,13 +4,15 @@ import type { LoaderFunctionArgs } from 'react-router'
 import { getDb, jobs, savedJobs, candidateProfiles } from '@jobuki/db'
 import { and, eq } from 'drizzle-orm'
 import type { Board } from '@jobuki/types'
-import { getOptionalUser } from '../../lib/auth.server'
+import { requireUser } from '../../lib/auth.server'
 import { parseCvFromUrl } from '../../lib/cv-parser.server'
 import { generateApplyContent } from '../../lib/apply-ai.server'
 import { deriveJobCategory } from '../../lib/board-categories'
 import { buildJobSeekerAuthPath } from '../../lib/auth-flow'
 
-export async function loader({ params, request }: LoaderFunctionArgs) {
+export async function loader(args: LoaderFunctionArgs) {
+  const { params } = args
+  const user = await requireUser(args, { type: 'job-seeker' })
   const db = getDb()
   const job = await db.query.jobs.findFirst({ where: eq(jobs.id, params.jobId!) })
   if (!job || job.status !== 'published') throw new Response('Not found', { status: 404 })
@@ -18,27 +20,20 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   const externalUrl = job.externalApplyUrl || job.externalListingUrl || null
   const isExternal = Boolean(externalUrl)
 
-  let user = null
   let profile = null
   let isSaved = false
   let aiContent = null
 
-  try {
-    user = await getOptionalUser(request)
-  } catch { /* not signed in */ }
-
-  if (user) {
-    const [savedRow, profileRow] = await Promise.all([
-      db.query.savedJobs.findFirst({
-        where: and(eq(savedJobs.userId, user.id), eq(savedJobs.jobId, job.id)),
-      }),
-      db.query.candidateProfiles.findFirst({
-        where: eq(candidateProfiles.userId, user.id),
-      }),
-    ])
-    isSaved = Boolean(savedRow)
-    profile = profileRow ?? null
-  }
+  const [savedRow, profileRow] = await Promise.all([
+    db.query.savedJobs.findFirst({
+      where: and(eq(savedJobs.userId, user.id), eq(savedJobs.jobId, job.id)),
+    }),
+    db.query.candidateProfiles.findFirst({
+      where: eq(candidateProfiles.userId, user.id),
+    }),
+  ])
+  isSaved = Boolean(savedRow)
+  profile = profileRow ?? null
 
   // Generate AI content — use cached tips if no profile, otherwise always personalise
   const cvText = profile?.cvUrl ? await parseCvFromUrl(profile.cvUrl) : null
@@ -220,7 +215,7 @@ export default function ApplyPrep() {
     fd.set('boardId', job.boardId)
     // Log the application and auto-save the job — both non-blocking
     fetch('/api/log-apply', { method: 'POST', body: fd, credentials: 'include' }).catch(() => {})
-    if (user && !saved) {
+    if (!saved) {
       const savefd = new FormData()
       savefd.set('jobId', job.id)
       savefd.set('boardId', job.boardId)

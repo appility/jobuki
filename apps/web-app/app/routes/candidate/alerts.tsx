@@ -1,8 +1,9 @@
 import { Form, useActionData, useLoaderData, useNavigation } from 'react-router'
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
 import { boards, getDb, jobAlerts } from '@jobuki/db'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, count, desc, eq } from 'drizzle-orm'
 import { requireUser } from '../../lib/auth.server'
+import { getMaxAlertsPerUser } from '../../lib/alert-limits'
 
 function parseCategories(input: FormDataEntryValue | null) {
   return String(input ?? '')
@@ -40,6 +41,7 @@ export async function loader(args: LoaderFunctionArgs) {
   const user = await requireUser(args, { type: 'job-seeker' })
   const db = getDb()
   const board = await resolveCurrentBoard(args.request)
+  const maxAlertsPerUser = getMaxAlertsPerUser()
   let alertsAvailable = true
   let alerts: Array<{ alert: typeof jobAlerts.$inferSelect; boardName: string | null }> = []
 
@@ -57,6 +59,8 @@ export async function loader(args: LoaderFunctionArgs) {
 
   return {
     alertsAvailable,
+    maxAlertsPerUser,
+    canCreateAlert: alerts.length < maxAlertsPerUser,
     alerts: alerts.map(({ alert, boardName }) => ({
       ...alert,
       boardName,
@@ -69,6 +73,7 @@ export async function loader(args: LoaderFunctionArgs) {
 export async function action(args: ActionFunctionArgs) {
   const user = await requireUser(args, { type: 'job-seeker' })
   const db = getDb()
+  const maxAlertsPerUser = getMaxAlertsPerUser()
   const form = await args.request.formData()
   const intent = String(form.get('intent') ?? '').trim()
   const alertId = String(form.get('alertId') ?? '').trim()
@@ -81,6 +86,23 @@ export async function action(args: ActionFunctionArgs) {
 
     if (!searchTerm) {
       return { ok: false, error: 'Add a search term to create an alert.' }
+    }
+
+    try {
+      const [row] = await db
+        .select({ total: count() })
+        .from(jobAlerts)
+        .where(eq(jobAlerts.userId, user.id))
+      const totalAlerts = Number(row?.total ?? 0)
+      if (totalAlerts >= maxAlertsPerUser) {
+        return {
+          ok: false,
+          error: `You can create up to ${maxAlertsPerUser} alerts. Delete one to add another.`,
+        }
+      }
+    } catch (error) {
+      console.error('[candidate-alerts] limit check failed', error)
+      return { ok: false, error: getActionError(error, 'Unable to validate alert limit right now.') }
     }
 
     try {
@@ -151,10 +173,105 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 export default function CandidateAlerts() {
-  const { alerts, board, alertsAvailable } = useLoaderData<typeof loader>()
+  const { alerts, board, alertsAvailable, maxAlertsPerUser, canCreateAlert } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const saving = navigation.state === 'submitting'
+  const pendingForm = navigation.state === 'submitting' ? navigation.formData : null
+
+  let optimisticAlerts = alerts
+  if (pendingForm) {
+    const intent = String(pendingForm.get('intent') ?? '').trim()
+    const alertId = String(pendingForm.get('alertId') ?? '').trim()
+
+    if (intent === 'create') {
+      const searchTerm = String(pendingForm.get('searchTerm') ?? '').trim()
+      const categories = parseCategories(pendingForm.get('categories'))
+      const remoteOnly = pendingForm.get('remoteOnly') === 'on'
+      if (searchTerm) {
+        optimisticAlerts = [
+          {
+            id: '__optimistic__',
+            userId: '__optimistic__',
+            boardId: (String(pendingForm.get('boardId') ?? '').trim() || null),
+            searchTerm,
+            categories,
+            categoriesText: categories.join(', '),
+            remoteOnly,
+            enabled: true,
+            lastNotifiedAt: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            boardName: board?.name ?? null,
+          },
+          ...alerts,
+        ]
+      }
+    } else if (intent === 'delete' && alertId) {
+      optimisticAlerts = alerts.filter((alert) => alert.id !== alertId)
+    } else if (intent === 'toggle' && alertId) {
+      const enabled = String(pendingForm.get('enabled') ?? 'true') === 'true'
+      optimisticAlerts = alerts.map((alert) => alert.id === alertId
+        ? { ...alert, enabled }
+        : alert)
+    } else if (intent === 'update' && alertId) {
+      const searchTerm = String(pendingForm.get('searchTerm') ?? '').trim()
+      const categories = parseCategories(pendingForm.get('categories'))
+      const remoteOnly = pendingForm.get('remoteOnly') === 'on'
+      optimisticAlerts = alerts.map((alert) => alert.id === alertId
+        ? {
+            ...alert,
+            searchTerm: searchTerm || alert.searchTerm,
+            categories,
+            categoriesText: categories.join(', '),
+            remoteOnly,
+          }
+        : alert)
+    }
+  }
+
+  const canCreateAlertNow = optimisticAlerts.length < maxAlertsPerUser
+  const createAlertCard = (
+    <Form method="post" className="card p-5 space-y-4">
+      <input type="hidden" name="intent" value="create" />
+      <input type="hidden" name="boardId" value={board?.id ?? ''} />
+
+      <div>
+        <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Create a new alert</p>
+        <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+          {board ? `This alert will watch jobs on ${board.name}.` : 'This alert will watch jobs across your available boards.'}
+        </p>
+      </div>
+
+      <label className="block space-y-1.5">
+        <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Search term</span>
+        <input name="searchTerm" className="input w-full" placeholder="Product designer, Rust engineer, marketing lead..." />
+      </label>
+
+      <label className="block space-y-1.5">
+        <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Categories</span>
+        <input name="categories" className="input w-full" placeholder="Design, Engineering, Growth" />
+        <span className="text-xs block" style={{ color: 'var(--color-text-muted)' }}>Separate multiple categories with commas.</span>
+      </label>
+
+      <label className="inline-flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+        <input type="checkbox" name="remoteOnly" className="h-4 w-4" />
+        Remote roles only
+      </label>
+
+      <div className="pt-1">
+        <button type="submit" className="btn-primary text-sm px-4 py-2" disabled={saving || !canCreateAlertNow}>
+          {!canCreateAlertNow ? `Limit reached (${maxAlertsPerUser})` : saving ? 'Saving…' : 'Create alert'}
+        </button>
+      </div>
+
+      {!canCreateAlertNow && (
+        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          You have reached the alert limit. Delete an existing alert to create a new one.
+        </p>
+      )}
+    </Form>
+  )
 
   return (
     <div className="space-y-5 max-w-4xl">
@@ -164,6 +281,9 @@ export default function CandidateAlerts() {
         </h2>
         <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
           Save a search and get notified when fresh roles match it.
+        </p>
+        <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+          {optimisticAlerts.length}/{maxAlertsPerUser} alerts used.
         </p>
       </div>
 
@@ -185,49 +305,21 @@ export default function CandidateAlerts() {
         </div>
       )}
 
-      <Form method="post" className="card p-6 space-y-4">
-        <input type="hidden" name="intent" value="create" />
-        <input type="hidden" name="boardId" value={board?.id ?? ''} />
-
-        <div>
-          <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Create a new alert</p>
-          <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-            {board ? `This alert will watch jobs on ${board.name}.` : 'This alert will watch jobs across your available boards.'}
-          </p>
-        </div>
-
-        <label className="block space-y-1.5">
-          <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Search term</span>
-          <input name="searchTerm" className="input w-full" placeholder="Product designer, Rust engineer, marketing lead..." />
-        </label>
-
-        <label className="block space-y-1.5">
-          <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Categories</span>
-          <input name="categories" className="input w-full" placeholder="Design, Engineering, Growth" />
-          <span className="text-xs block" style={{ color: 'var(--color-text-muted)' }}>Separate multiple categories with commas.</span>
-        </label>
-
-        <label className="inline-flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-          <input type="checkbox" name="remoteOnly" className="h-4 w-4" />
-          Remote roles only
-        </label>
-
-        <button type="submit" className="btn-primary text-sm px-4 py-2" disabled={saving}>
-          {saving ? 'Saving…' : 'Create alert'}
-        </button>
-      </Form>
-
-      {alerts.length === 0 ? (
-        <div className="card p-10 text-center">
-          <p className="text-lg font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>No alerts yet</p>
-          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-            Create your first alert above to get notified when matching roles land.
-          </p>
-        </div>
+      {optimisticAlerts.length === 0 ? (
+        <>
+          {createAlertCard}
+          <div className="card p-10 text-center">
+            <p className="text-lg font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>No alerts yet</p>
+            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+              Create your first alert above to get notified when matching roles land.
+            </p>
+          </div>
+        </>
       ) : (
-        <div className="space-y-4">
-          {alerts.map((alert) => (
-            <Form key={alert.id} method="post" className="card p-5 space-y-4">
+        <>
+          <div className="space-y-4">
+            {optimisticAlerts.map((alert) => (
+              <Form key={alert.id} method="post" className="card p-5 space-y-4">
               <input type="hidden" name="alertId" value={alert.id} />
 
               <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
@@ -289,9 +381,11 @@ export default function CandidateAlerts() {
                   Delete
                 </button>
               </div>
-            </Form>
-          ))}
-        </div>
+              </Form>
+            ))}
+          </div>
+          {createAlertCard}
+        </>
       )}
     </div>
   )

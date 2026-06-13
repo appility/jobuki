@@ -7,6 +7,7 @@ type BoardSharedHeaderProps = {
   boardName: string
   logoUrl?: string | null
   boardConfig: JobBoardThemeConfig
+  navMode?: 'full' | 'browse-only'
 }
 
 type BoardSharedFooterProps = {
@@ -22,7 +23,7 @@ function getPortalHref(accountType?: string) {
   return null
 }
 
-export function BoardSharedHeader({ boardName, logoUrl, boardConfig }: BoardSharedHeaderProps) {
+export function BoardSharedHeader({ boardName, logoUrl, boardConfig, navMode = 'full' }: BoardSharedHeaderProps) {
   const { user } = useUser()
   const { signOut, openUserProfile } = useClerk()
   const navigate = useNavigate()
@@ -67,7 +68,7 @@ export function BoardSharedHeader({ boardName, logoUrl, boardConfig }: BoardShar
               height={36}
               loading="eager"
               decoding="async"
-              fetchPriority="high"
+              fetchpriority="high"
               style={{ height: 36, width: 'auto', display: 'block', objectFit: 'contain' }}
             />
           ) : (
@@ -88,15 +89,15 @@ export function BoardSharedHeader({ boardName, logoUrl, boardConfig }: BoardShar
           <Link to="/jobs" className="px-3.5 py-2 text-[13px] font-medium rounded-[10px] transition-colors text-text-secondary">
             Browse
           </Link>
-          {boardConfig.pages?.about?.enabled && (
-            <Link to="/about" className="px-3.5 py-2 text-[13px] font-medium rounded-[10px] transition-colors text-text-secondary">
-              About
-            </Link>
-          )}
-          {boardConfig.pages?.privacy?.enabled && (
-            <Link to="/privacy" className="px-3.5 py-2 text-[13px] font-medium rounded-[10px] transition-colors text-text-secondary">
-              Privacy
-            </Link>
+          {navMode === 'full' && (
+            <>
+              <Link to="/about" className="px-3.5 py-2 text-[13px] font-medium rounded-[10px] transition-colors text-text-secondary">
+                About
+              </Link>
+              <Link to="/privacy" className="px-3.5 py-2 text-[13px] font-medium rounded-[10px] transition-colors text-text-secondary">
+                Privacy
+              </Link>
+            </>
           )}
         </div>
 

@@ -10,6 +10,7 @@ export default [
   route('sign-up',       'routes/sign-up.tsx', { id: 'sign-up' }),
   route('sign-up/*',     'routes/sign-up.tsx', { id: 'sign-up-wildcard' }),
   route('sso-callback',  'routes/sso-callback.tsx'),
+  route('profile/:handle', 'routes/public-profile.tsx'),
 
   // ── API ───────────────────────────────────────────────────────────
   route('api/upload-sign', 'routes/api/upload-sign.ts'),

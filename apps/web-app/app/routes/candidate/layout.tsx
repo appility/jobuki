@@ -63,15 +63,15 @@ export default function CandidateLayout() {
       <style dangerouslySetInnerHTML={{ __html: css }} />
 
       <div
-        className="min-h-screen"
+        className="min-h-screen flex flex-col"
         style={{
           background:
             'radial-gradient(circle at 12% 15%, color-mix(in srgb, var(--color-primary) 9%, transparent) 0%, transparent 40%), radial-gradient(circle at 92% 82%, color-mix(in srgb, var(--color-accent) 8%, transparent) 0%, transparent 42%), var(--color-background)',
         }}
       >
-        <BoardSharedHeader boardName={boardName} logoUrl={logoUrl} boardConfig={boardConfig} />
+        <BoardSharedHeader boardName={boardName} logoUrl={logoUrl} boardConfig={boardConfig} navMode="browse-only" />
 
-        <div className="max-w-[1280px] mx-auto px-6 lg:px-10 py-6 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4 md:gap-6">
+        <div className="flex-1 max-w-[1280px] w-full mx-auto px-6 lg:px-10 py-6 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4 md:gap-6">
           <aside
             className="p-3 h-fit md:sticky md:top-[78px] rounded-[16px] border"
             style={{

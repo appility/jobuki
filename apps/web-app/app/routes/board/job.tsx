@@ -3,7 +3,7 @@ import { useState } from 'react'
 import type { LoaderFunctionArgs, MetaFunction } from 'react-router'
 import { getDb, jobs, boards, savedJobs } from '@jobuki/db'
 import { and, desc, eq, ne } from 'drizzle-orm'
-import { getOptionalUser } from '../../lib/auth.server'
+import { getAuthUser, getOptionalUser } from '../../lib/auth.server'
 import { marked } from 'marked'
 import { repairMojibake, sanitizeFeedHtml } from '../../lib/feed-html'
 import { resolveJobBoardThemeConfig, type Board } from '@jobuki/types'
@@ -32,7 +32,8 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   })
   const boardCategories = resolveBoardCategories(boardConfig.categories)
 
-  const user = await getOptionalUser(request)
+  const clerkUserId = await getAuthUser({ params, request })
+  const user = clerkUserId ? await getOptionalUser(request) : null
   const isSaved = user ? Boolean(await db.query.savedJobs.findFirst({
     where: and(eq(savedJobs.userId, user.id), eq(savedJobs.jobId, job.id)),
   })) : false
@@ -63,7 +64,16 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     },
   })
 
-  return { job, board, similarJobs, isPreviewMode, boardCategories, isSaved, isSignedIn: Boolean(user) }
+  return {
+    job,
+    board,
+    similarJobs,
+    isPreviewMode,
+    boardCategories,
+    isSaved,
+    isSignedIn: Boolean(clerkUserId),
+    accountType: user?.accountType ?? null,
+  }
 }
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
@@ -90,12 +100,17 @@ const TYPE_LABEL: Record<string, string> = {
 }
 
 export default function JobDetail() {
-  const { job, board, similarJobs, isPreviewMode, boardCategories, isSaved: initialSaved, isSignedIn } = useLoaderData<typeof loader>()
+  const { job, board, similarJobs, isPreviewMode, boardCategories, isSaved: initialSaved, isSignedIn, accountType } = useLoaderData<typeof loader>()
   const { board: layoutBoard } = useOutletContext<{ board: Board }>()
   const [saved, setSaved] = useState(initialSaved)
   const [savePending, setSavePending] = useState(false)
+  const needsJobSeekerAuth = !isSignedIn || accountType === 'job_poster' || accountType === 'board_creator'
   const authPath = buildJobSeekerAuthPath({ redirectTo: publicJobPath(job) })
-  const alertPath = isSignedIn ? '/candidate/alerts' : buildJobSeekerAuthPath({ redirectTo: '/candidate/alerts' })
+  const alertAuthPath = buildJobSeekerAuthPath({ redirectTo: '/candidate/alerts' })
+  const applyHref = needsJobSeekerAuth ? authPath : `/apply/${job.id}`
+  const alertPath = needsJobSeekerAuth ? alertAuthPath : '/candidate/alerts'
+  const applyLabel = 'Apply'
+  const alertLabel = 'Create email alert'
 
   async function toggleSave() {
     if (!isSignedIn) {
@@ -258,10 +273,10 @@ export default function JobDetail() {
           <aside className="space-y-3 lg:sticky lg:top-20">
             <section className="rounded-[18px] border border-border bg-surface p-[22px]">
               <Link
-                to={`/apply/${job.id}`}
+                to={applyHref}
                 className="w-full btn-primary inline-flex justify-center py-3.5 text-sm font-bold mb-2"
               >
-                Apply
+                {applyLabel}
               </Link>
               <button
                 type="button"
@@ -285,7 +300,7 @@ export default function JobDetail() {
                   backgroundColor: 'transparent',
                 }}
               >
-                {isSignedIn ? 'Create email alert' : 'Sign up for email alerts'}
+                {alertLabel}
               </Link>
             </section>
 

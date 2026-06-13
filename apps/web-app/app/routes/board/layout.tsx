@@ -62,7 +62,7 @@ export default function BoardLayout() {
       <style dangerouslySetInnerHTML={{ __html: css }} />
       {/* Preload hero image so browser discovers it before CSS is parsed */}
       {board.heroImageUrl && (
-        <link rel="preload" as="image" href={board.heroImageUrl} fetchPriority="high" />
+        <link rel="preload" as="image" href={board.heroImageUrl} fetchpriority="high" />
       )}
 
       {/* ── SEO ── */}
@@ -105,14 +105,18 @@ export default function BoardLayout() {
         }} />
       )}
 
-      <BoardSharedHeader
-        boardName={boardConfig.boardName}
-        logoUrl={hasLogo ? logoUrl : null}
-        boardConfig={boardConfig}
-      />
+      <div className="min-h-screen flex flex-col">
+        <BoardSharedHeader
+          boardName={boardConfig.boardName}
+          logoUrl={hasLogo ? logoUrl : null}
+          boardConfig={boardConfig}
+        />
 
-      <Outlet context={{ board }} />
-      <BoardSharedFooter boardName={boardConfig.boardName} boardConfig={boardConfig} footerText={board.footerText} />
+        <div className="flex-1">
+          <Outlet context={{ board }} />
+        </div>
+        <BoardSharedFooter boardName={boardConfig.boardName} boardConfig={boardConfig} footerText={board.footerText} />
+      </div>
     </>
   )
 }

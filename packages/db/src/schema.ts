@@ -197,6 +197,7 @@ export const candidateProfiles = pgTable('candidate_profiles', {
   skills:      text('skills').array(),
   cvUrl:       text('cv_url'),
   linkedinUrl: text('linkedin_url'),
+  publicProfileEnabled: boolean('public_profile_enabled').notNull().default(false),
   createdAt:   timestamp('created_at').notNull().defaultNow(),
   updatedAt:   timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ({

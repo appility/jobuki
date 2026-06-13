@@ -1,12 +1,49 @@
 import { Link, useLoaderData, useOutletContext } from 'react-router'
 import type { LoaderFunctionArgs } from 'react-router'
-import { getDb, jobs, candidateProfiles } from '@jobuki/db'
-import { eq } from 'drizzle-orm'
+import { getDb, jobs, candidateProfiles, applications } from '@jobuki/db'
+import { and, eq } from 'drizzle-orm'
 import type { Board } from '@jobuki/types'
-import { getOptionalUser } from '../../lib/auth.server'
+import { requireUser } from '../../lib/auth.server'
 import { deriveJobCategory } from '../../lib/board-categories'
 
 type InterviewTip = { q: string; hint: string }
+
+const PROFILE_STALE_DAYS = 90
+const PROFILE_COMPLETENESS_THRESHOLD = 80
+
+function getProfileCompletion(profile: {
+  name: string | null
+  headline: string | null
+  location: string | null
+  bio: string | null
+  skills: string[] | null
+  cvUrl: string | null
+  linkedinUrl: string | null
+}) {
+  const checks = [
+    Boolean(profile.name?.trim()),
+    Boolean(profile.headline?.trim()),
+    Boolean(profile.location?.trim()),
+    Boolean(profile.bio?.trim()),
+    Array.isArray(profile.skills) && profile.skills.length > 0,
+    Boolean(profile.cvUrl?.trim()),
+    Boolean(profile.linkedinUrl?.trim()),
+  ]
+
+  const completed = checks.filter(Boolean).length
+  const percentage = Math.round((completed / checks.length) * 100)
+  return { completed, total: checks.length, percentage }
+}
+
+function isProfileStale(updatedAt: string | Date | null | undefined) {
+  if (!updatedAt) return false
+  const lastUpdated = new Date(updatedAt)
+  if (Number.isNaN(lastUpdated.getTime())) return false
+
+  const elapsedMs = Date.now() - lastUpdated.getTime()
+  const elapsedDays = elapsedMs / (1000 * 60 * 60 * 24)
+  return elapsedDays > PROFILE_STALE_DAYS
+}
 
 async function generateInterviewTips(jobTitle: string, company: string | null, description: string): Promise<InterviewTip[]> {
   const key = process.env.OPENAI_API_KEY
@@ -89,15 +126,45 @@ function buildInterviewLinks(company: string | null, title: string, category: st
   return byCategory[category ?? ''] ?? [glassdoor, linkedin]
 }
 
-export async function loader({ params, request }: LoaderFunctionArgs) {
+export async function loader(args: LoaderFunctionArgs) {
+  const { params } = args
   const db = getDb()
   const job = await db.query.jobs.findFirst({ where: eq(jobs.id, params.jobId!) })
   if (!job) throw new Response('Not found', { status: 404 })
 
-  const user = await getOptionalUser(request)
-  const profile = user
-    ? await db.query.candidateProfiles.findFirst({ where: eq(candidateProfiles.userId, user.id) })
-    : null
+  const user = await requireUser(args, { type: 'job-seeker' })
+  const isExternal = Boolean(job.externalApplyUrl || job.externalListingUrl)
+  let trackedInApplications = false
+
+  let profile = null
+  if (user) {
+    profile = await db.query.candidateProfiles.findFirst({ where: eq(candidateProfiles.userId, user.id) })
+
+    if (isExternal) {
+      try {
+        const existing = await db.query.applications.findFirst({
+          where: and(eq(applications.jobId, job.id), eq(applications.candidateEmail, user.email)),
+        })
+
+        if (!existing) {
+          await db.insert(applications).values({
+            jobId: job.id,
+            boardId: job.boardId,
+            candidateName: profile?.name ?? user.name ?? 'Unknown',
+            candidateEmail: user.email,
+            candidatePhone: null,
+            coverLetter: null,
+            cvUrl: profile?.cvUrl ?? null,
+            linkedinUrl: profile?.linkedinUrl ?? null,
+          })
+        }
+
+        trackedInApplications = true
+      } catch {
+        trackedInApplications = false
+      }
+    }
+  }
 
   const category = deriveJobCategory(job, [])
   const [interviewTips] = await Promise.all([
@@ -107,13 +174,20 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   const followUp = followUpAdvice(job.company)
   const resources = buildInterviewLinks(job.company, job.title, category)
 
-  return { job, profile, interviewTips, followUp, resources, category }
+  return { job, profile, interviewTips, followUp, resources, category, trackedInApplications }
 }
 
 export default function ApplySuccess() {
-  const { job, profile, interviewTips, followUp, resources } = useLoaderData<typeof loader>()
+  const { job, profile, interviewTips, followUp, resources, trackedInApplications } = useLoaderData<typeof loader>()
   const { board } = useOutletContext<{ board: Board }>()
   const isExternal = Boolean(job.externalApplyUrl || job.externalListingUrl)
+  const profileCompletion = profile ? getProfileCompletion(profile) : null
+  const shouldPromptProfileSetup = !profile || (profileCompletion?.percentage ?? 0) < PROFILE_COMPLETENESS_THRESHOLD
+  const shouldPromptProfileRefresh = Boolean(
+    profile &&
+    (profileCompletion?.percentage ?? 0) >= PROFILE_COMPLETENESS_THRESHOLD &&
+    isProfileStale(profile.updatedAt),
+  )
 
   return (
     <div className="min-h-screen bg-background">
@@ -130,7 +204,9 @@ export default function ApplySuccess() {
           </h1>
           <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
             {isExternal
-              ? `You've opened the application for ${job.title}${job.company ? ` at ${job.company}` : ''}. It's been saved to your applications.`
+              ? trackedInApplications
+                ? `You've opened the application for ${job.title}${job.company ? ` at ${job.company}` : ''}. It's been saved to your applications.`
+                : `You've opened the application for ${job.title}${job.company ? ` at ${job.company}` : ''}. Sign in to track it in your applications.`
               : `Your application for ${job.title}${job.company ? ` at ${job.company}` : ''} has been sent.`}
           </p>
         </div>
@@ -168,18 +244,34 @@ export default function ApplySuccess() {
           </div>
 
           {/* Profile nudge or resources */}
-          {!profile ? (
+          {shouldPromptProfileSetup ? (
             <div className="rounded-[18px] border border-border bg-surface px-7 py-6 flex flex-col justify-between">
               <div>
                 <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-3" style={{ color: 'var(--color-text-secondary)' }}>
                   Speed up future applications
                 </h2>
                 <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                  Add your profile once and get a personalised cover letter and match analysis on every role you apply to.
+                  {!profile
+                    ? 'Add your profile once and get a personalised cover letter and match analysis on every role you apply to.'
+                    : `Set up your profile if it's under 80% complete (${profileCompletion?.percentage ?? 0}% complete).`}
                 </p>
               </div>
               <Link to="/candidate/profile" className="btn-primary mt-5 text-sm inline-flex justify-center py-2.5">
-                Set up profile →
+                {!profile ? 'Set up profile →' : 'Set up your profile →'}
+              </Link>
+            </div>
+          ) : shouldPromptProfileRefresh ? (
+            <div className="rounded-[18px] border border-border bg-surface px-7 py-6 flex flex-col justify-between">
+              <div>
+                <h2 className="text-[10px] font-extrabold uppercase tracking-[0.12em] mb-3" style={{ color: 'var(--color-text-secondary)' }}>
+                  Keep your profile fresh
+                </h2>
+                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  Your profile is mostly complete. Make sure you keep your profile up-to-date.
+                </p>
+              </div>
+              <Link to="/candidate/profile" className="btn-primary mt-5 text-sm inline-flex justify-center py-2.5">
+                Update your profile →
               </Link>
             </div>
           ) : resources.length > 0 ? (
