@@ -1,4 +1,4 @@
-import { useLoaderData, Form, useNavigation } from 'react-router'
+import { useLoaderData, Form, useNavigation, Link } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess } from '../../../lib/auth.server'
 import { getDb, applications, jobs, boards } from '@jobuki/db'
@@ -12,6 +12,7 @@ export async function loader(args: LoaderFunctionArgs) {
     .select({
       application: applications,
       jobTitle: jobs.title,
+      jobId: jobs.id,
       boardName: boards.name,
     })
     .from(applications)
@@ -20,7 +21,15 @@ export async function loader(args: LoaderFunctionArgs) {
     .where(eq(boards.workspaceId, workspace.id))
     .orderBy(applications.createdAt)
 
-  return { applications: rows }
+  // Group by job
+  const byJob = new Map<string, typeof rows>()
+  rows.forEach(row => {
+    const key = row.jobId
+    if (!byJob.has(key)) byJob.set(key, [])
+    byJob.get(key)!.push(row)
+  })
+
+  return { applications: rows, byJob: Array.from(byJob.entries()) }
 }
 
 export async function action(args: ActionFunctionArgs) {
@@ -57,7 +66,7 @@ const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
 }
 
 export default function ApplicationsIndex() {
-  const { applications: rows } = useLoaderData<typeof loader>()
+  const { applications: rows, byJob } = useLoaderData<typeof loader>()
   const navigation = useNavigation()
 
   return (
@@ -82,66 +91,87 @@ export default function ApplicationsIndex() {
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
-          {rows.map(({ application, jobTitle, boardName }) => {
-            const style = STATUS_STYLE[application.status] ?? STATUS_STYLE.new
+        <div className="flex flex-col gap-6">
+          {byJob.map(([jobId, jobApps]) => {
+            const firstApp = jobApps[0]
             return (
-              <div key={application.id} className="card p-4">
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                        {application.candidateName}
-                      </span>
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
-                        style={{ backgroundColor: style.bg, color: style.text }}>
-                        {application.status}
-                      </span>
-                    </div>
-                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                      {application.candidateEmail}
-                      {application.candidatePhone && ` · ${application.candidatePhone}`}
-                    </p>
+              <div key={jobId}>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h2 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                      {firstApp.jobTitle}
+                    </h2>
                     <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                      Applied to <span style={{ color: 'var(--color-text-secondary)' }}>{jobTitle}</span> on {boardName}
+                      {jobApps.length} application{jobApps.length !== 1 ? 's' : ''}
                     </p>
                   </div>
-
-                  <Form method="post" className="flex items-center gap-2 shrink-0 ml-4">
-                    <input type="hidden" name="applicationId" value={application.id} />
-                    <select
-                      name="status"
-                      defaultValue={application.status}
-                      className="input text-sm py-1"
-                      onChange={(e) => e.currentTarget.form?.requestSubmit()}
-                    >
-                      {STATUS_OPTIONS.map(s => (
-                        <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-                      ))}
-                    </select>
-                  </Form>
-                </div>
-
-                {application.coverLetter && (
-                  <details className="mt-3">
-                    <summary className="text-xs cursor-pointer font-medium"
-                      style={{ color: 'var(--color-text-muted)' }}>
-                      Cover letter
-                    </summary>
-                    <p className="text-sm mt-2 leading-relaxed whitespace-pre-line"
-                      style={{ color: 'var(--color-text-secondary)' }}>
-                      {application.coverLetter}
-                    </p>
-                  </details>
-                )}
-
-                {application.cvUrl && (
-                  <a href={application.cvUrl} target="_blank" rel="noopener noreferrer"
-                    className="text-xs no-underline mt-2 inline-block"
+                  <Link to={`/admin/applications/${jobId}`}
+                    className="text-xs no-underline font-medium"
                     style={{ color: 'var(--color-primary)' }}>
-                    View CV ↗
-                  </a>
-                )}
+                    View pipeline →
+                  </Link>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {jobApps.map(({ application }) => {
+                    const style = STATUS_STYLE[application.status] ?? STATUS_STYLE.new
+                    return (
+                      <div key={application.id} className="card p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                                {application.candidateName}
+                              </span>
+                              <span className="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
+                                style={{ backgroundColor: style.bg, color: style.text }}>
+                                {application.status}
+                              </span>
+                            </div>
+                            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                              {application.candidateEmail}
+                              {application.candidatePhone && ` · ${application.candidatePhone}`}
+                            </p>
+                          </div>
+
+                          <Form method="post" className="flex items-center gap-2 shrink-0 ml-4">
+                            <input type="hidden" name="applicationId" value={application.id} />
+                            <select
+                              name="status"
+                              defaultValue={application.status}
+                              className="input text-sm py-1"
+                              onChange={(e) => e.currentTarget.form?.requestSubmit()}
+                            >
+                              {STATUS_OPTIONS.map(s => (
+                                <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                              ))}
+                            </select>
+                          </Form>
+                        </div>
+
+                        {application.coverLetter && (
+                          <details className="mt-3">
+                            <summary className="text-xs cursor-pointer font-medium"
+                              style={{ color: 'var(--color-text-muted)' }}>
+                              Cover letter
+                            </summary>
+                            <p className="text-sm mt-2 leading-relaxed whitespace-pre-line"
+                              style={{ color: 'var(--color-text-secondary)' }}>
+                              {application.coverLetter}
+                            </p>
+                          </details>
+                        )}
+
+                        {application.cvUrl && (
+                          <a href={application.cvUrl} target="_blank" rel="noopener noreferrer"
+                            className="text-xs no-underline mt-2 inline-block"
+                            style={{ color: 'var(--color-primary)' }}>
+                            View CV ↗
+                          </a>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             )
           })}

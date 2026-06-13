@@ -221,6 +221,29 @@ export const applications = pgTable('applications', {
   updatedAt:      timestamp('updated_at').notNull().defaultNow(),
 })
 
+// ── Application Status History ──────────────────────────────────────
+export const applicationStatusHistory = pgTable('application_status_history', {
+  id:               text('id').primaryKey().$defaultFn(() => createId()),
+  applicationId:    text('application_id').notNull().references(() => applications.id, { onDelete: 'cascade' }),
+  status:           applicationStatusEnum('status').notNull(),
+  changedByUserId:  text('changed_by_user_id').notNull(),
+  note:             text('note'),
+  createdAt:        timestamp('created_at').notNull().defaultNow(),
+}, (t) => ({
+  appIdx: index('application_status_history_app_idx').on(t.applicationId),
+}))
+
+// ── Application Notes ───────────────────────────────────────────────
+export const applicationNotes = pgTable('application_notes', {
+  id:              text('id').primaryKey().$defaultFn(() => createId()),
+  applicationId:   text('application_id').notNull().references(() => applications.id, { onDelete: 'cascade' }),
+  authorUserId:    text('author_user_id').notNull(),
+  body:            text('body').notNull(),
+  createdAt:       timestamp('created_at').notNull().defaultNow(),
+}, (t) => ({
+  appIdx: index('application_notes_app_idx').on(t.applicationId),
+}))
+
 // ── Relations ────────────────────────────────────────────────────────
 export const usersRelations = relations(users, ({ many }) => ({
   workspaceMembers: many(workspaceMembers),
@@ -268,9 +291,19 @@ export const jobsRelations = relations(jobs, ({ one, many }) => ({
   applications: many(applications),
 }))
 
-export const applicationsRelations = relations(applications, ({ one }) => ({
+export const applicationsRelations = relations(applications, ({ one, many }) => ({
   job:   one(jobs,   { fields: [applications.jobId],   references: [jobs.id] }),
   board: one(boards, { fields: [applications.boardId], references: [boards.id] }),
+  statusHistory: many(applicationStatusHistory),
+  notes: many(applicationNotes),
+}))
+
+export const applicationStatusHistoryRelations = relations(applicationStatusHistory, ({ one }) => ({
+  application: one(applications, { fields: [applicationStatusHistory.applicationId], references: [applications.id] }),
+}))
+
+export const applicationNotesRelations = relations(applicationNotes, ({ one }) => ({
+  application: one(applications, { fields: [applicationNotes.applicationId], references: [applications.id] }),
 }))
 
 export const jobAlertsRelations = relations(jobAlerts, ({ one, many }) => ({
