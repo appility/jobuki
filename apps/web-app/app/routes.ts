@@ -10,7 +10,6 @@ export default [
   route('sign-up',       'routes/sign-up.tsx', { id: 'sign-up' }),
   route('sign-up/*',     'routes/sign-up.tsx', { id: 'sign-up-wildcard' }),
   route('sso-callback',  'routes/sso-callback.tsx'),
-  route('profile/:handle', 'routes/$handle.tsx'),
 
   // ── API ───────────────────────────────────────────────────────────
   route('api/upload-sign', 'routes/api/upload-sign.ts'),
@@ -88,5 +87,6 @@ export default [
       route('apply/:jobId/form', 'routes/board/apply-form.tsx'),
       route('apply/:jobId/success', 'routes/board/apply-success.tsx'),
     ]),
+    route('profile/:handle', 'routes/$handle.tsx'),
   ]),
 ] satisfies RouteConfig

@@ -38,8 +38,7 @@ export const meta: MetaFunction<typeof loader> = ({ data, location }) => {
   const headline = data.profile.headline?.trim()
   const description = headline || `View ${name}'s public candidate profile.`
 
-  const url = new URL(location)
-  const canonicalUrl = `${url.protocol}//${url.hostname}${url.pathname.split('?')[0]}`
+  const canonicalUrl = location.pathname.split('?')[0]
 
   const tags: any[] = [
     { title: `${name} | Candidate Profile` },

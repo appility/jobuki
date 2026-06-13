@@ -201,8 +201,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export const meta: MetaFunction<typeof loader> = ({ location }) => {
   // Board info comes from outlet context, not loader data
   // So we build minimal SEO tags based on location
-  const url = new URL(location)
-  const canonicalUrl = `${url.protocol}//${url.hostname}/jobs`
+  // Note: location is a Location object, construct URL carefully
+  const canonicalUrl = location.pathname.startsWith('/jobs')
+    ? location.pathname
+    : '/jobs'
   const pageTitle = 'Jobs'
   const description = 'Find and apply for open job opportunities. Browse, filter, and apply to roles that match your skills.'
 
@@ -225,7 +227,7 @@ export const meta: MetaFunction<typeof loader> = ({ location }) => {
         '@type': 'ListItem',
         position: 1,
         name: 'Home',
-        item: `${url.protocol}//${url.hostname}/`,
+        item: '/',
       },
       {
         '@type': 'ListItem',
