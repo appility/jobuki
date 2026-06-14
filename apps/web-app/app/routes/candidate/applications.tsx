@@ -46,16 +46,16 @@ export default function CandidateApplications() {
             const s = STATUS_STYLES[app.status] ?? STATUS_STYLES.new
             const date = new Date(app.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
             return (
-              <div key={app.id} className="card flex items-center justify-between gap-4 p-5">
-                <div className="min-w-0 flex-1">
-                  <Link to={publicJobPath(job)} className="text-sm font-bold no-underline hover:underline font-display" style={{ color: 'var(--color-text-primary)' }}>
+              <div key={app.id} className="card p-5 flex flex-col gap-3">
+                <div>
+                  <Link to={publicJobPath(job)} className="text-sm font-bold no-underline hover:underline font-display block" style={{ color: 'var(--color-text-primary)' }}>
                     {job.title}
                   </Link>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
                     {[job.company, job.location].filter(Boolean).join(' · ')} · Applied {date}
                   </p>
                 </div>
-                <div className="shrink-0 flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: s.bg, color: s.fg }}>
                     {s.label}
                   </span>

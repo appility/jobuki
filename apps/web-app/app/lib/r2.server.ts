@@ -9,9 +9,17 @@ export const ALLOWED_IMAGE_MIME_TYPES = [
   'image/svg+xml',
 ] as const
 
+export const ALLOWED_CV_MIME_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+] as const
+
 export const MAX_UPLOAD_BYTES = {
   logo: 2 * 1024 * 1024,
   header: 6 * 1024 * 1024,
+  cv: 10 * 1024 * 1024,
 } as const
 
 type UploadKind = keyof typeof MAX_UPLOAD_BYTES
@@ -88,6 +96,14 @@ function extensionForMime(contentType: string) {
       return 'webp'
     case 'image/svg+xml':
       return 'svg'
+    case 'application/pdf':
+      return 'pdf'
+    case 'application/msword':
+      return 'doc'
+    case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+      return 'docx'
+    case 'text/plain':
+      return 'txt'
     default:
       return 'bin'
   }
@@ -151,6 +167,35 @@ export async function uploadBoardAsset(params: {
 
   return {
     key,
+    publicUrl: `${config.publicBaseUrl}/${key}`,
+  }
+}
+
+export async function createCvUploadUrl(params: {
+  userId: string
+  contentType: string
+}) {
+  if (!ALLOWED_CV_MIME_TYPES.includes(params.contentType as any)) {
+    throw new Error(`Unsupported CV type: ${params.contentType}`)
+  }
+
+  const config = getR2Config()
+  const client = buildClient(config)
+  const ext = extensionForMime(params.contentType)
+  const key = `cvs/${params.userId}/${randomUUID()}.${ext}`
+
+  const command = new PutObjectCommand({
+    Bucket: config.bucket,
+    Key: key,
+    ContentType: params.contentType,
+    CacheControl: 'public, max-age=31536000, immutable',
+  })
+
+  const uploadUrl = await getSignedUrl(client, command, { expiresIn: 60 })
+
+  return {
+    key,
+    uploadUrl,
     publicUrl: `${config.publicBaseUrl}/${key}`,
   }
 }

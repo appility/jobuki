@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm'
 import { requireUser } from '../../lib/auth.server'
 import { toPublicProfileHandle } from '../../lib/public-candidate-profile'
 import { Button } from '../../components/ui/Button'
+import { CvUploadCard } from '../../components/cv-upload-card'
 import { clearApplyAiCacheForUser } from '../../lib/apply-prep-cache.server'
 
 export async function loader(args: LoaderFunctionArgs) {
@@ -157,9 +158,6 @@ export default function CandidateProfile() {
             placeholder="Solidity, TypeScript, React"
           />
         </Field>
-        <Field label="CV URL" hint="Google Drive, Dropbox, or any public link">
-          <input name="cvUrl" type="url" defaultValue={profile?.cvUrl ?? ''} className="input w-full" placeholder="https://drive.google.com/…" />
-        </Field>
         <Field label="LinkedIn URL">
           <input name="linkedinUrl" type="url" defaultValue={profile?.linkedinUrl ?? ''} className="input w-full" placeholder="https://linkedin.com/in/…" />
         </Field>
@@ -175,6 +173,12 @@ export default function CandidateProfile() {
           Save profile
         </Button>
       </Form>
+
+      <CvUploadCard
+        cvUrl={profile?.cvUrl}
+        cvExtractedText={profile?.cvExtractedText}
+        lastUpdated={profile?.updatedAt}
+      />
 
       {/* Public profile — separate form so toggle submits independently */}
       <visibilityFetcher.Form method="post" className="card p-5">
