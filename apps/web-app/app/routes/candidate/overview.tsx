@@ -6,7 +6,17 @@ import { requireUser } from '../../lib/auth.server'
 import { publicJobPath } from '../../lib/public-job-path'
 import { CvUploadCard } from '../../components/cv-upload-card'
 
-export async function loader(args: LoaderFunctionArgs) {
+export async function loader(args: LoaderFunctionArgs): Promise<{
+  user: any
+  savedJobs: any[]
+  applications: any[]
+  alertCount: number
+  profileComplete: number
+  profileTotal: number
+  profileNeedsUpdate: boolean
+  cvNeedsUpdate: boolean
+  profile: any
+}> {
   const user = await requireUser(args, { type: 'candidate' })
   const db = getDb()
   let profile = null
@@ -50,7 +60,8 @@ export async function loader(args: LoaderFunctionArgs) {
   const profileComplete = profile
     ? [profile.name, profile.headline, profile.bio, profile.cvUrl, profile.linkedinUrl].filter(Boolean).length
     : 0
-  const profileNeedsUpdate = pct < 100 || (profile && profile.updatedAt
+  const profileTotal = 5
+  const profileNeedsUpdate = (profileComplete < profileTotal) || (profile && profile.updatedAt
     ? new Date().getTime() - new Date(profile.updatedAt).getTime() > 90 * 24 * 60 * 60 * 1000
     : !profile)
 
@@ -62,11 +73,12 @@ export async function loader(args: LoaderFunctionArgs) {
   const appliedJobIds = new Set(applied.map(a => a.job.id))
   const savedJobsOnly = saved.filter(s => !appliedJobIds.has(s.job.id))
 
-  return { user, savedJobs: savedJobsOnly, applications: applied, alertCount, profileComplete, profileTotal: 5, profileNeedsUpdate }
+  return { user, savedJobs: savedJobsOnly, applications: applied, alertCount, profileComplete, profileTotal, profileNeedsUpdate, cvNeedsUpdate, profile }
 }
 
 export default function CandidateOverview() {
-  const { user, savedJobs, applications, alertCount, profileComplete, profileTotal, profileNeedsUpdate } = useLoaderData<typeof loader>()
+  const loaderData = useLoaderData<typeof loader>()
+  const { user, savedJobs, applications, alertCount, profileComplete, profileTotal, profileNeedsUpdate, cvNeedsUpdate } = loaderData
   const pct = Math.round((profileComplete / profileTotal) * 100)
 
   return (
