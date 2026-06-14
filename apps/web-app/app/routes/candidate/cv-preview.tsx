@@ -1,17 +1,16 @@
 import React, { useEffect, useState } from 'react'
-import { useSearchParams, useNavigate } from 'react-router'
+import { useNavigate, useLoaderData } from 'react-router'
 import { requireUser } from '../../lib/auth.server'
 import type { LoaderFunctionArgs } from 'react-router'
 
 export async function loader(args: LoaderFunctionArgs) {
-  await requireUser(args, { type: 'candidate' })
-  return {}
+  const user = await requireUser(args, { type: 'candidate' })
+  return { userId: user.id }
 }
 
 export default function CvPreview() {
-  const [searchParams] = useSearchParams()
+  const loaderData = useLoaderData<typeof loader>()
   const navigate = useNavigate()
-  const cvUrl = searchParams.get('url') || ''
   const [content, setContent] = useState<React.ReactNode>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -95,8 +94,8 @@ export default function CvPreview() {
   useEffect(() => {
     const loadPreview = async () => {
       try {
-        // Fetch file through our proxy endpoint
-        const fileResponse = await fetch(`/api/cv-download?url=${encodeURIComponent(cvUrl)}`)
+        // Fetch file through our proxy endpoint (no URL in browser)
+        const fileResponse = await fetch(`/api/cv-download`)
         if (!fileResponse.ok) throw new Error('Failed to fetch file')
 
         const contentType = fileResponse.headers.get('content-type') || 'application/octet-stream'

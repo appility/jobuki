@@ -57,7 +57,7 @@ export async function loader(args: LoaderFunctionArgs): Promise<{
 
 export default function CandidateOverview() {
   const loaderData = useLoaderData<typeof loader>()
-  const { user, savedJobs, applications, alertCount, profileComplete, profileTotal, profileNeedsUpdate, cvNeedsUpdate } = loaderData
+  const { user, savedJobs, applications, alertCount, profileComplete, profileTotal, profileNeedsUpdate, cvNeedsUpdate, profile } = loaderData
   const pct = Math.round((profileComplete / profileTotal) * 100)
 
   return (

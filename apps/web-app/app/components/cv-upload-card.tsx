@@ -91,7 +91,7 @@ export function CvUploadCard({ cvUrl, cvExtractedText, lastUpdated }: CvUploadCa
               )}
             </div>
             <button
-              onClick={() => navigate(`/candidate/cv-preview?url=${encodeURIComponent(cvUrl || '')}`)}
+              onClick={() => navigate(`/candidate/cv-preview`)}
               className="text-xs no-underline font-medium px-3 py-1.5 rounded-lg"
               style={{ color: 'var(--color-primary)', border: '1px solid var(--color-primary)', backgroundColor: 'transparent', cursor: 'pointer' }}
             >

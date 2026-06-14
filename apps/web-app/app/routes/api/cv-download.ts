@@ -1,23 +1,24 @@
 import type { LoaderFunctionArgs } from 'react-router'
+import { getDb, candidateProfiles } from '@jobuki/db'
+import { eq } from 'drizzle-orm'
 import { requireUser } from '../../lib/auth.server'
 import { createCvDownloadUrl } from '../../lib/r2.server'
 
 export async function loader(args: LoaderFunctionArgs) {
-  await requireUser(args, { type: 'candidate' })
+  const user = await requireUser(args, { type: 'candidate' })
+  const db = getDb()
 
-  const url = new URL(args.request.url)
-  const cvUrl = url.searchParams.get('url')
+  // Get the user's CV URL from their profile
+  const profile = await db.query.candidateProfiles.findFirst({
+    where: eq(candidateProfiles.userId, user.id),
+  })
 
-  if (!cvUrl) {
-    throw new Response('CV URL required', { status: 400 })
+  if (!profile?.cvUrl) {
+    throw new Response('No CV found', { status: 404 })
   }
 
   try {
-    // Validate it's an R2 URL
-    const urlObj = new URL(cvUrl)
-    if (!urlObj.hostname.includes('r2.dev')) {
-      throw new Response('Invalid CV URL', { status: 400 })
-    }
+    const cvUrl = profile.cvUrl
 
     // Get presigned download URL
     const downloadUrl = await createCvDownloadUrl(cvUrl)
