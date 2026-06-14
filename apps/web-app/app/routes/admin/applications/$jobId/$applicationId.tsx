@@ -1,8 +1,10 @@
 import { useLoaderData, Form, Link, useNavigation } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
+import { useState } from 'react'
 import { requireWorkspaceAccess } from '../../../../lib/auth.server'
 import { getDb, applications, jobs, boards, applicationStatusHistory, applicationNotes } from '@jobuki/db'
 import { eq, and, desc } from 'drizzle-orm'
+import { CvPreviewModal } from '../../../../components/cv-preview-modal'
 
 type ApplicationStatus = 'new' | 'reviewing' | 'shortlisted' | 'rejected' | 'hired'
 
@@ -155,6 +157,7 @@ export async function action(args: ActionFunctionArgs) {
 export default function ApplicationDetail() {
   const { application, job, board, history, notes } = useLoaderData<typeof loader>()
   const navigation = useNavigation()
+  const [showCvModal, setShowCvModal] = useState(false)
 
   const appStyle = STATUS_STYLE[application.status as ApplicationStatus] ?? STATUS_STYLE.new
 
@@ -208,14 +211,15 @@ export default function ApplicationDetail() {
             </div>
           )}
 
-          {/* CV link */}
+          {/* CV preview */}
           {application.cvUrl && (
             <div className="card p-6">
-              <a href={application.cvUrl} target="_blank" rel="noopener noreferrer"
-                className="text-sm font-medium no-underline inline-flex items-center gap-2"
-                style={{ color: 'var(--color-primary)' }}>
-                View CV ↗
-              </a>
+              <button
+                onClick={() => setShowCvModal(true)}
+                className="text-sm font-medium no-underline inline-flex items-center gap-2 bg-none border-none p-0"
+                style={{ color: 'var(--color-primary)', cursor: 'pointer' }}>
+                View CV
+              </button>
             </div>
           )}
 
@@ -369,6 +373,16 @@ export default function ApplicationDetail() {
           </div>
         </div>
       </div>
+
+      {/* CV Preview Modal */}
+      {application.cvUrl && (
+        <CvPreviewModal
+          isOpen={showCvModal}
+          cvUrl={application.cvUrl}
+          candidateName={application.candidateName}
+          onClose={() => setShowCvModal(false)}
+        />
+      )}
     </div>
   )
 }

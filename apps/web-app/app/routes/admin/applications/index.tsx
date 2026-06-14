@@ -3,7 +3,7 @@ import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
 import { useState } from 'react'
 import { requireWorkspaceAccess } from '../../../lib/auth.server'
 import { getDb, applications, jobs, boards } from '@jobuki/db'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 
 export async function loader(args: LoaderFunctionArgs) {
   const { workspace } = await requireWorkspaceAccess(args)
@@ -83,7 +83,8 @@ export default function ApplicationsIndex() {
               {rows.length} total across all boards
             </p>
           </div>
-          <div className="flex gap-2">
+          {/* Desktop: buttons */}
+          <div className="hidden md:flex gap-2">
             <button
               onClick={() => setViewMode('by-job')}
               className="px-4 py-2 rounded text-sm font-medium transition-colors"
@@ -105,6 +106,21 @@ export default function ApplicationsIndex() {
               By People
             </button>
           </div>
+
+          {/* Mobile: select */}
+          <select
+            value={viewMode}
+            onChange={(e) => setViewMode(e.target.value as 'by-job' | 'by-people')}
+            className="md:hidden px-3 py-2 rounded text-sm font-medium"
+            style={{
+              backgroundColor: 'var(--color-surface-subtle)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            <option value="by-job">By Job</option>
+            <option value="by-people">By People</option>
+          </select>
         </div>
       </div>
 
