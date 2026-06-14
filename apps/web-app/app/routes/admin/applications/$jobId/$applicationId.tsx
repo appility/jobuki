@@ -89,52 +89,67 @@ export async function action(args: ActionFunctionArgs) {
   const db = getDb()
   const userId = workspace.ownerUserId || 'unknown'
 
-  // Verify application belongs to this job and workspace
-  const [row] = await db
-    .select()
-    .from(applications)
-    .innerJoin(jobs, eq(applications.jobId, jobs.id))
-    .innerJoin(boards, eq(jobs.boardId, boards.id))
-    .where(
-      and(
-        eq(applications.id, applicationId!),
-        eq(applications.jobId, jobId!),
-        eq(boards.workspaceId, workspace.id)
+  try {
+    // Verify application belongs to this job and workspace
+    const [row] = await db
+      .select()
+      .from(applications)
+      .innerJoin(jobs, eq(applications.jobId, jobs.id))
+      .innerJoin(boards, eq(jobs.boardId, boards.id))
+      .where(
+        and(
+          eq(applications.id, applicationId!),
+          eq(applications.jobId, jobId!),
+          eq(boards.workspaceId, workspace.id)
+        )
       )
-    )
 
-  if (!row) {
-    throw new Response('Not found', { status: 404 })
-  }
-
-  if (intent === 'update_status') {
-    const status = form.get('status') as string
-    const note = form.get('note') as string || ''
-
-    // Update application status
-    await db.update(applications)
-      .set({ status: status as any, updatedAt: new Date() })
-      .where(eq(applications.id, applicationId!))
-
-    // Insert status history record
-    await db.insert(applicationStatusHistory).values({
-      applicationId: applicationId!,
-      status: status as any,
-      changedByUserId: userId,
-      note: note || undefined,
-    })
-  } else if (intent === 'add_note') {
-    const body = form.get('note') as string
-    if (body?.trim()) {
-      await db.insert(applicationNotes).values({
-        applicationId: applicationId!,
-        authorUserId: userId,
-        body: body.trim(),
-      })
+    if (!row) {
+      throw new Response('Not found', { status: 404 })
     }
-  }
 
-  return { ok: true }
+    if (intent === 'update_status') {
+      const status = form.get('status') as string
+      const note = form.get('note') as string || ''
+
+      // Update application status
+      await db.update(applications)
+        .set({ status: status as any, updatedAt: new Date() })
+        .where(eq(applications.id, applicationId!))
+
+      // Insert status history record — table may not exist yet
+      try {
+        await db.insert(applicationStatusHistory).values({
+          applicationId: applicationId!,
+          status: status as any,
+          changedByUserId: userId,
+          note: note || undefined,
+        })
+      } catch (err: any) {
+        if (err?.code !== '42P01') throw err
+        console.warn('[action] application_status_history table does not exist yet')
+      }
+    } else if (intent === 'add_note') {
+      const body = form.get('note') as string
+      if (body?.trim()) {
+        try {
+          await db.insert(applicationNotes).values({
+            applicationId: applicationId!,
+            authorUserId: userId,
+            body: body.trim(),
+          })
+        } catch (err: any) {
+          if (err?.code !== '42P01') throw err
+          console.warn('[action] application_notes table does not exist yet')
+        }
+      }
+    }
+
+    return { ok: true }
+  } catch (err) {
+    console.error('[app-detail-action]', err)
+    throw err
+  }
 }
 
 export default function ApplicationDetail() {

@@ -74,6 +74,7 @@ export async function loader(args: LoaderFunctionArgs) {
     isSaved,
     isSignedIn: Boolean(clerkUserId),
     accountType: user?.accountType ?? null,
+    requestUrl: request.url,
   }
 }
 
@@ -85,7 +86,8 @@ export const meta: MetaFunction<typeof loader> = ({ data, location }) => {
     ]
   }
 
-  const { job, board } = data
+  const { job, board, requestUrl } = data
+  const url = new URL(requestUrl)
   const locationPart = job.location ? ` in ${job.location}` : ''
   const title = `${job.title} | ${board.name}`
   const description = `Apply for ${job.title}${locationPart} at ${board.name}.`

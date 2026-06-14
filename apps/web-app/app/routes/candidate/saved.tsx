@@ -50,16 +50,16 @@ function SavedJobCard({ saved, job }: { saved: any; job: any }) {
   if (removed) return null
 
   return (
-    <div className="card flex items-center justify-between gap-4 p-5">
-      <div className="min-w-0 flex-1">
-        <Link to={publicJobPath(job)} className="text-sm font-bold no-underline hover:underline font-display" style={{ color: 'var(--color-text-primary)' }}>
+    <div className="card p-5 flex flex-col gap-3">
+      <div>
+        <Link to={publicJobPath(job)} className="text-sm font-bold no-underline hover:underline font-display block" style={{ color: 'var(--color-text-primary)' }}>
           {job.title}
         </Link>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+        <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
           {[job.company, job.location].filter(Boolean).join(' · ')}
         </p>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2">
         <Link to={`/apply/${job.id}`} className="btn-primary text-xs px-3 py-2">Apply</Link>
         <fetcher.Form method="post" action="/api/save-job">
           <input type="hidden" name="jobId" value={job.id} />

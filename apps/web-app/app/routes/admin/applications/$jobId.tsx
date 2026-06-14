@@ -88,13 +88,18 @@ export async function action(args: ActionFunctionArgs) {
     .set({ status: status as any, updatedAt: new Date() })
     .where(eq(applications.id, applicationId))
 
-  // Insert status history record
-  await db.insert(applicationStatusHistory).values({
-    applicationId,
-    status: status as any,
-    changedByUserId: userId,
-    note: note || undefined,
-  })
+  // Insert status history record — table may not exist yet
+  try {
+    await db.insert(applicationStatusHistory).values({
+      applicationId,
+      status: status as any,
+      changedByUserId: userId,
+      note: note || undefined,
+    })
+  } catch (err: any) {
+    if (err?.code !== '42P01') throw err
+    console.warn('[action] application_status_history table does not exist yet')
+  }
 
   return { ok: true }
 }
