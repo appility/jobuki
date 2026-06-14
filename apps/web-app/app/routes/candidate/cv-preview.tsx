@@ -20,27 +20,69 @@ export default function CvPreview() {
   useEffect(() => {
     const style = document.createElement('style')
     style.textContent = `
-      .word-preview {
+      .word-preview, .word-preview * {
         font-family: Arial, Helvetica, sans-serif !important;
       }
-      .word-preview p { margin: 0.5rem 0; }
+      .word-preview { all: initial; }
+      .word-preview {
+        display: block;
+        font-family: Arial, Helvetica, sans-serif;
+        color: inherit;
+        line-height: 1.6;
+      }
+      .word-preview p {
+        margin: 0.5rem 0;
+        font-size: 1rem;
+      }
       .word-preview h1, .word-preview h2, .word-preview h3, .word-preview h4, .word-preview h5, .word-preview h6 {
         margin: 1rem 0 0.5rem 0;
         font-weight: 600;
+        font-family: Arial, Helvetica, sans-serif !important;
       }
       .word-preview h1 { font-size: 1.875rem; }
       .word-preview h2 { font-size: 1.5rem; }
       .word-preview h3 { font-size: 1.25rem; }
-      .word-preview ul, .word-preview ol { margin: 0.5rem 0; padding-left: 2rem; }
-      .word-preview li { margin: 0.25rem 0; }
-      .word-preview img { max-width: 100%; height: auto; margin: 1rem 0; border-radius: 0.375rem; }
-      .word-preview table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
-      .word-preview th, .word-preview td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
-      .word-preview th { background-color: #f5f5f5; font-weight: 600; }
+      .word-preview h4 { font-size: 1.125rem; }
+      .word-preview h5 { font-size: 1rem; }
+      .word-preview h6 { font-size: 0.875rem; }
+      .word-preview ul, .word-preview ol {
+        margin: 0.5rem 0;
+        padding-left: 2rem;
+        list-style-position: outside;
+      }
+      .word-preview li {
+        margin: 0.25rem 0;
+        display: list-item;
+      }
+      .word-preview img {
+        max-width: 100%;
+        height: auto;
+        margin: 1rem 0;
+        border-radius: 0.375rem;
+        display: block;
+      }
+      .word-preview table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 1rem 0;
+      }
+      .word-preview th, .word-preview td {
+        border: 1px solid #ddd;
+        padding: 0.5rem;
+        text-align: left;
+      }
+      .word-preview th {
+        background-color: #f5f5f5;
+        font-weight: 600;
+      }
       .word-preview strong, .word-preview b { font-weight: 600; }
       .word-preview em, .word-preview i { font-style: italic; }
       .word-preview u { text-decoration: underline; }
-      .word-preview blockquote { margin: 1rem 0; padding-left: 1rem; border-left: 3px solid #ccc; }
+      .word-preview blockquote {
+        margin: 1rem 0;
+        padding-left: 1rem;
+        border-left: 3px solid #ccc;
+      }
     `
     document.head.appendChild(style)
     return () => {

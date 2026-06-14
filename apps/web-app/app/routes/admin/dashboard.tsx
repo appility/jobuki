@@ -30,7 +30,6 @@ export async function loader(args: LoaderFunctionArgs) {
   return {
     user,
     workspace,
-    canMonetize: canMonetize(workspace.plan),
     stats: {
       boards: boardCount.count,
       jobs: jobCount.count,
@@ -46,7 +45,7 @@ const PLAN_LABEL: Record<string, string> = {
 }
 
 export default function Dashboard() {
-  const { user, workspace, stats, canMonetize: monetizationEnabled } = useLoaderData<typeof loader>()
+  const { user, workspace, stats } = useLoaderData<typeof loader>()
 
   return (
     <div className="w-full p-8 max-w-7xl">
@@ -60,14 +59,13 @@ export default function Dashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <StatCard label="Job Boards" value={stats.boards} />
-        <StatCard label="Total Jobs" value={stats.jobs} />
+      <div className="grid grid-cols-2 gap-4 mb-8">
+        <StatCard label="Jobs Posted" value={stats.jobs} />
         <StatCard label="Applications" value={stats.applications} />
       </div>
 
       {/* No boards yet — primary CTA */}
-      {stats.boards === 0 ? (
+      {stats.boards === 0 && (
         <div className="rounded-[18px] border border-border bg-surface p-8 text-center mb-6">
           <p className="text-2xl mb-2">⊞</p>
           <h2 className="text-base font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>
@@ -79,25 +77,6 @@ export default function Dashboard() {
           <Link to="/dashboard/boards/new" className="btn-primary">
             + Create job board
           </Link>
-        </div>
-      ) : (
-        /* Quick actions — only shown once a board exists */
-        <div className="flex flex-wrap gap-3 mb-6">
-          <Link to="/dashboard/boards/new" className="btn-outline">+ Create job board</Link>
-          <Link to="/dashboard/jobs/new" className="btn-primary">+ Post a job</Link>
-          <Link to="/dashboard/monetization" className="btn-outline">
-            Monetization {monetizationEnabled ? 'enabled' : 'locked'}
-          </Link>
-        </div>
-      )}
-
-      {!monetizationEnabled && stats.boards > 0 && (
-        <div className="rounded-xl px-4 py-3 text-sm"
-          style={{ backgroundColor: 'var(--color-warning-bg)', color: 'var(--color-warning)' }}>
-          Monetization is not available on Free.{' '}
-          <Link to="/dashboard/billing" className="font-semibold underline" style={{ color: 'var(--color-warning)' }}>
-            Upgrade to Growth or Scale
-          </Link>{' '}to unlock paid listings.
         </div>
       )}
     </div>

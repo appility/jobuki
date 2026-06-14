@@ -221,7 +221,7 @@ export default function CandidateAlerts() {
 
   const canCreateAlertNow = optimisticAlerts.length < maxAlertsPerUser
   const createAlertCard = (
-    <Form method="post" className="card p-5 space-y-4">
+    <Form method="post" className="card p-6 space-y-5">
       <input type="hidden" name="intent" value="create" />
       <input type="hidden" name="boardId" value={board?.id ?? ''} />
 
@@ -309,7 +309,7 @@ export default function CandidateAlerts() {
         <>
           <div className="space-y-4">
             {optimisticAlerts.map((alert) => (
-              <Form key={alert.id} method="post" className="card p-5 space-y-4">
+              <Form key={alert.id} method="post" className="card p-6 space-y-5">
               <input type="hidden" name="alertId" value={alert.id} />
 
               <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
