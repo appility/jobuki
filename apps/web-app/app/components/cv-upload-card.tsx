@@ -1,4 +1,4 @@
-import { useFetcher } from 'react-router'
+import { useFetcher, useNavigate } from 'react-router'
 import { useState } from 'react'
 
 interface CvUploadCardProps {
@@ -9,6 +9,7 @@ interface CvUploadCardProps {
 
 export function CvUploadCard({ cvUrl, cvExtractedText, lastUpdated }: CvUploadCardProps) {
   const fetcher = useFetcher()
+  const navigate = useNavigate()
   const [uploading, setUploading] = useState(false)
 
   const isStale = lastUpdated
@@ -89,15 +90,13 @@ export function CvUploadCard({ cvUrl, cvExtractedText, lastUpdated }: CvUploadCa
                 </p>
               )}
             </div>
-            <a
-              href={cvUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => navigate(`/candidate/cv-preview?url=${encodeURIComponent(cvUrl || '')}`)}
               className="text-xs no-underline font-medium px-3 py-1.5 rounded-lg"
-              style={{ color: 'var(--color-primary)', border: '1px solid var(--color-primary)' }}
+              style={{ color: 'var(--color-primary)', border: '1px solid var(--color-primary)', backgroundColor: 'transparent', cursor: 'pointer' }}
             >
-              View ↗
-            </a>
+              Preview
+            </button>
           </div>
         </div>
       ) : null}

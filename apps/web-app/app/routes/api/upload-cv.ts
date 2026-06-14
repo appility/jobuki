@@ -40,16 +40,33 @@ export async function action(args: LoaderFunctionArgs) {
   }
 
   try {
-    // Get presigned URL for upload
+    // Extract text from CV
+    const arrayBuffer = await cvFile.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    const extractedText = await extractTextFromCv(buffer, mimeType)
+
+    // Get presigned URL and upload details
     const uploadUrls = await createCvUploadUrl({
       userId: user.id,
       contentType: mimeType,
     })
 
-    // Extract text from CV
-    const arrayBuffer = await cvFile.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const extractedText = await extractTextFromCv(buffer, mimeType)
+    // Upload file to R2 using presigned URL
+    const uploadResponse = await fetch(uploadUrls.uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': mimeType,
+      },
+      body: new Uint8Array(buffer),
+    })
+
+    if (!uploadResponse.ok) {
+      console.error('[upload-cv] R2 upload failed:', uploadResponse.statusText)
+      return jsonResponse(
+        { ok: false, error: 'Failed to store file. Please try again.' },
+        500
+      )
+    }
 
     // Update candidate profile with CV URL and extracted text
     const db = getDb()
@@ -63,7 +80,6 @@ export async function action(args: LoaderFunctionArgs) {
 
     return jsonResponse({
       ok: true,
-      uploadUrl: uploadUrls.uploadUrl,
       cvUrl: uploadUrls.publicUrl,
       extractedText: extractedText || null,
     })

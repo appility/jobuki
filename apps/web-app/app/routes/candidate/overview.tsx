@@ -108,7 +108,14 @@ export default function CandidateOverview() {
 
       {applications.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Recent applications</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Recent applications</h3>
+            {applications.length > 3 && (
+              <Link to="/candidate/applications" className="text-xs font-medium no-underline" style={{ color: 'var(--color-primary)' }}>
+                See all →
+              </Link>
+            )}
+          </div>
           <div className="space-y-2">
             {applications.slice(0, 3).map(({ app, job }) => (
               <Link key={app.id} to={publicJobPath(job)} className="card p-4 no-underline hover:opacity-80 transition-opacity block">
@@ -124,7 +131,14 @@ export default function CandidateOverview() {
 
       {savedJobs.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Saved jobs</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Saved jobs</h3>
+            {savedJobs.length > 3 && (
+              <Link to="/candidate/saved" className="text-xs font-medium no-underline" style={{ color: 'var(--color-primary)' }}>
+                See all →
+              </Link>
+            )}
+          </div>
           <div className="space-y-2">
             {savedJobs.slice(0, 3).map(({ saved, job }) => (
               <Link key={saved.id} to={publicJobPath(job)} className="card p-4 no-underline hover:opacity-80 transition-opacity block">

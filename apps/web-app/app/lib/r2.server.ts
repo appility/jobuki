@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 export const ALLOWED_IMAGE_MIME_TYPES = [
@@ -198,4 +198,22 @@ export async function createCvUploadUrl(params: {
     uploadUrl,
     publicUrl: `${config.publicBaseUrl}/${key}`,
   }
+}
+
+export async function createCvDownloadUrl(cvUrl: string) {
+  const config = getR2Config()
+
+  // Extract the key from the public URL
+  // cvUrl format: https://pub-xxx.r2.dev/cvs/userId/uuid.ext
+  const url = new URL(cvUrl)
+  const key = url.pathname.substring(1) // Remove leading /
+
+  const client = buildClient(config)
+  const command = new GetObjectCommand({
+    Bucket: config.bucket,
+    Key: key,
+  })
+
+  const downloadUrl = await getSignedUrl(client, command, { expiresIn: 3600 }) // 1 hour
+  return downloadUrl
 }

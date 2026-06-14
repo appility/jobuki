@@ -15,6 +15,8 @@ export default [
   route('api/upload-sign', 'routes/api/upload-sign.ts'),
   route('api/upload-image', 'routes/api/upload-image.ts'),
   route('api/upload-cv', 'routes/api/upload-cv.ts'),
+  route('api/cv-download-url', 'routes/api/cv-download-url.ts'),
+  route('api/cv-download', 'routes/api/cv-download.ts'),
   route('api/ingest-jobs', 'routes/api/ingest-jobs.ts'),
   route('api/cron/process-alerts', 'routes/api/cron.process-alerts.ts'),
   route('api/save-job', 'routes/api/save-job.ts'),
@@ -66,6 +68,7 @@ export default [
     route('dashboard/applications',   'routes/admin/applications/index.tsx'),
     route('dashboard/applications/:jobId', 'routes/admin/applications/$jobId.tsx'),
     route('dashboard/applications/:jobId/:applicationId', 'routes/admin/applications/$jobId/$applicationId.tsx'),
+    route('dashboard/users',           'routes/admin/users/index.tsx'),
   ]),
 
   // ── Public Job Board & Candidate Shell ─────────────────────────────
@@ -77,6 +80,7 @@ export default [
       route('candidate/applications',     'routes/candidate/applications.tsx'),
       route('candidate/alerts',           'routes/candidate/alerts.tsx'),
       route('candidate/profile',          'routes/candidate/profile.tsx'),
+      route('candidate/cv-preview',       'routes/candidate/cv-preview.tsx'),
     ]),
     layout('routes/board/layout.tsx', [
       index('routes/marketing/home.tsx'),

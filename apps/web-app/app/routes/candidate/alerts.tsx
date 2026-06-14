@@ -183,6 +183,7 @@ export default function CandidateAlerts() {
       const remoteOnly = pendingForm.get('remoteOnly') === 'on'
       if (searchTerm) {
         optimisticAlerts = [
+          ...alerts,
           {
             id: '__optimistic__',
             userId: '__optimistic__',
@@ -196,7 +197,6 @@ export default function CandidateAlerts() {
             updatedAt: new Date(),
             boardName: board?.name ?? null,
           },
-          ...alerts,
         ]
       }
     } else if (intent === 'delete' && alertId) {

@@ -21,6 +21,7 @@ export const users = pgTable('users', {
   clerkUserId: text('clerk_user_id').notNull().unique(),
   isPlatformAdmin: boolean('is_platform_admin').notNull().default(false),
   accountType: accountTypeEnum('account_type').notNull().default('board_creator'),
+  tier:        text('tier').notNull().default('free'),
   email:       text('email').notNull(),
   name:        text('name'),
   imageUrl:    text('image_url'),
