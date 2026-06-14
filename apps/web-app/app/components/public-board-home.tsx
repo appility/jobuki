@@ -508,9 +508,10 @@ function shiftHex(hex: string, lightnessDelta: number, saturationDelta = 0) {
 }
 
 export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
-  const { board, jobs: publishedJobs, css, totalOpen, totalCompanies, filters, filterOptions } = data
+  const { board, jobs: publishedJobs, css, totalOpen, totalCompanies, filters, filterOptions, user } = data
   const navigate = useNavigate()
   const [searchQ, setSearchQ] = useState(filters.q ?? '')
+  const [alertEmail, setAlertEmail] = useState('')
   const boardConfig = resolveJobBoardThemeConfig(board.boardConfig, {
     boardName: board.name,
     tagline: board.introText ?? undefined,
@@ -774,7 +775,33 @@ export function PublicBoardHome({ data }: { data: BoardLoaderData }) {
               <div className="jp-card jp-card-alert jp-s4">
                 <div className="jp-ca-t">Get job alerts</div>
                 <div className="jp-ca-s">Right roles in your inbox the moment they go live.</div>
-                <div className="jp-ca-row"><input placeholder="you@email.com" /><button className="jp-ca-btn" type="button">Go →</button></div>
+                <div className="jp-ca-row">
+                  {user?.accountType === 'candidate' ? (
+                    <button
+                      className="jp-ca-btn"
+                      type="button"
+                      onClick={() => navigate('/candidate/alerts')}
+                    >
+                      Go →
+                    </button>
+                  ) : (
+                    <>
+                      <input
+                        placeholder="you@email.com"
+                        type="email"
+                        value={alertEmail}
+                        onChange={(e) => setAlertEmail(e.target.value)}
+                      />
+                      <button
+                        className="jp-ca-btn"
+                        type="button"
+                        onClick={() => navigate(`/sign-up?email=${encodeURIComponent(alertEmail)}&type=candidate`)}
+                      >
+                        Go →
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
 
               {jobs.slice(1, 3).map((job) => (

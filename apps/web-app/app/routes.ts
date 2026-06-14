@@ -63,6 +63,8 @@ export default [
     route('dashboard/monetization',   'routes/admin/monetization.tsx'),
     route('dashboard/billing',        'routes/admin/billing.tsx'),
     route('dashboard/applications',   'routes/admin/applications/index.tsx'),
+    route('dashboard/applications/:jobId', 'routes/admin/applications/$jobId.tsx'),
+    route('dashboard/applications/:jobId/:applicationId', 'routes/admin/applications/$jobId/$applicationId.tsx'),
   ]),
 
   // ── Public Job Board & Candidate Shell ─────────────────────────────

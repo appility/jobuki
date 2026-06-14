@@ -107,7 +107,7 @@ export default function JobApplicationsPipeline() {
     <div className="w-full p-8 max-w-6xl">
       {/* Breadcrumb */}
       <div className="mb-8">
-        <Link to="/admin/applications" className="text-xs no-underline mb-4 inline-block"
+        <Link to="/dashboard/applications" className="text-xs no-underline mb-4 inline-block"
           style={{ color: 'var(--color-primary)' }}>
           ← Back to applications
         </Link>
@@ -155,7 +155,7 @@ export default function JobApplicationsPipeline() {
           {apps.map(application => {
             const style = STATUS_STYLE[application.status as ApplicationStatus] ?? STATUS_STYLE.new
             return (
-              <Link key={application.id} to={`/admin/applications/${job.id}/${application.id}`}
+              <Link key={application.id} to={`/dashboard/applications/${job.id}/${application.id}`}
                 className="card p-4 no-underline hover:opacity-80 transition-opacity">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">

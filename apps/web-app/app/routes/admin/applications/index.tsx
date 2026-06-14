@@ -1,5 +1,6 @@
 import { useLoaderData, Form, useNavigation, Link } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
+import { useState } from 'react'
 import { requireWorkspaceAccess } from '../../../lib/auth.server'
 import { getDb, applications, jobs, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
@@ -44,7 +45,7 @@ export async function action(args: ActionFunctionArgs) {
     .select({ application: applications })
     .from(applications)
     .innerJoin(boards, eq(applications.boardId, boards.id))
-    .where(eq(boards.workspaceId, workspace.id))
+    .where(and(eq(applications.id, applicationId), eq(boards.workspaceId, workspace.id)))
 
   if (row) {
     await db.update(applications)
@@ -68,16 +69,43 @@ const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
 export default function ApplicationsIndex() {
   const { applications: rows, byJob } = useLoaderData<typeof loader>()
   const navigation = useNavigation()
+  const [viewMode, setViewMode] = useState<'by-job' | 'by-people'>('by-job')
 
   return (
     <div className="w-full p-8 max-w-5xl">
       <div className="mb-8">
-        <h1 className="text-2xl font-extrabold" style={{ color: 'var(--color-text-primary)' }}>
-          Applications
-        </h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-          {rows.length} total across all boards
-        </p>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-2xl font-extrabold" style={{ color: 'var(--color-text-primary)' }}>
+              Applications
+            </h1>
+            <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+              {rows.length} total across all boards
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setViewMode('by-job')}
+              className="px-4 py-2 rounded text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: viewMode === 'by-job' ? 'var(--color-primary)' : 'var(--color-surface-subtle)',
+                color: viewMode === 'by-job' ? 'white' : 'var(--color-text-secondary)',
+              }}
+            >
+              By Job
+            </button>
+            <button
+              onClick={() => setViewMode('by-people')}
+              className="px-4 py-2 rounded text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: viewMode === 'by-people' ? 'var(--color-primary)' : 'var(--color-surface-subtle)',
+                color: viewMode === 'by-people' ? 'white' : 'var(--color-text-secondary)',
+              }}
+            >
+              By People
+            </button>
+          </div>
+        </div>
       </div>
 
       {rows.length === 0 ? (
@@ -90,89 +118,62 @@ export default function ApplicationsIndex() {
             Applications will appear here once candidates submit them on your boards.
           </p>
         </div>
-      ) : (
-        <div className="flex flex-col gap-6">
+      ) : viewMode === 'by-job' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {byJob.map(([jobId, jobApps]) => {
             const firstApp = jobApps[0]
             return (
-              <div key={jobId}>
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h2 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                      {firstApp.jobTitle}
-                    </h2>
+              <Link key={jobId} to={`/dashboard/applications/${jobId}`}
+                className="card p-6 no-underline hover:opacity-80 transition-opacity">
+                <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                  {firstApp.jobTitle}
+                </h2>
+                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  {firstApp.boardName}
+                </p>
+                <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full"
+                    style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}>
+                    <span className="text-sm font-semibold">{jobApps.length}</span>
+                    <span className="text-sm">{jobApps.length === 1 ? 'application' : 'applications'}</span>
+                  </div>
+                </div>
+              </Link>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {rows.map(({ application, jobTitle, jobId }) => {
+            const style = STATUS_STYLE[application.status] ?? STATUS_STYLE.new
+            return (
+              <Link key={application.id} to={`/dashboard/applications/${jobId}/${application.id}`}
+                className="card p-4 no-underline hover:opacity-80 transition-opacity">
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                        {application.candidateName}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
+                        style={{ backgroundColor: style.bg, color: style.text }}>
+                        {application.status}
+                      </span>
+                    </div>
+                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                      {application.candidateEmail}
+                      {application.candidatePhone && ` · ${application.candidatePhone}`}
+                    </p>
                     <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                      {jobApps.length} application{jobApps.length !== 1 ? 's' : ''}
+                      {jobTitle}
                     </p>
                   </div>
-                  <Link to={`/admin/applications/${jobId}`}
-                    className="text-xs no-underline font-medium"
-                    style={{ color: 'var(--color-primary)' }}>
-                    View pipeline →
-                  </Link>
+                  <svg className="w-5 h-5 shrink-0 ml-4" fill="none" stroke="currentColor"
+                    style={{ color: 'var(--color-text-muted)' }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 </div>
-                <div className="flex flex-col gap-2">
-                  {jobApps.map(({ application }) => {
-                    const style = STATUS_STYLE[application.status] ?? STATUS_STYLE.new
-                    return (
-                      <div key={application.id} className="card p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5">
-                              <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                                {application.candidateName}
-                              </span>
-                              <span className="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
-                                style={{ backgroundColor: style.bg, color: style.text }}>
-                                {application.status}
-                              </span>
-                            </div>
-                            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                              {application.candidateEmail}
-                              {application.candidatePhone && ` · ${application.candidatePhone}`}
-                            </p>
-                          </div>
-
-                          <Form method="post" className="flex items-center gap-2 shrink-0 ml-4">
-                            <input type="hidden" name="applicationId" value={application.id} />
-                            <select
-                              name="status"
-                              defaultValue={application.status}
-                              className="input text-sm py-1"
-                              onChange={(e) => e.currentTarget.form?.requestSubmit()}
-                            >
-                              {STATUS_OPTIONS.map(s => (
-                                <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-                              ))}
-                            </select>
-                          </Form>
-                        </div>
-
-                        {application.coverLetter && (
-                          <details className="mt-3">
-                            <summary className="text-xs cursor-pointer font-medium"
-                              style={{ color: 'var(--color-text-muted)' }}>
-                              Cover letter
-                            </summary>
-                            <p className="text-sm mt-2 leading-relaxed whitespace-pre-line"
-                              style={{ color: 'var(--color-text-secondary)' }}>
-                              {application.coverLetter}
-                            </p>
-                          </details>
-                        )}
-
-                        {application.cvUrl && (
-                          <a href={application.cvUrl} target="_blank" rel="noopener noreferrer"
-                            className="text-xs no-underline mt-2 inline-block"
-                            style={{ color: 'var(--color-primary)' }}>
-                            View CV ↗
-                          </a>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
+              </Link>
             )
           })}
         </div>

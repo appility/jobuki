@@ -9,6 +9,7 @@ import { normalizeLocation, normalizeLocations } from '../../lib/normalize-locat
 import { getGeoRegions, visitorRegion, rankJobs } from '../../lib/geo-ranking.server'
 import { cacheGet, cacheSet } from '../../lib/board-cache.server'
 import { publicJobPath } from '../../lib/public-job-path'
+import { getOptionalUser } from '../../lib/auth.server'
 import { PublicBoardHome } from '../../components/public-board-home'
 
 export type BoardLoaderData = Awaited<ReturnType<typeof loader>> & { mode: 'board' }
@@ -122,6 +123,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const totalCompanies = new Set(publishedJobs.map(j => j.company).filter(Boolean)).size
 
   const css = themeToCSS(resolveTheme(board.theme ?? {}), ':root', boardConfig.cssVariables)
+  const user = await getOptionalUser(request)
   return {
     mode: 'board' as const,
     board,
@@ -133,6 +135,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     visitorRegionSlug: vRegion?.slug ?? null,
     filters: { q, location, category },
     filterOptions: { locations, categories },
+    user,
   }
 }
 
