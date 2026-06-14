@@ -5,6 +5,7 @@ import { requireWorkspaceAccess } from '../../../../lib/auth.server'
 import { getDb, applications, jobs, boards, applicationStatusHistory, applicationNotes } from '@jobuki/db'
 import { eq, and, desc } from 'drizzle-orm'
 import { CvPreviewModal } from '../../../../components/cv-preview-modal'
+import { publicJobPath } from '../../../../lib/public-job-path'
 
 type ApplicationStatus = 'new' | 'reviewing' | 'shortlisted' | 'rejected' | 'hired'
 
@@ -364,7 +365,7 @@ export default function ApplicationDetail() {
               style={{ color: 'var(--color-text-muted)' }}>
               on {board.name}
             </p>
-            <Link to={`/board/${board.slug}/job/${job.id}`}
+            <Link to={publicJobPath(job)}
               target="_blank"
               className="text-xs no-underline mt-3 inline-block font-medium"
               style={{ color: 'var(--color-primary)' }}>

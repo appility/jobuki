@@ -79,7 +79,7 @@ export default function WorkspaceUsers() {
   const actionData = useActionData<typeof action>()
 
   return (
-    <div className="space-y-5 max-w-6xl">
+    <div className="w-full p-8 max-w-6xl space-y-5">
       <div>
         <h1 className="text-2xl font-extrabold font-display" style={{ color: 'var(--color-text-primary)' }}>
           Users

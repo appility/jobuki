@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import * as pdfjsLib from 'pdfjs-dist'
 
 interface CvPreviewModalProps {
   isOpen: boolean
@@ -113,7 +112,9 @@ export function CvPreviewModal({ isOpen, cvUrl, candidateName, onClose }: CvPrev
       .word-preview a { color: #0066cc; text-decoration: underline; }
     `
     document.head.appendChild(style)
-    return () => document.head.removeChild(style)
+    return () => {
+      document.head.removeChild(style)
+    }
   }, [isOpen])
 
   if (!isOpen) return null
