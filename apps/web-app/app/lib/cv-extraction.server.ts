@@ -1,4 +1,6 @@
-import pdfParse from 'pdf-parse'
+import * as pdfParseModule from 'pdf-parse'
+
+const pdfParse = pdfParseModule.default || pdfParseModule
 
 export async function extractTextFromCv(fileBuffer: Buffer, mimeType: string): Promise<string> {
   try {
@@ -23,7 +25,7 @@ export async function extractTextFromCv(fileBuffer: Buffer, mimeType: string): P
 
 async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
   try {
-    const data = await pdfParse(pdfBuffer as any)
+    const data = await pdfParse(pdfBuffer)
     return (data.text || '').trim()
   } catch (error) {
     console.error('Error extracting text from PDF:', error)
