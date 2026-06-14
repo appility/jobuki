@@ -15,7 +15,6 @@ const navItems = [
   { to: '/dashboard/jobs',         label: 'Jobs',         icon: '✦' },
   { to: '/dashboard/monetization', label: 'Monetization', icon: '¤' },
   { to: '/dashboard/applications', label: 'Applications', icon: '◎' },
-  { to: '/dashboard/billing',      label: 'Plan & Billing', icon: '◈' },
 ]
 
 function getBoardIdFromPath(pathname: string): string | null {
@@ -355,16 +354,6 @@ function UserMenu({ user, workspace }: {
             )}
             <MenuItem icon="⊞" as="link" href="/dashboard/boards" onClick={() => setOpen(false)}>
               My boards
-            </MenuItem>
-            <MenuItem icon="◈" as="link" href="/dashboard/billing" onClick={() => setOpen(false)}>
-              Plan &amp; billing
-              <span className="ml-auto text-xs font-semibold px-1.5 py-0.5 rounded-full"
-                style={{
-                  backgroundColor: 'color-mix(in srgb, var(--color-primary) 10%, transparent)',
-                  color: 'var(--color-primary)',
-                }}>
-                {PLAN_LABEL[workspace.plan] ?? workspace.plan}
-              </span>
             </MenuItem>
           </div>
 

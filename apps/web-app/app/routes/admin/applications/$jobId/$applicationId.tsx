@@ -21,48 +21,63 @@ export async function loader(args: LoaderFunctionArgs) {
   const { jobId, applicationId } = args.params
   const db = getDb()
 
-  // Fetch application with job and board
-  const [row] = await db
-    .select({
-      application: applications,
-      job: jobs,
-      board: boards,
-    })
-    .from(applications)
-    .innerJoin(jobs, eq(applications.jobId, jobs.id))
-    .innerJoin(boards, eq(jobs.boardId, boards.id))
-    .where(
-      and(
-        eq(applications.id, applicationId!),
-        eq(applications.jobId, jobId!),
-        eq(boards.workspaceId, workspace.id)
+  try {
+    // Fetch application with job and board
+    const [row] = await db
+      .select({
+        application: applications,
+        job: jobs,
+        board: boards,
+      })
+      .from(applications)
+      .innerJoin(jobs, eq(applications.jobId, jobs.id))
+      .innerJoin(boards, eq(jobs.boardId, boards.id))
+      .where(
+        and(
+          eq(applications.id, applicationId!),
+          eq(applications.jobId, jobId!),
+          eq(boards.workspaceId, workspace.id)
+        )
       )
-    )
 
-  if (!row) {
-    throw new Response('Not found', { status: 404 })
-  }
+    if (!row) {
+      throw new Response('Not found', { status: 404 })
+    }
 
-  // Fetch status history (newest first)
-  const history = await db
-    .select()
-    .from(applicationStatusHistory)
-    .where(eq(applicationStatusHistory.applicationId, applicationId!))
-    .orderBy(desc(applicationStatusHistory.createdAt))
+    // Fetch status history (newest first) — table may not exist yet
+    let history: any[] = []
+    try {
+      history = await db
+        .select()
+        .from(applicationStatusHistory)
+        .where(eq(applicationStatusHistory.applicationId, applicationId!))
+        .orderBy(desc(applicationStatusHistory.createdAt))
+    } catch (err: any) {
+      if (err?.code !== '42P01') throw err
+    }
 
-  // Fetch notes (newest first)
-  const notes = await db
-    .select()
-    .from(applicationNotes)
-    .where(eq(applicationNotes.applicationId, applicationId!))
-    .orderBy(desc(applicationNotes.createdAt))
+    // Fetch notes (newest first) — table may not exist yet
+    let notes: any[] = []
+    try {
+      notes = await db
+        .select()
+        .from(applicationNotes)
+        .where(eq(applicationNotes.applicationId, applicationId!))
+        .orderBy(desc(applicationNotes.createdAt))
+    } catch (err: any) {
+      if (err?.code !== '42P01') throw err
+    }
 
-  return {
-    application: row.application,
-    job: row.job,
-    board: row.board,
-    history,
-    notes,
+    return {
+      application: row.application,
+      job: row.job,
+      board: row.board,
+      history,
+      notes,
+    }
+  } catch (err) {
+    console.error('[app-detail-loader]', err)
+    throw err
   }
 }
 
@@ -126,12 +141,12 @@ export default function ApplicationDetail() {
   const { application, job, board, history, notes } = useLoaderData<typeof loader>()
   const navigation = useNavigation()
 
-  const appStyle = STATUS_STYLE[application.status as ApplicationStatus]
+  const appStyle = STATUS_STYLE[application.status as ApplicationStatus] ?? STATUS_STYLE.new
 
   return (
     <div className="w-full p-8 max-w-6xl">
       {/* Breadcrumb */}
-      <Link to={`/admin/applications/${job.id}`} className="text-xs no-underline mb-4 inline-block"
+      <Link to={`/dashboard/applications/${job.id}`} className="text-xs no-underline mb-4 inline-block"
         style={{ color: 'var(--color-primary)' }}>
         ← Back to {job.title}
       </Link>
