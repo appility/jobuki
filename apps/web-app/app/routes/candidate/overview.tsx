@@ -19,30 +19,9 @@ export async function loader(args: LoaderFunctionArgs): Promise<{
 }> {
   const user = await requireUser(args, { type: 'candidate' })
   const db = getDb()
-  let profile = null
-  try {
-    profile = await db.query.candidateProfiles.findFirst({ where: eq(candidateProfiles.userId, user.id) })
-  } catch (err: any) {
-    if (err?.code === '42703') {
-      // Column doesn't exist yet (cv_extracted_text migration not run) — fetch without that column
-      profile = await db.select({
-        id: candidateProfiles.id,
-        userId: candidateProfiles.userId,
-        name: candidateProfiles.name,
-        headline: candidateProfiles.headline,
-        location: candidateProfiles.location,
-        bio: candidateProfiles.bio,
-        skills: candidateProfiles.skills,
-        cvUrl: candidateProfiles.cvUrl,
-        linkedinUrl: candidateProfiles.linkedinUrl,
-        publicProfileEnabled: candidateProfiles.publicProfileEnabled,
-        createdAt: candidateProfiles.createdAt,
-        updatedAt: candidateProfiles.updatedAt,
-      }).from(candidateProfiles).where(eq(candidateProfiles.userId, user.id)).then(r => r[0] || null)
-    } else {
-      throw err
-    }
-  }
+  const profile = await db.query.candidateProfiles.findFirst({
+    where: eq(candidateProfiles.userId, user.id),
+  }).catch(() => null)
 
   const [saved, applied] = await Promise.all([
     db.select({ saved: savedJobs, job: jobs }).from(savedJobs).innerJoin(jobs, eq(savedJobs.jobId, jobs.id)).where(eq(savedJobs.userId, user.id)),

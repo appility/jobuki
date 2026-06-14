@@ -1,13 +1,18 @@
-import { json, type LoaderFunctionArgs } from 'react-router'
+import type { LoaderFunctionArgs } from 'react-router'
 import { getDb, candidateProfiles } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { requireUser } from '../../lib/auth.server'
 import { createCvUploadUrl, ALLOWED_CV_MIME_TYPES, MAX_UPLOAD_BYTES } from '../../lib/r2.server'
 import { extractTextFromCv } from '../../lib/cv-extraction.server'
 
+const jsonResponse = (data: any, status = 200) => new Response(JSON.stringify(data), {
+  status,
+  headers: { 'content-type': 'application/json' }
+})
+
 export async function action(args: LoaderFunctionArgs) {
   if (args.request.method !== 'POST') {
-    return json({ ok: false, error: 'Method not allowed' }, { status: 405 })
+    return jsonResponse({ ok: false, error: 'Method not allowed' }, 405)
   }
 
   const user = await requireUser(args, { type: 'candidate' })
@@ -15,22 +20,22 @@ export async function action(args: LoaderFunctionArgs) {
   const cvFile = formData.get('cv') as File | null
 
   if (!cvFile) {
-    return json({ ok: false, error: 'No CV file provided' }, { status: 400 })
+    return jsonResponse({ ok: false, error: 'No CV file provided' }, 400)
   }
 
   const mimeType = cvFile.type
   if (!ALLOWED_CV_MIME_TYPES.includes(mimeType as any)) {
-    return json(
+    return jsonResponse(
       { ok: false, error: `Unsupported file type. Allowed: PDF, Word, TXT` },
-      { status: 400 }
+      400
     )
   }
 
   const fileSize = cvFile.size
   if (fileSize > MAX_UPLOAD_BYTES.cv) {
-    return json(
+    return jsonResponse(
       { ok: false, error: `File too large. Max size: ${MAX_UPLOAD_BYTES.cv / 1024 / 1024}MB` },
-      { status: 400 }
+      400
     )
   }
 
@@ -56,7 +61,7 @@ export async function action(args: LoaderFunctionArgs) {
       })
       .where(eq(candidateProfiles.userId, user.id))
 
-    return json({
+    return jsonResponse({
       ok: true,
       uploadUrl: uploadUrls.uploadUrl,
       cvUrl: uploadUrls.publicUrl,
@@ -64,9 +69,9 @@ export async function action(args: LoaderFunctionArgs) {
     })
   } catch (error) {
     console.error('[upload-cv] error:', error)
-    return json(
+    return jsonResponse(
       { ok: false, error: error instanceof Error ? error.message : 'Upload failed' },
-      { status: 500 }
+      500
     )
   }
 }
