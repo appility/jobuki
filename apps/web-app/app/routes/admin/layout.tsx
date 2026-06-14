@@ -15,7 +15,6 @@ const navItems = [
   { to: '/dashboard/jobs',         label: 'Jobs',         icon: '✦' },
   { to: '/dashboard/applications', label: 'Applications', icon: '◎' },
   { to: '/dashboard/users',        label: 'Users',        icon: '👥' },
-  { to: '/dashboard/monetization', label: 'Monetization', icon: '¤' },
 ]
 
 function getBoardIdFromPath(pathname: string): string | null {
@@ -347,6 +346,9 @@ function UserMenu({ user, workspace }: {
           <div className="p-1">
             <MenuItem icon="⚙" onClick={() => { openUserProfile(); setOpen(false) }}>
               Account settings
+            </MenuItem>
+            <MenuItem icon="💳" as="link" href="/dashboard/billing" onClick={() => setOpen(false)}>
+              Plans & billing
             </MenuItem>
             {user.isPlatformAdmin && (
               <MenuItem icon="♢" as="link" href="/admin" onClick={() => setOpen(false)}>
