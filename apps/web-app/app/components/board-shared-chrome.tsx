@@ -165,7 +165,12 @@ export function BoardSharedHeader({ boardName, logoUrl, boardConfig, navMode = '
               Post a role
             </a>
           ) : (
-            <div className="w-8" />
+            <Link
+              to="/sign-in"
+              className="px-4 py-2 text-[12px] font-bold rounded-[10px] no-underline bg-primary text-primary-fg"
+            >
+              Sign in
+            </Link>
           )}
         </div>
       </div>

@@ -15,20 +15,30 @@ export async function loader(args: LoaderFunctionArgs) {
 
   // Get candidates (users who have applied to jobs on this workspace's boards)
   const candidateApps = await db
-    .selectDistinct({ userId: applications.candidateEmail })
+    .selectDistinct({ userId: users.id })
     .from(applications)
     .innerJoin(jobs, eq(applications.jobId, jobs.id))
     .innerJoin(boards, eq(jobs.boardId, boards.id))
+    .innerJoin(users, eq(applications.candidateEmail, users.email))
     .where(eq(boards.workspaceId, workspace.id))
 
   const candidateIds = candidateApps.map(a => a.userId)
-  const allUserIds = candidateIds
+
+  if (candidateIds.length === 0) {
+    return {
+      users: [],
+      page,
+      totalPages: 0,
+      total: 0,
+      workspace,
+    }
+  }
 
   // Get total count
   const countResult = await db
     .select({ count: sql<number>`count(*)` })
     .from(users)
-    .where(inArray(users.id, allUserIds.length > 0 ? allUserIds : ['']))
+    .where(inArray(users.id, candidateIds))
 
   const total = countResult[0]?.count || 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
@@ -38,7 +48,7 @@ export async function loader(args: LoaderFunctionArgs) {
   const userList = await db
     .select()
     .from(users)
-    .where(inArray(users.id, allUserIds.length > 0 ? allUserIds : ['']))
+    .where(inArray(users.id, candidateIds))
     .orderBy(desc(users.createdAt))
     .limit(PAGE_SIZE)
     .offset(offset)
