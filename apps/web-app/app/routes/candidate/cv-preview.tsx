@@ -2,14 +2,20 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate, useLoaderData } from 'react-router'
 import { requireUser } from '../../lib/auth.server'
 import type { LoaderFunctionArgs } from 'react-router'
+import { getDb, candidateProfiles } from '@jobuki/db'
+import { eq } from 'drizzle-orm'
 
 export async function loader(args: LoaderFunctionArgs) {
   const user = await requireUser(args, { type: 'candidate' })
-  return { userId: user.id }
+  const db = getDb()
+  const profile = await db.query.candidateProfiles.findFirst({
+    where: eq(candidateProfiles.userId, user.id),
+  })
+  return { userId: user.id, cvUrl: profile?.cvUrl || null }
 }
 
 export default function CvPreview() {
-  const loaderData = useLoaderData<typeof loader>()
+  const { cvUrl } = useLoaderData<typeof loader>()
   const navigate = useNavigate()
   const [content, setContent] = useState<React.ReactNode>(null)
   const [loading, setLoading] = useState(true)
