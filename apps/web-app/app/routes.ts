@@ -14,6 +14,7 @@ export default [
   // ── API ───────────────────────────────────────────────────────────
   route('api/upload-sign', 'routes/api/upload-sign.ts'),
   route('api/upload-image', 'routes/api/upload-image.ts'),
+  route('api/upload-cv', 'routes/api/upload-cv.ts'),
   route('api/ingest-jobs', 'routes/api/ingest-jobs.ts'),
   route('api/cron/process-alerts', 'routes/api/cron.process-alerts.ts'),
   route('api/save-job', 'routes/api/save-job.ts'),
