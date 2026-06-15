@@ -46,8 +46,21 @@ export function MarketingHero() {
     '--board-dot': currentPreset.dot,
   } as React.CSSProperties
 
+  // Add rocking animation
+  const rockingAnimation = `
+    @keyframes rock3d {
+      0% { transform: perspective(1600px) rotateY(-11deg) rotateX(2deg); }
+      50% { transform: perspective(1600px) rotateY(-7deg) rotateX(4deg); }
+      100% { transform: perspective(1600px) rotateY(-11deg) rotateX(2deg); }
+    }
+    .rock-board {
+      animation: rock3d 4s ease-in-out infinite;
+    }
+  `
+
   return (
     <section style={{ padding: 'clamp(2rem, 4vw, 3.5rem) 0 clamp(2.5rem, 5vw, 4.5rem)' }}>
+      <style>{rockingAnimation}</style>
       <div style={{ maxWidth: '1180px', margin: '0 auto', padding: '0 clamp(1rem, 4vw, 1.5rem)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'clamp(2rem, 4vw, 3.5rem)', alignItems: 'center' }}>
         <div>
           <span style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: '#4b35d6', marginBottom: '22px', display: 'inline-flex', alignItems: 'center', gap: '8px', position: 'relative', paddingLeft: '34px' }}>
@@ -75,7 +88,7 @@ export function MarketingHero() {
 
         {/* Board Preview */}
         <div style={{ position: 'relative', perspective: '1600px' }} className="hidden lg:block">
-          <div style={{ background: currentPreset.bg, borderRadius: '22px', boxShadow: '0 30px 70px -30px rgba(28, 26, 23, .28)', border: `1px solid ${currentPreset.border}`, overflow: 'hidden', transform: 'rotateY(-9deg) rotateX(3deg)', transformStyle: 'preserve-3d', transition: 'transform .4s ease, background .35s ease, border-color .35s ease', minHeight: '400px' }}>
+          <div className="rock-board" style={{ background: currentPreset.bg, borderRadius: '22px', boxShadow: '0 30px 70px -30px rgba(28, 26, 23, .28)', border: `1px solid ${currentPreset.border}`, overflow: 'hidden', transformStyle: 'preserve-3d', transition: 'background .35s ease, border-color .35s ease', minHeight: '400px' }}>
             <div style={{ height: '46px', display: 'flex', alignItems: 'center', gap: '7px', padding: '0 16px', borderBottom: `1px solid ${currentPreset.border}`, background: currentPreset.bar, transition: 'background .35s ease, border-color .35s ease' }}>
               <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: currentPreset.dot, display: 'block' }} />
               <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: currentPreset.dot, display: 'block' }} />

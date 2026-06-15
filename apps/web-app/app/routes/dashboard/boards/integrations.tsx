@@ -4,6 +4,8 @@ import { requireWorkspaceAccess, requireBoardInWorkspace } from '../../../lib/au
 import { getDb, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { resolveJobBoardThemeConfig } from '@jobuki/types'
+import { useState, useEffect } from 'react'
+import { CheckCircle2 } from 'lucide-react'
 
 export async function loader(args: LoaderFunctionArgs) {
   const { workspace } = await requireWorkspaceAccess(args)
@@ -24,22 +26,37 @@ export async function action(args: ActionFunctionArgs) {
 
   const form = await args.request.formData()
   const g = (key: string) => (form.get(key) as string ?? '').trim() || undefined
+  const field = form.get('field') as string | null
 
   const existing = resolveJobBoardThemeConfig(full.boardConfig)
-  const updated = {
-    ...existing,
-    integrations: {
+  const currentIntegrations = existing.integrations ?? {}
+
+  // If a specific field is being saved, update only that field
+  let integrations: typeof currentIntegrations
+  if (field) {
+    integrations = {
+      ...currentIntegrations,
+      [field]: g(field),
+    }
+  } else {
+    // Fallback: save all fields (for backward compatibility)
+    integrations = {
       googleAnalyticsId:   g('googleAnalyticsId'),
       googleTagManagerId:  g('googleTagManagerId'),
       facebookPixelId:     g('facebookPixelId'),
       linkedinPartnerId:   g('linkedinPartnerId'),
       hotjarSiteId:        g('hotjarSiteId'),
       microsoftClarityId:  g('microsoftClarityId'),
-    },
+    }
+  }
+
+  const updated = {
+    ...existing,
+    integrations,
   }
 
   await db.update(boards).set({ boardConfig: updated }).where(eq(boards.id, board.id))
-  return { ok: true }
+  return { ok: true, savedField: field }
 }
 
 // ── Component ─────────────────────────────────────────────────────────
@@ -87,7 +104,15 @@ export default function IntegrationsPage() {
   const { board, integrations } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
-  const saving = navigation.state === 'submitting'
+  const [saved, setSaved] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (actionData?.ok && actionData?.savedField) {
+      setSaved(actionData.savedField)
+      const timer = setTimeout(() => setSaved(null), 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [actionData])
 
   return (
     <div className="w-full p-8 max-w-2xl">
@@ -104,40 +129,48 @@ export default function IntegrationsPage() {
         </p>
       </div>
 
-      {actionData?.ok && (
-        <div className="mb-6 px-4 py-3 rounded-xl text-sm font-medium"
-          style={{ backgroundColor: 'var(--color-success-bg)', color: 'var(--color-success)' }}>
-          Integrations saved.
-        </div>
-      )}
+      <div className="flex flex-col gap-5">
+        {INTEGRATIONS.map(({ key, label, placeholder, help }) => {
+          const isSaving = navigation.state === 'submitting' && navigation.formData?.get('field') === key
+          const wasSaved = saved === key
 
-      <Form method="post" className="flex flex-col gap-7">
-        {INTEGRATIONS.map(({ key, label, placeholder, help }) => (
-          <div key={key}>
-            <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>
-              {label}
-            </label>
-            <input
-              name={key}
-              defaultValue={(integrations as any)[key] ?? ''}
-              placeholder={placeholder}
-              className="w-full px-3 py-2.5 rounded-xl text-sm border font-mono"
-              style={{
-                borderColor: 'var(--color-border)',
-                backgroundColor: 'var(--color-surface-subtle)',
-                color: 'var(--color-text-primary)',
-              }}
-            />
-            <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>{help}</p>
-          </div>
-        ))}
-
-        <div className="pt-2">
-          <button type="submit" disabled={saving} className="btn-primary">
-            {saving ? 'Saving…' : 'Save integrations'}
-          </button>
-        </div>
-      </Form>
+          return (
+            <div key={key} style={{ borderBottom: '1px solid var(--color-border)', paddingBottom: '1.5rem' }}>
+              <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                {label}
+              </label>
+              <Form method="post" className="flex gap-2 items-end">
+                <input type="hidden" name="field" value={key} />
+                <input
+                  name={key}
+                  defaultValue={(integrations as any)[key] ?? ''}
+                  placeholder={placeholder}
+                  className="flex-1 px-3 py-2.5 rounded-lg text-sm border font-mono"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    backgroundColor: 'var(--color-surface-subtle)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap flex items-center gap-2 transition-all"
+                  style={{
+                    backgroundColor: wasSaved ? 'var(--color-success)' : 'var(--color-primary)',
+                    color: 'white',
+                    opacity: isSaving ? 0.7 : 1,
+                  }}
+                >
+                  {wasSaved && <CheckCircle2 size={16} />}
+                  {isSaving ? 'Saving…' : wasSaved ? 'Saved' : 'Save'}
+                </button>
+              </Form>
+              <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>{help}</p>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
