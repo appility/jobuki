@@ -6,7 +6,7 @@ import { createId } from '@paralleldrive/cuid2'
 import type { BoardTheme, JobBoardThemeConfig } from '@jobuki/types'
 
 // ── Enums ────────────────────────────────────────────────────────────
-export const memberRoleEnum      = pgEnum('member_role',       ['owner', 'admin', 'member'])
+export const memberRoleEnum      = pgEnum('member_role',       ['owner', 'editor'])
 export const boardStatusEnum     = pgEnum('board_status',      ['draft', 'live', 'suspended'])
 export const jobStatusEnum       = pgEnum('job_status',        ['draft', 'published', 'closed'])
 export const remotePolicyEnum    = pgEnum('remote_policy',     ['remote', 'hybrid', 'onsite'])
@@ -49,7 +49,7 @@ export const workspaceMembers = pgTable('workspace_members', {
   id:          text('id').primaryKey().$defaultFn(() => createId()),
   workspaceId: text('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
   userId:      text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  role:        memberRoleEnum('role').notNull().default('member'),
+  role:        memberRoleEnum('role').notNull().default('editor'),
   createdAt:   timestamp('created_at').notNull().defaultNow(),
 }, (t) => ({
   uniq: uniqueIndex('workspace_members_workspace_user_idx').on(t.workspaceId, t.userId),

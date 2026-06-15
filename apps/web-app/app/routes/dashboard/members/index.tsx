@@ -252,8 +252,7 @@ export default function WorkspaceMembers() {
                         opacity: member.userId === currentUser.id ? 0.6 : 1,
                       }}
                     >
-                      <option value="member">Member</option>
-                      <option value="admin">Admin</option>
+                      <option value="editor">Editor</option>
                       <option value="owner">Owner</option>
                     </select>
                   </Form>
@@ -283,9 +282,8 @@ export default function WorkspaceMembers() {
           Role permissions
         </h3>
         <ul className="text-sm space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
-          <li><strong>Member:</strong> Can view and edit job boards and listings</li>
-          <li><strong>Admin:</strong> Can manage members and workspace settings</li>
-          <li><strong>Owner:</strong> Full workspace control including billing and deletion</li>
+          <li><strong>Editor:</strong> Can create, edit, and manage job boards and listings</li>
+          <li><strong>Owner:</strong> Full workspace control including billing, settings, and team management</li>
         </ul>
       </div>
     </div>

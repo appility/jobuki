@@ -241,7 +241,7 @@ export async function requireWorkspaceAccess(args: Args) {
           })
         result = { workspace: fallbackWorkspace, role: 'admin' as const }
       }
-    } else if (result.role === 'member') {
+    } else if (result.role === 'editor') {
       await db
         .update(workspaceMembers)
         .set({ role: 'admin' })

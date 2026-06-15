@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const PRESETS = {
   Minimal: { swatch: '#5b3df5', accent: '#5b3df5', display: "'Unbounded', sans-serif", body: "'Plus Jakarta Sans', sans-serif", radius: '13px', brand: 'Northwind', domain: 'careers.yourbrand.com', bg: '#ffffff', bar: '#faf8f5', chip: '#ffffff', border: '#e7e0d6', text: '#1c1a17', soft: '#6b6459', dot: '#e7e0d6' },
@@ -17,6 +17,20 @@ const JOBS = [
 export function MarketingHero() {
   const [theme, setTheme] = useState<keyof typeof PRESETS>('Minimal')
   const currentPreset = PRESETS[theme]
+  const presetNames = Object.keys(PRESETS) as (keyof typeof PRESETS)[]
+
+  // Auto-cycle through themes every 4.5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTheme((current) => {
+        const currentIndex = presetNames.indexOf(current)
+        const nextIndex = (currentIndex + 1) % presetNames.length
+        return presetNames[nextIndex]
+      })
+    }, 4500)
+
+    return () => clearInterval(interval)
+  }, [presetNames])
 
   const boardVars = {
     '--board-accent': currentPreset.accent,
@@ -33,8 +47,8 @@ export function MarketingHero() {
   } as React.CSSProperties
 
   return (
-    <section style={{ padding: '46px 0 70px' }}>
-      <div style={{ maxWidth: '1180px', margin: '0 auto', padding: '0 24px', display: 'grid', gridTemplateColumns: '1.05fr 1fr', gap: '54px', alignItems: 'center' }}>
+    <section style={{ padding: 'clamp(2rem, 4vw, 3.5rem) 0 clamp(2.5rem, 5vw, 4.5rem)' }}>
+      <div style={{ maxWidth: '1180px', margin: '0 auto', padding: '0 clamp(1rem, 4vw, 1.5rem)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'clamp(2rem, 4vw, 3.5rem)', alignItems: 'center' }}>
         <div>
           <span style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: '#4b35d6', marginBottom: '22px', display: 'inline-flex', alignItems: 'center', gap: '8px', position: 'relative', paddingLeft: '34px' }}>
             <span style={{ content: '""', width: '26px', height: '2px', background: '#4b35d6', borderRadius: '2px', position: 'absolute', left: 0 }} />
@@ -43,14 +57,14 @@ export function MarketingHero() {
           <h1 style={{ fontFamily: "'Unbounded', sans-serif", fontWeight: 800, fontSize: 'clamp(40px, 6vw, 68px)', lineHeight: 1.02, letterSpacing: '-.03em', marginBottom: '22px' }}>
             Build a branded<br />job board <span style={{ color: '#5b3df5' }}>in minutes.</span>
           </h1>
-          <p style={{ fontSize: '18px', color: '#6b6459', maxWidth: '440px', marginBottom: '32px', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 'clamp(1rem, 2.5vw, 1.125rem)', color: '#6b6459', maxWidth: '440px', marginBottom: 'clamp(1.5rem, 3vw, 2rem)', lineHeight: 1.6 }}>
             Jobuki gives recruiters, companies, and communities a board that looks like theirs — with hiring workflows tuned to how they actually work.
           </p>
-          <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <Link to="/dashboard" style={{ background: '#5b3df5', color: '#fff', border: 'none', cursor: 'pointer', padding: '16px 28px', borderRadius: '14px', fontWeight: 700, fontSize: '16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '9px', boxShadow: '0 10px 26px -8px rgba(91, 61, 245, .55)', transition: 'transform .15s, box-shadow .15s' }}>
+          <div style={{ display: 'flex', gap: 'clamp(0.875rem, 2vw, 1rem)', alignItems: 'center', flexWrap: 'wrap' }}>
+            <Link to="/dashboard" style={{ background: '#5b3df5', color: '#fff', border: 'none', cursor: 'pointer', padding: 'clamp(0.875rem, 2vw, 1rem) clamp(1.5rem, 3vw, 1.75rem)', borderRadius: '14px', fontWeight: 700, fontSize: 'clamp(0.875rem, 2vw, 1rem)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '9px', boxShadow: '0 10px 26px -8px rgba(91, 61, 245, .55)', transition: 'transform .15s, box-shadow .15s' }}>
               Create your board →
             </Link>
-            <Link to="/for/communities" style={{ color: '#1c1a17', fontWeight: 600, fontSize: '16px', textDecoration: 'none', padding: '16px 12px' }}>
+            <Link to="/for/communities" style={{ color: '#1c1a17', fontWeight: 600, fontSize: 'clamp(0.875rem, 2vw, 1rem)', textDecoration: 'none', padding: 'clamp(0.875rem, 2vw, 1rem) clamp(0.75rem, 1.5vw, 1rem)' }}>
               See live boards
             </Link>
           </div>
@@ -60,8 +74,8 @@ export function MarketingHero() {
         </div>
 
         {/* Board Preview */}
-        <div style={{ position: 'relative', perspective: '1600px' }}>
-          <div style={{ background: currentPreset.bg, borderRadius: '22px', boxShadow: '0 30px 70px -30px rgba(28, 26, 23, .28)', border: `1px solid ${currentPreset.border}`, overflow: 'hidden', transform: 'rotateY(-9deg) rotateX(3deg)', transformStyle: 'preserve-3d', transition: 'transform .4s ease, background .35s ease, border-color .35s ease' }}>
+        <div style={{ position: 'relative', perspective: '1600px', display: 'none' }} className="lg:block">
+          <div style={{ background: currentPreset.bg, borderRadius: '22px', boxShadow: '0 30px 70px -30px rgba(28, 26, 23, .28)', border: `1px solid ${currentPreset.border}`, overflow: 'hidden', transform: 'rotateY(-9deg) rotateX(3deg)', transformStyle: 'preserve-3d', transition: 'transform .4s ease, background .35s ease, border-color .35s ease', minHeight: '400px' }}>
             <div style={{ height: '46px', display: 'flex', alignItems: 'center', gap: '7px', padding: '0 16px', borderBottom: `1px solid ${currentPreset.border}`, background: currentPreset.bar, transition: 'background .35s ease, border-color .35s ease' }}>
               <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: currentPreset.dot, display: 'block' }} />
               <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: currentPreset.dot, display: 'block' }} />

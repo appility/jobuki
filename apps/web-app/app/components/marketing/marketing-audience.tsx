@@ -9,27 +9,27 @@ const AUDIENCE_CARDS = [
 
 export function MarketingAudience() {
   return (
-    <section style={{ padding: '64px 0 30px' }}>
-      <div style={{ maxWidth: '1180px', margin: '0 auto', padding: '0 24px' }}>
-        <p style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: '#6b6459', textAlign: 'center', marginBottom: '10px' }}>
+    <section style={{ padding: 'clamp(2rem, 4vw, 4rem) 0 clamp(1.5rem, 3vw, 2rem)' }}>
+      <div style={{ maxWidth: '1180px', margin: '0 auto', padding: '0 clamp(1rem, 4vw, 1.5rem)' }}>
+        <p style={{ fontSize: 'clamp(0.8125rem, 1.5vw, 0.8125rem)', fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: '#6b6459', textAlign: 'center', marginBottom: 'clamp(0.75rem, 1.5vw, 0.75rem)' }}>
           Choose your audience
         </p>
-        <h2 style={{ fontFamily: "'Unbounded', sans-serif", fontWeight: 700, fontSize: 'clamp(26px, 4vw, 38px)', textAlign: 'center', letterSpacing: '-.02em', marginBottom: '40px' }}>
+        <h2 style={{ fontFamily: "'Unbounded', sans-serif", fontWeight: 700, fontSize: 'clamp(1.625rem, 5vw, 2.375rem)', textAlign: 'center', letterSpacing: '-.02em', marginBottom: 'clamp(1.5rem, 3vw, 2.5rem)' }}>
           One platform, three ways to hire
         </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '18px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'clamp(1rem, 2vw, 1.125rem)' }}>
           {AUDIENCE_CARDS.map((card) => (
-            <Link key={card.id} to={card.to} style={{ background: '#fff', border: '1px solid #e7e0d6', borderRadius: '22px', padding: '26px', transition: 'transform .18s, box-shadow .18s', cursor: 'pointer', textDecoration: 'none', color: 'inherit', display: 'block' }}>
-              <span style={{ width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', marginBottom: '16px', background: card.iconBg, color: card.iconColor }}>
+            <Link key={card.id} to={card.to} style={{ background: '#fff', border: '1px solid #e7e0d6', borderRadius: '22px', padding: 'clamp(1.5rem, 3vw, 1.625rem)', transition: 'transform .18s, box-shadow .18s', cursor: 'pointer', textDecoration: 'none', color: 'inherit', display: 'block' }}>
+              <span style={{ width: 'clamp(2.5rem, 5vw, 2.625rem)', height: 'clamp(2.5rem, 5vw, 2.625rem)', borderRadius: '12px', display: 'grid', placeItems: 'center', marginBottom: 'clamp(1rem, 2vw, 1rem)', background: card.iconBg, color: card.iconColor }}>
                 <card.Icon size={24} />
               </span>
-              <h3 style={{ fontFamily: "'Unbounded', sans-serif", fontWeight: 600, fontSize: '18px', marginBottom: '8px' }}>
+              <h3 style={{ fontFamily: "'Unbounded', sans-serif", fontWeight: 600, fontSize: 'clamp(1rem, 2.5vw, 1.125rem)', marginBottom: 'clamp(0.5rem, 1vw, 0.5rem)' }}>
                 {card.title}
               </h3>
-              <p style={{ fontSize: '14px', color: '#6b6459', marginBottom: '18px', lineHeight: 1.55 }}>
+              <p style={{ fontSize: 'clamp(0.875rem, 1.5vw, 0.875rem)', color: '#6b6459', marginBottom: 'clamp(1rem, 2vw, 1.125rem)', lineHeight: 1.55 }}>
                 {card.body}
               </p>
-              <span style={{ fontWeight: 700, fontSize: '14px', display: 'inline-flex', gap: '6px', color: card.linkColor }}>
+              <span style={{ fontWeight: 700, fontSize: 'clamp(0.875rem, 1.5vw, 0.875rem)', display: 'inline-flex', gap: '6px', color: card.linkColor }}>
                 {card.cta} →
               </span>
             </Link>

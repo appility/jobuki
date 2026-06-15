@@ -357,9 +357,6 @@ function UserMenu({ user, workspace }: {
                 Platform admin
               </MenuItem>
             )}
-            <MenuItem Icon={Grid3x3} as="link" href="/dashboard/boards" onClick={() => setOpen(false)}>
-              My boards
-            </MenuItem>
             <MenuItem Icon={Users} as="link" href="/dashboard/members" onClick={() => setOpen(false)}>
               Team members
             </MenuItem>
