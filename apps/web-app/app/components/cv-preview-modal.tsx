@@ -25,8 +25,13 @@ export function CvPreviewModal({ isOpen, cvUrl, candidateName, onClose }: CvPrev
       setError(null)
 
       try {
-        const response = await fetch(`/api/cv-preview?url=${encodeURIComponent(cvUrl)}`)
-        if (!response.ok) throw new Error('Failed to fetch CV')
+        const response = await fetch(`/api/cv-preview?url=${encodeURIComponent(cvUrl)}`, {
+          credentials: 'include'
+        })
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => 'Unknown error')
+          throw new Error(`Failed to fetch CV: ${response.status} ${errorText}`)
+        }
 
         const data = await response.json()
         if (data.html) {

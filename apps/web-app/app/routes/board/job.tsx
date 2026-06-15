@@ -214,7 +214,7 @@ const TYPE_LABEL: Record<string, string> = {
 
 export default function JobDetail() {
   const { job, board, similarJobs, isPreviewMode, boardCategories, isSaved: initialSaved, isSignedIn, accountType } = useLoaderData<typeof loader>()
-  const { board: layoutBoard } = useOutletContext<{ board: Board }>()
+  const outletContext = useOutletContext<{ board?: Board }>()
   const [saved, setSaved] = useState(initialSaved)
   const [savePending, setSavePending] = useState(false)
   const needsJobSeekerAuth = !isSignedIn || accountType === 'publisher' || accountType === 'board_creator'

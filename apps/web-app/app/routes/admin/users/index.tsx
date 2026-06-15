@@ -13,32 +13,11 @@ export async function loader(args: LoaderFunctionArgs) {
   const url = new URL(args.request.url)
   const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'))
 
-  // Get candidates (users who have applied to jobs on this workspace's boards)
-  const candidateApps = await db
-    .selectDistinct({ userId: users.id })
-    .from(applications)
-    .innerJoin(jobs, eq(applications.jobId, jobs.id))
-    .innerJoin(boards, eq(jobs.boardId, boards.id))
-    .innerJoin(users, eq(applications.candidateEmail, users.email))
-    .where(eq(boards.workspaceId, workspace.id))
-
-  const candidateIds = candidateApps.map(a => a.userId)
-
-  if (candidateIds.length === 0) {
-    return {
-      users: [],
-      page,
-      totalPages: 0,
-      total: 0,
-      workspace,
-    }
-  }
-
-  // Get total count
+  // Get all candidates (users with accountType 'candidate')
   const countResult = await db
     .select({ count: sql<number>`count(*)` })
     .from(users)
-    .where(inArray(users.id, candidateIds))
+    .where(eq(users.accountType, 'candidate'))
 
   const total = countResult[0]?.count || 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
@@ -48,7 +27,7 @@ export async function loader(args: LoaderFunctionArgs) {
   const userList = await db
     .select()
     .from(users)
-    .where(inArray(users.id, candidateIds))
+    .where(eq(users.accountType, 'candidate'))
     .orderBy(desc(users.createdAt))
     .limit(PAGE_SIZE)
     .offset(offset)
