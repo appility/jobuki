@@ -77,6 +77,9 @@ importers:
       isomorphic-dompurify:
         specifier: ^3.16.0
         version: 3.16.0(@noble/hashes@1.8.0)
+      lucide-react:
+        specifier: ^1.18.0
+        version: 1.18.0(react@18.3.1)
       mammoth:
         specifier: ^1.12.0
         version: 1.12.0
@@ -174,6 +177,9 @@ importers:
       drizzle-orm:
         specifier: ^0.30.10
         version: 0.30.10(@types/react@18.3.29)(postgres@3.4.9)(react@18.3.1)
+      lucide-react:
+        specifier: ^1.18.0
+        version: 1.18.0(react@18.3.1)
       postgres:
         specifier: ^3.4.4
         version: 3.4.9
@@ -185,7 +191,11 @@ importers:
         specifier: ^0.21.4
         version: 0.21.4
 
-  packages/types: {}
+  packages/types:
+    dependencies:
+      lucide-react:
+        specifier: ^1.18.0
+        version: 1.18.0(react@18.3.1)
 
 packages:
 
@@ -2880,6 +2890,11 @@ packages:
 
   lru-queue@0.1.0:
     resolution: {integrity: sha512-BpdYkt9EvGl8OfWHDQPISVpcl5xZthb+XPsbELj5AQXxIC8IriDZIQYjBJPEm5rS420sjZ0TLEzRcq5KdBhYrQ==}
+
+  lucide-react@1.18.0:
+    resolution: {integrity: sha512-LZDb7H/0YfM+RJncD0hDQRCAu+vSGODqpe35TuVI8EuXaRjkczbsx7p8dY4J87F/MUSj6bpYqeI8nw8qXaAdmA==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -6425,6 +6440,10 @@ snapshots:
   lru-queue@0.1.0:
     dependencies:
       es5-ext: 0.10.64
+
+  lucide-react@1.18.0(react@18.3.1):
+    dependencies:
+      react: 18.3.1
 
   magic-string@0.30.21:
     dependencies:

@@ -185,14 +185,14 @@ export function BoardSharedFooter({ boardName, boardConfig, footerText }: BoardS
     <footer className="border-t mt-10" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
       <div className="max-w-[1280px] mx-auto px-6 lg:px-10 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          {footerText || <>Powered by <span className="font-semibold" style={{ color: 'var(--color-text-secondary)' }}>Jobuki</span></>}
+          {footerText || <>Powered by <span className="font-bold" style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-brand)', fontSize: '0.875rem', letterSpacing: '-0.01em' }}>Jobuki</span></>}
         </p>
         <nav className="flex items-center gap-4 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
           <Link to="/jobs" className="no-underline hover:underline">Browse</Link>
           {boardConfig.pages?.about?.enabled && <Link to="/about" className="no-underline hover:underline">About</Link>}
           {boardConfig.pages?.privacy?.enabled && <Link to="/privacy" className="no-underline hover:underline">Privacy</Link>}
           {boardConfig.footer.showPoweredBy && (
-            <a href="https://jobuki.com" target="_blank" rel="noreferrer" className="no-underline hover:underline">Jobuki</a>
+            <a href="https://jobuki.com" target="_blank" rel="noreferrer" className="no-underline hover:underline font-bold" style={{ fontFamily: 'var(--font-brand)', letterSpacing: '-0.01em' }}>Jobuki</a>
           )}
         </nav>
       </div>

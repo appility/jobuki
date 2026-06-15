@@ -69,7 +69,8 @@ export default [
     route('dashboard/applications',   'routes/dashboard/applications/index.tsx'),
     route('dashboard/applications/:jobId', 'routes/dashboard/applications/$jobId.tsx'),
     route('dashboard/applications/:jobId/:applicationId', 'routes/dashboard/applications/$jobId/$applicationId.tsx'),
-    route('dashboard/users',           'routes/dashboard/users/index.tsx'),
+    route('dashboard/candidates',      'routes/dashboard/candidates/index.tsx'),
+    route('dashboard/members',         'routes/dashboard/members/index.tsx'),
   ]),
 
   // ── Public Job Board & Candidate Shell ─────────────────────────────

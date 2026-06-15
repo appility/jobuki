@@ -4,17 +4,19 @@ import { requireWorkspaceAccess } from '../../lib/auth.server'
 import { useClerk } from '@clerk/react-router'
 import { useUser } from '@clerk/react-router'
 import { useState, useRef, useEffect } from 'react'
+import { LayoutGrid, Grid3x3, Briefcase, Inbox, Users, UserCheck, Settings, CreditCard, LogOut } from 'lucide-react'
 
 export async function loader(args: LoaderFunctionArgs) {
   return requireWorkspaceAccess(args)
 }
 
 const navItems = [
-  { to: '/dashboard',              label: 'Overview',     icon: '▦' },
-  { to: '/dashboard/boards',       label: 'Job Boards',   icon: '⊞' },
-  { to: '/dashboard/jobs',         label: 'Jobs',         icon: '✦' },
-  { to: '/dashboard/applications', label: 'Applications', icon: '◎' },
-  { to: '/dashboard/users',        label: 'Users',        icon: '👥' },
+  { to: '/dashboard',              label: 'Overview',     Icon: LayoutGrid },
+  { to: '/dashboard/boards',       label: 'Job Boards',   Icon: Grid3x3 },
+  { to: '/dashboard/jobs',         label: 'Jobs',         Icon: Briefcase },
+  { to: '/dashboard/applications', label: 'Applications', Icon: Inbox },
+  { to: '/dashboard/candidates',   label: 'Candidates',   Icon: Users },
+  { to: '/dashboard/members',      label: 'Team',         Icon: UserCheck },
 ]
 
 function getBoardIdFromPath(pathname: string): string | null {
@@ -64,7 +66,7 @@ export default function AdminLayout() {
               style={{ backgroundColor: 'var(--color-primary)' }}>
               <span className="text-white text-sm font-extrabold">J</span>
             </div>
-            <span className="text-base font-extrabold" style={{ color: 'var(--color-text-primary)' }}>
+            <span className="text-lg font-bold" style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-brand)', fontWeight: 800, letterSpacing: '-0.01em' }}>
               Jobuki
             </span>
           </div>
@@ -202,7 +204,7 @@ function DashboardNav({ onNavigate }: { onNavigate?: () => void }) {
             color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)',
           })}
         >
-          <span className="text-xs">{item.icon}</span>
+          <item.Icon size={18} strokeWidth={1.5} />
           {item.label}
         </NavLink>
       ))}
@@ -344,25 +346,28 @@ function UserMenu({ user, workspace }: {
 
           {/* Menu items */}
           <div className="p-1">
-            <MenuItem icon="⚙" onClick={() => { openUserProfile(); setOpen(false) }}>
+            <MenuItem Icon={Settings} onClick={() => { openUserProfile(); setOpen(false) }}>
               Account settings
             </MenuItem>
-            <MenuItem icon="💳" as="link" href="/dashboard/billing" onClick={() => setOpen(false)}>
+            <MenuItem Icon={CreditCard} as="link" href="/dashboard/billing" onClick={() => setOpen(false)}>
               Plans & billing
             </MenuItem>
             {user.isPlatformAdmin && (
-              <MenuItem icon="♢" as="link" href="/admin" onClick={() => setOpen(false)}>
+              <MenuItem Icon={Grid3x3} as="link" href="/admin" onClick={() => setOpen(false)}>
                 Platform admin
               </MenuItem>
             )}
-            <MenuItem icon="⊞" as="link" href="/dashboard/boards" onClick={() => setOpen(false)}>
+            <MenuItem Icon={Grid3x3} as="link" href="/dashboard/boards" onClick={() => setOpen(false)}>
               My boards
+            </MenuItem>
+            <MenuItem Icon={Users} as="link" href="/dashboard/members" onClick={() => setOpen(false)}>
+              Team members
             </MenuItem>
           </div>
 
           <div className="p-1" style={{ borderTop: '1px solid var(--color-border)' }}>
             <MenuItem
-              icon="→"
+              Icon={LogOut}
               danger
               onClick={() => signOut(() => navigate('/sign-in'))}
             >
@@ -394,8 +399,8 @@ function Avatar({ src, initials, size }: { src: string | null; initials: string;
 
 const PLAN_LABEL: Record<string, string> = { free: 'Free', growth: 'Growth', scale: 'Scale' }
 
-function MenuItem({ icon, children, onClick, as, href, danger }: {
-  icon: string
+function MenuItem({ Icon, children, onClick, as, href, danger }: {
+  Icon: React.ComponentType<{ size: number }>
   children: React.ReactNode
   onClick?: () => void
   as?: 'link'
@@ -412,7 +417,7 @@ function MenuItem({ icon, children, onClick, as, href, danger }: {
       <Link to={href} onClick={onClick} className={cls} style={style}
         onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--color-surface-subtle)')}
         onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
-        <span>{icon}</span>
+        <Icon size={16} />
         {children}
       </Link>
     )
@@ -423,7 +428,7 @@ function MenuItem({ icon, children, onClick, as, href, danger }: {
       style={{ ...style, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
       onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--color-surface-subtle)')}
       onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
-      <span>{icon}</span>
+      <Icon size={16} />
       {children}
     </button>
   )

@@ -5,5 +5,8 @@
   "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "lucide-react": "^1.18.0"
   }
 }
