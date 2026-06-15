@@ -74,7 +74,7 @@ export function MarketingHero() {
         </div>
 
         {/* Board Preview */}
-        <div style={{ position: 'relative', perspective: '1600px', display: 'none' }} className="lg:block">
+        <div style={{ position: 'relative', perspective: '1600px' }} className="hidden lg:block">
           <div style={{ background: currentPreset.bg, borderRadius: '22px', boxShadow: '0 30px 70px -30px rgba(28, 26, 23, .28)', border: `1px solid ${currentPreset.border}`, overflow: 'hidden', transform: 'rotateY(-9deg) rotateX(3deg)', transformStyle: 'preserve-3d', transition: 'transform .4s ease, background .35s ease, border-color .35s ease', minHeight: '400px' }}>
             <div style={{ height: '46px', display: 'flex', alignItems: 'center', gap: '7px', padding: '0 16px', borderBottom: `1px solid ${currentPreset.border}`, background: currentPreset.bar, transition: 'background .35s ease, border-color .35s ease' }}>
               <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: currentPreset.dot, display: 'block' }} />

@@ -5,7 +5,8 @@ import { getDb, boards } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { requireWorkspaceAccess, requireBoardInWorkspace } from '../../lib/auth.server'
 import { resolveTheme, themeToCSS } from '../../lib/theme'
-import { suggestAccents, readableFg, isValidHex } from '../../lib/color'
+import { suggestAccents, readableFg, isValidHex, isDarkBackground, getNeutralPalette } from '../../lib/color'
+import { ThemeColorPanel } from '../../components/theme-color-panel'
 import { addCustomDomain, isValidDomain, removeCustomDomain } from '../../lib/railway'
 import { ALLOWED_IMAGE_MIME_TYPES, createBoardAssetUploadUrl, MAX_UPLOAD_BYTES } from '../../lib/r2.server'
 import { titleCaseCategory } from '../../lib/board-categories'
@@ -428,7 +429,7 @@ export default function AppearancePage() {
 
   const [uploadingKind, setUploadingKind] = useState<'logo' | 'header' | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'brand' | 'design'>('brand')
+  const [activeTab, setActiveTab] = useState<'brand' | 'colors' | 'design'>('brand')
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [panelOpen, setPanelOpen] = useState(true)
   const [toasts, setToasts] = useState<Array<{ id: number; type: 'success' | 'error'; message: string }>>([])
@@ -687,9 +688,9 @@ export default function AppearancePage() {
 
             {advancedOpen && (
               <div className="px-5 pb-4">
-                <div className="mb-4 grid grid-cols-2 gap-1.5 rounded-xl p-1"
+                <div className="mb-4 grid grid-cols-3 gap-1.5 rounded-xl p-1"
                   style={{ backgroundColor: 'var(--color-surface-subtle)' }}>
-                  {([{ key: 'brand', label: 'Brand' }, { key: 'design', label: 'Design' }] as const).map(tab => (
+                  {([{ key: 'brand', label: 'Brand' }, { key: 'colors', label: 'Colors' }, { key: 'design', label: 'Design' }] as const).map(tab => (
                     <button
                       key={tab.key}
                       type="button"
@@ -856,6 +857,13 @@ export default function AppearancePage() {
                 />
               </div>
             </Section>
+            )}
+
+            {/* Colors Tab */}
+            {activeTab === 'colors' && (
+            <div className="pt-2">
+              <ThemeColorPanel theme={t} onUpdate={updateToken} />
+            </div>
             )}
 
             {/* Header style */}

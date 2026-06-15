@@ -55,6 +55,31 @@ export function readableFg(bg: string): string {
   return onWhite > onDark ? '#ffffff' : '#1C1917'
 }
 
+// Detect if background is dark (luminance < 0.5)
+export function isDarkBackground(hex: string): boolean {
+  if (!isValidHex(hex)) return false
+  return luminance(hex) < 0.5
+}
+
+// Light neutral color palette (for dark backgrounds)
+export const LIGHT_NEUTRALS = {
+  textPrimary: '#F8FAFC',   // off-white
+  textSecondary: '#CBD5E1',  // light gray
+  textMuted: '#94A3B8',      // medium gray
+}
+
+// Dark neutral color palette (for light backgrounds)
+export const DARK_NEUTRALS = {
+  textPrimary: '#0F172A',    // dark navy
+  textSecondary: '#334155',  // medium gray
+  textMuted: '#64748B',      // light gray
+}
+
+// Get appropriate neutral palette based on background color
+export function getNeutralPalette(bgHex: string) {
+  return isDarkBackground(bgHex) ? LIGHT_NEUTRALS : DARK_NEUTRALS
+}
+
 // ── Palette generation ────────────────────────────────────────────────
 
 export interface AccentSuggestion {
