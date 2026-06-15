@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs } from 'react-router'
 import { getDb, jobs, savedJobs } from '@jobuki/db'
 import { and, eq } from 'drizzle-orm'
-import { requireUser } from '../../lib/auth.server'
+import { requireUser } from '../../../lib/auth.server'
 
 function getDbErrorMessage(error: unknown) {
   const code = (error as { code?: string } | null)?.code

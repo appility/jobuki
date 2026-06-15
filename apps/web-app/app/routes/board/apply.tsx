@@ -177,7 +177,7 @@ export default function ApplyPrep() {
     let cancelled = false
     setPrepLoading(true)
 
-    fetch(`/api/apply-prep?jobId=${encodeURIComponent(job.id)}`, { credentials: 'include' })
+    fetch(`/api/applications/apply-prep?jobId=${encodeURIComponent(job.id)}`, { credentials: 'include' })
       .then(async (response) => {
         if (!response.ok) return null
         return response.json().catch(() => null)
@@ -203,7 +203,7 @@ export default function ApplyPrep() {
       fd.set('jobId', job.id)
       fd.set('boardId', job.boardId)
       fd.set('intent', saved ? 'unsave' : 'save')
-      const response = await fetch('/api/save-job', { method: 'POST', body: fd, credentials: 'include' })
+      const response = await fetch('/api/jobs/save', { method: 'POST', body: fd, credentials: 'include' })
       const data = await response.json().catch(() => null)
       if (data?.unauthenticated) {
         window.location.href = authPath

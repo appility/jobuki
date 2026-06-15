@@ -1,0 +1,5 @@
+export { MarketingNav } from './marketing-nav'
+export { MarketingHero } from './marketing-hero'
+export { MarketingAudience } from './marketing-audience'
+export { MarketingCTA } from './marketing-cta'
+export { MarketingFooter } from './marketing-footer'

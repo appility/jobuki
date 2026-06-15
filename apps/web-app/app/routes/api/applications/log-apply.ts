@@ -1,8 +1,8 @@
 import type { ActionFunctionArgs } from 'react-router'
 import { getDb, applications, candidateProfiles } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
-import { getJobSeekerTier, getOptionalUser } from '../../lib/auth.server'
-import { getApplicationLimitStatus } from '../../lib/job-seeker-limits.server'
+import { getJobSeekerTier, getOptionalUser } from '../../../lib/auth.server'
+import { getApplicationLimitStatus } from '../../../lib/job-seeker-limits.server'
 
 export async function action(args: ActionFunctionArgs) {
   const user = await getOptionalUser(args.request)

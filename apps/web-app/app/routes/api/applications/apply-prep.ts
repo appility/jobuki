@@ -1,12 +1,12 @@
 import type { LoaderFunctionArgs } from 'react-router'
 import { getDb, jobs, candidateProfiles } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
-import { getJobSeekerTier, requireUser } from '../../lib/auth.server'
-import { deriveJobCategory } from '../../lib/board-categories'
-import { parseCvFromUrl } from '../../lib/cv-parser.server'
-import { generateApplyContent } from '../../lib/apply-ai.server'
-import { buildApplyAiCacheKey, getOrGenerateApplyAiContent, readApplyAiCache } from '../../lib/apply-prep-cache.server'
-import { getApplicationLimitStatus } from '../../lib/job-seeker-limits.server'
+import { getJobSeekerTier, requireUser } from '../../../lib/auth.server'
+import { deriveJobCategory } from '../../../lib/board-categories'
+import { parseCvFromUrl } from '../../../lib/cv-parser.server'
+import { generateApplyContent } from '../../../lib/apply-ai.server'
+import { buildApplyAiCacheKey, getOrGenerateApplyAiContent, readApplyAiCache } from '../../../lib/apply-prep-cache.server'
+import { getApplicationLimitStatus } from '../../../lib/job-seeker-limits.server'
 
 export async function loader(args: LoaderFunctionArgs) {
   const user = await requireUser(args, { type: 'job-seeker' })

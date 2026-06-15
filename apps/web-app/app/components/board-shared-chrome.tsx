@@ -27,7 +27,7 @@ function getPortalHref(accountType?: string) {
 }
 
 export function BoardSharedHeader({ boardName, logoUrl, boardConfig, navMode = 'full' }: BoardSharedHeaderProps) {
-  const { user } = useUser()
+  const { user, isLoaded } = useUser()
   const { signOut, openUserProfile } = useClerk()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -105,73 +105,75 @@ export function BoardSharedHeader({ boardName, logoUrl, boardConfig, navMode = '
         </div>
 
         <div className="flex items-center gap-2" ref={menuRef}>
-          {user ? (
-            <>
-              <button
-                type="button"
-                onClick={() => setMenuOpen((open) => !open)}
-                className="relative w-9 h-9 rounded-full flex items-center justify-center text-xs font-extrabold border-2 transition-all"
-                style={{
-                  backgroundColor: user.imageUrl ? 'transparent' : 'color-mix(in srgb, var(--color-primary) 12%, transparent)',
-                  color: 'var(--color-primary)',
-                  borderColor: menuOpen ? 'var(--color-primary)' : 'transparent',
-                  overflow: 'hidden',
-                }}
-                aria-label="Account menu"
-              >
-                {user.imageUrl
-                  ? <img src={user.imageUrl} alt={user.fullName ?? ''} className="w-full h-full object-cover" />
-                  : initials
-                }
-              </button>
-
-              {menuOpen && (
-                <div
-                  className="absolute top-[58px] right-4 lg:right-10 w-52 rounded-[14px] border shadow-lg z-50 overflow-hidden py-1"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
+          {isLoaded ? (
+            user ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((open) => !open)}
+                  className="relative w-9 h-9 rounded-full flex items-center justify-center text-xs font-extrabold border-2 transition-all"
+                  style={{
+                    backgroundColor: user.imageUrl ? 'transparent' : 'color-mix(in srgb, var(--color-primary) 12%, transparent)',
+                    color: 'var(--color-primary)',
+                    borderColor: menuOpen ? 'var(--color-primary)' : 'transparent',
+                    overflow: 'hidden',
+                  }}
+                  aria-label="Account menu"
                 >
-                  <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                    <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
-                      {user.fullName ?? user.primaryEmailAddress?.emailAddress}
-                    </p>
-                  </div>
+                  {user.imageUrl
+                    ? <img src={user.imageUrl} alt={user.fullName ?? ''} className="w-full h-full object-cover" />
+                    : initials
+                  }
+                </button>
 
-                  {portalHref && (
-                    <MenuLinkItem to={portalHref} onNavigate={() => setMenuOpen(false)}>
-                      My dashboard
-                    </MenuLinkItem>
-                  )}
-                  <MenuLinkItem to="/jobs" onNavigate={() => setMenuOpen(false)}>Browse jobs</MenuLinkItem>
-                  <MenuItem onClick={() => { setMenuOpen(false); openUserProfile() }}>Manage account</MenuItem>
-
-                  <div className="border-t my-1" style={{ borderColor: 'var(--color-border)' }} />
-
-                  <MenuItem
-                    onClick={() => { setMenuOpen(false); signOut(() => navigate('/sign-in')) }}
-                    danger
+                {menuOpen && (
+                  <div
+                    className="absolute top-[58px] right-4 lg:right-10 w-52 rounded-[14px] border shadow-lg z-50 overflow-hidden py-1"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
                   >
-                    Sign out
-                  </MenuItem>
-                </div>
-              )}
-            </>
-          ) : boardConfig.emptyState.ctaUrl ? (
-            <a
-              href={boardConfig.emptyState.ctaUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="px-4 py-2 text-[12px] font-bold rounded-[10px] no-underline bg-primary text-primary-fg"
-            >
-              Post a role
-            </a>
-          ) : (
-            <Link
-              to="/sign-in"
-              className="px-4 py-2 text-[12px] font-bold rounded-[10px] no-underline bg-primary text-primary-fg"
-            >
-              Sign in
-            </Link>
-          )}
+                    <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                      <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
+                        {user.fullName ?? user.primaryEmailAddress?.emailAddress}
+                      </p>
+                    </div>
+
+                    {portalHref && (
+                      <MenuLinkItem to={portalHref} onNavigate={() => setMenuOpen(false)}>
+                        My dashboard
+                      </MenuLinkItem>
+                    )}
+                    <MenuLinkItem to="/jobs" onNavigate={() => setMenuOpen(false)}>Browse jobs</MenuLinkItem>
+                    <MenuItem onClick={() => { setMenuOpen(false); openUserProfile() }}>Manage account</MenuItem>
+
+                    <div className="border-t my-1" style={{ borderColor: 'var(--color-border)' }} />
+
+                    <MenuItem
+                      onClick={() => { setMenuOpen(false); signOut(() => navigate('/sign-in')) }}
+                      danger
+                    >
+                      Sign out
+                    </MenuItem>
+                  </div>
+                )}
+              </>
+            ) : boardConfig.emptyState.ctaUrl ? (
+              <a
+                href={boardConfig.emptyState.ctaUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2 text-[12px] font-bold rounded-[10px] no-underline bg-primary text-primary-fg"
+              >
+                Post a role
+              </a>
+            ) : (
+              <Link
+                to="/sign-in"
+                className="px-4 py-2 text-[12px] font-bold rounded-[10px] no-underline bg-primary text-primary-fg"
+              >
+                Sign in
+              </Link>
+            )
+          ) : null}
         </div>
       </div>
     </header>

@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs } from 'react-router'
-import { requireWorkspaceAccess } from '../../lib/auth.server'
-import { createCvDownloadUrl } from '../../lib/r2.server'
+import { requireWorkspaceAccess } from '../../../lib/auth.server'
+import { createCvDownloadUrl } from '../../../lib/r2.server'
 import mammoth from 'mammoth'
 
 export async function loader(args: LoaderFunctionArgs) {

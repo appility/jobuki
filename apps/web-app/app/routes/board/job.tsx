@@ -236,7 +236,7 @@ export default function JobDetail() {
       fd.set('jobId', job.id)
       fd.set('boardId', job.boardId)
       fd.set('intent', saved ? 'unsave' : 'save')
-      const res = await fetch('/api/save-job', { method: 'POST', body: fd, credentials: 'include' })
+      const res = await fetch('/api/jobs/save', { method: 'POST', body: fd, credentials: 'include' })
       const data = await res.json()
       if (data.unauthenticated) {
         window.location.href = authPath

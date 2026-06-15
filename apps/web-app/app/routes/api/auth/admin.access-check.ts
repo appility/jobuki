@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs } from 'react-router'
-import { requirePlatformAdminApi } from '../../lib/auth.server'
+import { requirePlatformAdminApi } from '../../../lib/auth.server'
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { user } = await requirePlatformAdminApi(request)

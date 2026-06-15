@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs } from 'react-router'
-import { requireUser } from '../../lib/auth.server'
-import { createCvDownloadUrl } from '../../lib/r2.server'
+import { requireUser } from '../../../lib/auth.server'
+import { createCvDownloadUrl } from '../../../lib/r2.server'
 
 const jsonResponse = (data: any, status = 200) => new Response(JSON.stringify(data), {
   status,

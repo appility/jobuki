@@ -25,7 +25,7 @@ export function CvPreviewModal({ isOpen, cvUrl, candidateName, onClose }: CvPrev
       setError(null)
 
       try {
-        const response = await fetch(`/api/cv-preview?url=${encodeURIComponent(cvUrl)}`, {
+        const response = await fetch(`/api/cv/preview?url=${encodeURIComponent(cvUrl)}`, {
           credentials: 'include'
         })
         if (!response.ok) {

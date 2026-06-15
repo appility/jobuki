@@ -1,8 +1,8 @@
 import type { LoaderFunctionArgs } from 'react-router'
 import { getDb, candidateProfiles } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
-import { requireUser } from '../../lib/auth.server'
-import { createCvDownloadUrl } from '../../lib/r2.server'
+import { requireUser } from '../../../lib/auth.server'
+import { createCvDownloadUrl } from '../../../lib/r2.server'
 
 export async function loader(args: LoaderFunctionArgs) {
   const user = await requireUser(args, { type: 'candidate' })
