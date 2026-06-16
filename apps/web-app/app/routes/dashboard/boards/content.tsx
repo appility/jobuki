@@ -9,6 +9,7 @@ import { parseBoardCategories, titleCaseCategory } from '../../../lib/board-cate
 import { HeroHeadlineEditor } from '../../../components/rich-text/HeroHeadlineEditor'
 import { PageContentEditor } from '../../../components/rich-text/PageContentEditor'
 import { TEMPLATE_LABELS, type PrivacyTemplate } from '../../../lib/privacy-templates'
+import { TEMPLATE_LABELS as TERMS_TEMPLATE_LABELS, type TermsTemplate } from '../../../lib/terms-templates'
 
 // ── Loader ────────────────────────────────────────────────────────────
 export async function loader(args: LoaderFunctionArgs) {
@@ -80,6 +81,13 @@ export async function action(args: ActionFunctionArgs) {
         legalName: g('privacyLegalName') || undefined,
         contactEmail: g('privacyEmail') || undefined,
         websiteUrl: g('privacyWebsiteUrl') || undefined,
+      },
+      terms: {
+        enabled: gb('termsEnabled'),
+        template: (g('termsTemplate') as TermsTemplate) || 'global',
+        legalName: g('termsLegalName') || undefined,
+        contactEmail: g('termsEmail') || undefined,
+        websiteUrl: g('termsWebsiteUrl') || undefined,
       },
     },
   }
@@ -154,6 +162,12 @@ export default function BoardContent() {
   const [privacyLegalName, setPrivacyLegalName] = useState(boardConfig.pages?.privacy?.legalName ?? '')
   const [privacyEmail, setPrivacyEmail] = useState(boardConfig.pages?.privacy?.contactEmail ?? '')
   const [privacyWebsiteUrl, setPrivacyWebsiteUrl] = useState(boardConfig.pages?.privacy?.websiteUrl ?? '')
+
+  const [termsEnabled, setTermsEnabled] = useState(boardConfig.pages?.terms?.enabled ?? false)
+  const [termsTemplate, setTermsTemplate] = useState<TermsTemplate>(boardConfig.pages?.terms?.template ?? 'global')
+  const [termsLegalName, setTermsLegalName] = useState(boardConfig.pages?.terms?.legalName ?? '')
+  const [termsEmail, setTermsEmail] = useState(boardConfig.pages?.terms?.contactEmail ?? '')
+  const [termsWebsiteUrl, setTermsWebsiteUrl] = useState(boardConfig.pages?.terms?.websiteUrl ?? '')
 
   const pushToast = (type: 'success' | 'error', message: string) => {
     const id = Date.now()
@@ -230,6 +244,11 @@ export default function BoardContent() {
         <input type="hidden" name="privacyLegalName" value={privacyLegalName} />
         <input type="hidden" name="privacyEmail" value={privacyEmail} />
         <input type="hidden" name="privacyWebsiteUrl" value={privacyWebsiteUrl} />
+        <input type="hidden" name="termsEnabled" value={termsEnabled ? 'true' : 'false'} />
+        <input type="hidden" name="termsTemplate" value={termsTemplate} />
+        <input type="hidden" name="termsLegalName" value={termsLegalName} />
+        <input type="hidden" name="termsEmail" value={termsEmail} />
+        <input type="hidden" name="termsWebsiteUrl" value={termsWebsiteUrl} />
 
         {/* ── Brand tab ── */}
         {activeTab === 'brand' && (
@@ -281,6 +300,38 @@ export default function BoardContent() {
                 primaryColor={brandColor}
                 accentColor={accentColor}
               />
+            </Field>
+            <Field label="Tagline" hint="Short line shown below the hero headline. Use rich text formatting and choose a color.">
+              <div className="space-y-3">
+                <textarea
+                  value={tagline}
+                  onChange={e => setTagline(e.target.value)}
+                  rows={3}
+                  className={INPUT + ' resize-y'}
+                  style={INPUT_STYLE}
+                  placeholder="Find your next opportunity with our curated job board..."
+                />
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                    Tagline color
+                  </label>
+                  <input
+                    type="color"
+                    value={taglineColor || '#6b6459'}
+                    onChange={e => setTaglineColor(e.target.value)}
+                    className="w-10 h-10 rounded-lg border cursor-pointer"
+                    style={{ borderColor: 'var(--color-border)' }}
+                  />
+                  <input
+                    type="text"
+                    value={taglineColor}
+                    onChange={e => setTaglineColor(e.target.value)}
+                    placeholder="#6b6459"
+                    className={INPUT + ' flex-1 font-mono text-xs'}
+                    style={INPUT_STYLE}
+                  />
+                </div>
+              </div>
             </Field>
             <Field label="Search">
               <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--color-text-secondary)' }}>
@@ -370,6 +421,30 @@ export default function BoardContent() {
                   <select value={privacyTemplate} onChange={e => setPrivacyTemplate(e.target.value as PrivacyTemplate)}
                     className={INPUT} style={INPUT_STYLE}>
                     {(Object.entries(TEMPLATE_LABELS) as [PrivacyTemplate, string][]).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+            </div>
+
+            {/* Terms of service */}
+            <div className="mt-8 pt-8 border-t" style={{ borderColor: 'var(--color-border)' }}>
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Terms of service</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>Accessible at /terms — populated from your legal details above</p>
+                </div>
+                <label className="flex items-center gap-2 text-sm cursor-pointer shrink-0 mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                  <input type="checkbox" checked={termsEnabled} onChange={e => setTermsEnabled(e.target.checked)} />
+                  Enable
+                </label>
+              </div>
+              {termsEnabled && (
+                <Field label="Jurisdiction template">
+                  <select value={termsTemplate} onChange={e => setTermsTemplate(e.target.value as TermsTemplate)}
+                    className={INPUT} style={INPUT_STYLE}>
+                    {(Object.entries(TERMS_TEMPLATE_LABELS) as [TermsTemplate, string][]).map(([k, v]) => (
                       <option key={k} value={k}>{v}</option>
                     ))}
                   </select>

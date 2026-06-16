@@ -1,6 +1,6 @@
 import { useLoaderData, useOutletContext, Link } from 'react-router'
 import type { LoaderFunctionArgs, MetaFunction } from 'react-router'
-import { getDb, boards, jobs } from '@jobuki/db'
+import { getDb, boards, jobs, jobBoardListings } from '@jobuki/db'
 import { and, desc, eq } from 'drizzle-orm'
 import { resolveJobBoardThemeConfig, type Board } from '@jobuki/types'
 import { deriveJobCategory, resolveBoardCategories, titleCaseCategory } from '../../lib/board-categories'
@@ -50,11 +50,29 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   type LeanJob = Awaited<ReturnType<typeof db.query.jobs.findMany<{ columns: typeof LEAN_COLS }>>>[0]
 
   const cached = cacheGet<LeanJob[]>(`board:${board.id}:publishedJobs`)
-  const allJobs = cached ?? await db.query.jobs.findMany({
-    where: and(eq(jobs.boardId, board.id), eq(jobs.status, 'published')),
-    orderBy: [desc(jobs.createdAt)],
-    columns: LEAN_COLS,
-  })
+  const allJobs = cached ?? await db
+    .select({
+      id: jobs.id,
+      title: jobs.title,
+      company: jobs.company,
+      location: jobs.location,
+      remotePolicy: jobs.remotePolicy,
+      employmentType: jobs.employmentType,
+      salaryMin: jobs.salaryMin,
+      salaryMax: jobs.salaryMax,
+      salaryCurrency: jobs.salaryCurrency,
+      salaryPeriod: jobs.salaryPeriod,
+      primaryCategory: jobs.primaryCategory,
+      categoryTags: jobs.categoryTags,
+      companyLogoUrl: jobs.companyLogoUrl,
+      externalSource: jobs.externalSource,
+      createdAt: jobs.createdAt,
+      updatedAt: jobs.updatedAt,
+    })
+    .from(jobs)
+    .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+    .where(and(eq(jobBoardListings.boardId, board.id), eq(jobBoardListings.status, 'published')))
+    .orderBy(desc(jobs.createdAt))
 
   // Filter to jobs that belong to this region
   const regionJobs = allJobs.filter(job => {

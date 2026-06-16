@@ -1,7 +1,7 @@
 import { Form, Link, useLoaderData, useNavigation } from 'react-router'
 import type { LoaderFunctionArgs } from 'react-router'
 import { useDeferredValue, useState } from 'react'
-import { getDb, jobs, users, workspaceMembers, workspaces } from '@jobuki/db'
+import { getDb, jobs, users, workspaceMembers, workspaces, jobBoardListings } from '@jobuki/db'
 import { sql, count, eq, and, desc } from 'drizzle-orm'
 import { requirePlatformAdmin } from '../../lib/auth.server'
 
@@ -12,12 +12,13 @@ export async function loader(args: LoaderFunctionArgs) {
   // Get all users who have posted jobs
   const jobPostersData = await db
     .select({
-      userId: jobs.boardId,
-      boardId: jobs.boardId,
+      userId: jobBoardListings.boardId,
+      boardId: jobBoardListings.boardId,
       jobCount: count(jobs.id),
     })
     .from(jobs)
-    .groupBy(jobs.boardId)
+    .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+    .groupBy(jobBoardListings.boardId)
 
   // Get workspace members who are in those boards' workspaces
   const allWorkspaceMembers = await db.query.workspaceMembers.findMany({

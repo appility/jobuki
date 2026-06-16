@@ -1,6 +1,6 @@
 import { Form, Link, useLoaderData } from 'react-router'
 import type { LoaderFunctionArgs, MetaFunction } from 'react-router'
-import { getDb, boards, jobs } from '@jobuki/db'
+import { getDb, boards, jobs, jobBoardListings } from '@jobuki/db'
 import { MarketingNav, MarketingHero, MarketingAudience, MarketingCTA, MarketingFooter } from '../../components/marketing'
 import { eq, and, desc, ilike, or, sql } from 'drizzle-orm'
 import { resolveJobBoardThemeConfig } from '@jobuki/types'
@@ -65,7 +65,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     externalListingUrl: false,
   } as const
 
-  const baseWhere = and(eq(jobs.boardId, board.id), eq(jobs.status, 'published'))
+  const baseWhere = and(eq(jobBoardListings.boardId, board.id), eq(jobBoardListings.status, 'published'))
   const hasFilters = Boolean(q || location || category)
 
   // Geo ranking — float region-relevant jobs to the top
@@ -85,8 +85,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const filteredWhere = and(baseWhere, ...filterConditions)
 
     const [filtered, meta] = await Promise.all([
-      db.query.jobs.findMany({ where: filteredWhere, orderBy: [desc(jobs.createdAt)], columns: LEAN_COLS }),
-      db.query.jobs.findMany({ where: baseWhere, columns: { primaryCategory: true, categoryTags: true, location: true, company: true } }),
+      db
+        .select()
+        .from(jobs)
+        .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+        .where(filteredWhere)
+        .orderBy(desc(jobs.createdAt))
+        .then(rows => rows.map(r => r.jobs)),
+      db
+        .select()
+        .from(jobs)
+        .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+        .where(baseWhere)
+        .then(rows => rows.map(r => r.jobs)),
     ])
     filteredJobs = filtered
     publishedJobs = meta
@@ -94,11 +105,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const cacheKey = `board:${board.id}:publishedJobs`
     let cached = cacheGet<typeof jobs.$inferSelect[]>(cacheKey)
     if (!cached) {
-      cached = await db.query.jobs.findMany({
-        where: baseWhere,
-        orderBy: [desc(jobs.createdAt)],
-        columns: LEAN_COLS,
-      })
+      cached = await db
+        .select()
+        .from(jobs)
+        .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+        .where(baseWhere)
+        .orderBy(desc(jobs.createdAt))
+        .then(rows => rows.map(r => r.jobs))
       cacheSet(cacheKey, cached)
     }
     filteredJobs = rankJobs(cached, vRegion, regions)

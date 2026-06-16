@@ -168,7 +168,9 @@ export default function BoardSettings() {
             <ul className="text-sm m-0 pl-5" style={{ color: 'var(--color-text-secondary)' }}>
               {actionData.warnings.map((w, i) => <li key={i}>{w}</li>)}
             </ul>
-            <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>Adjust colours in Appearance.</p>
+            <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+              Adjust colours in <Link to={`/dashboard/boards/${board.id}/appearance`} style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}>Appearance</Link>.
+            </p>
           </div>
         ) : null}
 

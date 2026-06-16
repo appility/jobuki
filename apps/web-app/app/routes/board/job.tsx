@@ -1,7 +1,7 @@
 import { useLoaderData, useOutletContext, Link } from 'react-router'
 import { useState } from 'react'
 import type { LoaderFunctionArgs, MetaFunction } from 'react-router'
-import { getDb, jobs, boards, savedJobs } from '@jobuki/db'
+import { getDb, jobs, boards, jobBoardListings, savedJobs } from '@jobuki/db'
 import { and, desc, eq, ne } from 'drizzle-orm'
 import { getAuthUser, getOptionalUser } from '../../lib/auth.server'
 import { marked } from 'marked'
@@ -16,10 +16,27 @@ import { buildCandidateAuthPath } from '../../lib/auth-flow'
 export async function loader(args: LoaderFunctionArgs) {
   const { params, request } = args
   const db = getDb()
-  const job = await db.query.jobs.findFirst({ where: eq(jobs.id, params.jobId!) })
-  if (!job || job.status !== 'published') throw new Response('Not found', { status: 404 })
-  const board = await db.query.boards.findFirst({ where: eq(boards.id, job.boardId) })
+  const jobId = params.jobId!
+
+  // Find the job with its board listing
+  const jobWithListing = await db.query.jobs.findFirst({
+    where: eq(jobs.id, jobId),
+    with: {
+      listings: {
+        where: eq(jobBoardListings.status, 'published'),
+      },
+    },
+  })
+
+  if (!jobWithListing || jobWithListing.listings.length === 0) {
+    throw new Response('Not found', { status: 404 })
+  }
+
+  const listing = jobWithListing.listings[0]
+  const board = await db.query.boards.findFirst({ where: eq(boards.id, listing.boardId) })
   if (!board) throw new Response('Not found', { status: 404 })
+
+  const job = jobWithListing
   const url = new URL(request.url)
   const isPreviewMode = url.searchParams.get('preview') === '1'
   const boardConfig = resolveJobBoardThemeConfig(board.boardConfig, {
@@ -39,31 +56,32 @@ export async function loader(args: LoaderFunctionArgs) {
     where: and(eq(savedJobs.userId, user.id), eq(savedJobs.jobId, job.id)),
   })) : false
 
-  const similarJobs = await db.query.jobs.findMany({
-    where: and(
-      eq(jobs.boardId, board.id),
-      eq(jobs.status, 'published'),
+  const similarJobs = await db
+    .select({
+      id: jobs.id,
+      title: jobs.title,
+      company: jobs.company,
+      location: jobs.location,
+      remotePolicy: jobs.remotePolicy,
+      employmentType: jobs.employmentType,
+      primaryCategory: jobs.primaryCategory,
+      categoryTags: jobs.categoryTags,
+      salaryMin: jobs.salaryMin,
+      salaryMax: jobs.salaryMax,
+      salaryCurrency: jobs.salaryCurrency,
+      salaryPeriod: jobs.salaryPeriod,
+      createdAt: jobs.createdAt,
+      updatedAt: jobs.updatedAt,
+    })
+    .from(jobs)
+    .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+    .where(and(
+      eq(jobBoardListings.boardId, board.id),
+      eq(jobBoardListings.status, 'published'),
       ne(jobs.id, job.id),
-    ),
-    orderBy: [desc(jobs.createdAt)],
-    limit: 3,
-    columns: {
-      id: true,
-      title: true,
-      company: true,
-      location: true,
-      remotePolicy: true,
-      employmentType: true,
-      primaryCategory: true,
-      categoryTags: true,
-      salaryMin: true,
-      salaryMax: true,
-      salaryCurrency: true,
-      salaryPeriod: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  })
+    ))
+    .orderBy(desc(jobs.createdAt))
+    .limit(3)
 
   return {
     job,

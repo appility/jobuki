@@ -2,7 +2,7 @@ import { useLoaderData } from 'react-router'
 import type { LoaderFunctionArgs } from 'react-router'
 import { Link } from 'react-router'
 import { requireWorkspaceAccess } from '../../lib/auth.server'
-import { getDb, boards, jobs, applications } from '@jobuki/db'
+import { getDb, boards, jobs, applications, jobBoardListings } from '@jobuki/db'
 import { eq, count } from 'drizzle-orm'
 import { canMonetize } from '../../lib/creator-tier'
 
@@ -18,13 +18,15 @@ export async function loader(args: LoaderFunctionArgs) {
   const [jobCount] = await db
     .select({ count: count() })
     .from(jobs)
-    .innerJoin(boards, eq(jobs.boardId, boards.id))
+    .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+    .innerJoin(boards, eq(jobBoardListings.boardId, boards.id))
     .where(eq(boards.workspaceId, workspace.id))
 
   const [appCount] = await db
     .select({ count: count() })
     .from(applications)
-    .innerJoin(boards, eq(applications.boardId, boards.id))
+    .innerJoin(jobBoardListings, eq(applications.jobId, jobBoardListings.jobId))
+    .innerJoin(boards, eq(jobBoardListings.boardId, boards.id))
     .where(eq(boards.workspaceId, workspace.id))
 
   return {

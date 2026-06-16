@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLoaderData, Link } from 'react-router'
 import type { LoaderFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess, requireBoardInWorkspace } from '../../../lib/auth.server'
-import { getDb, jobs } from '@jobuki/db'
+import { getDb, jobs, jobBoardListings } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 import { boardUrl } from '../../../lib/board-url'
 
@@ -10,10 +10,11 @@ export async function loader(args: LoaderFunctionArgs) {
   const { workspace } = await requireWorkspaceAccess(args)
   const board = await requireBoardInWorkspace(args.params.id!, workspace.id)
   const db = getDb()
-  const boardJobs = await db.query.jobs.findMany({
-    where: eq(jobs.boardId, board.id),
-    columns: { id: true, status: true },
-  })
+  const boardJobs = await db
+    .select({ id: jobs.id, status: jobBoardListings.status })
+    .from(jobs)
+    .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+    .where(eq(jobBoardListings.boardId, board.id))
   return {
     board,
     jobCount: boardJobs.length,

@@ -1,4 +1,4 @@
-import { boards, getDb, jobAlertLog, jobAlerts, jobs, users } from '@jobuki/db'
+import { boards, getDb, jobAlertLog, jobAlerts, jobBoardListings, jobs, users } from '@jobuki/db'
 import { and, desc, eq, gte } from 'drizzle-orm'
 import { Resend } from 'resend'
 import { boardUrl } from './board-url'
@@ -167,12 +167,12 @@ async function findMatchesForAlert(row: AlertRow) {
   const db = getDb()
   const createdAfter = getLookbackDate(row.alert.lastNotifiedAt)
   const conditions = [
-    eq(jobs.status, 'published'),
+    eq(jobBoardListings.status, 'published'),
     gte(jobs.createdAt, createdAfter),
   ]
 
   if (row.alert.boardId) {
-    conditions.push(eq(jobs.boardId, row.alert.boardId))
+    conditions.push(eq(jobBoardListings.boardId, row.alert.boardId))
   }
 
   const candidates = await db
@@ -190,7 +190,8 @@ async function findMatchesForAlert(row: AlertRow) {
       boardName: boards.name,
     })
     .from(jobs)
-    .innerJoin(boards, eq(jobs.boardId, boards.id))
+    .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+    .innerJoin(boards, eq(jobBoardListings.boardId, boards.id))
     .where(and(...conditions))
     .orderBy(desc(jobs.createdAt))
     .limit(MAX_CANDIDATE_JOBS)

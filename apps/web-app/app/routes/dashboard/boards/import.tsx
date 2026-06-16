@@ -20,7 +20,7 @@ export async function action(args: ActionFunctionArgs) {
 
   try {
     const result = await runIngest({
-      source: (g('source') || 'all') as any,
+      source: 'cryptojobslist',
       searchTerm: g('searchTerm') || undefined,
       industry: g('industry') || undefined,
       category: g('category') || undefined,
@@ -38,25 +38,6 @@ export async function action(args: ActionFunctionArgs) {
 
 // ── Constants ──────────────────────────────────────────────────────────
 
-const SOURCES = [
-  { value: 'all', label: 'All sources' },
-  { value: 'reed_json', label: 'Reed.co.uk' },
-  { value: 'adzuna_json', label: 'Adzuna' },
-  { value: 'govuk_atom', label: 'GOV.UK Find a Job' },
-  { value: 'himalayas_json', label: 'Himalayas' },
-  { value: 'remotive_json', label: 'Remotive' },
-  { value: 'arbeitnow_json', label: 'Arbeitnow' },
-  { value: 'weworkremotely_rss', label: 'We Work Remotely' },
-  { value: 'workingnomads_rss', label: 'Working Nomads' },
-  { value: 'cryptojobslist', label: 'CryptoJobsList' },
-  { value: 'hireweb3_rss', label: 'HireWeb3' },
-  { value: 'remoteok_json_crypto', label: 'RemoteOK (crypto)' },
-  { value: 'remoteok_json_web3', label: 'RemoteOK (web3)' },
-  { value: 'jobicy_json_crypto', label: 'Jobicy (crypto)' },
-  { value: 'jobicy_json_blockchain', label: 'Jobicy (blockchain)' },
-  { value: 'jobicy_json_web3', label: 'Jobicy (web3)' },
-]
-
 const REMOTE_LABEL: Record<string, string> = { remote: 'Remote', hybrid: 'Hybrid', onsite: 'On-site' }
 const TYPE_LABEL: Record<string, string> = { 'full-time': 'Full-time', 'part-time': 'Part-time', contract: 'Contract', freelance: 'Freelance', internship: 'Internship' }
 const INPUT = 'w-full px-3 py-2.5 rounded-xl text-sm border'
@@ -68,11 +49,9 @@ export default function BoardImport() {
   const { board } = useLoaderData<typeof loader>()
   const fetcher = useFetcher<typeof action>()
 
-  const [source, setSource] = useState('all')
   const [industry, setIndustry] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [category, setCategory] = useState('')
-  const [location, setLocation] = useState('')
   const [limit, setLimit] = useState('200')
   const [previewPage, setPreviewPage] = useState(1)
 
@@ -87,7 +66,7 @@ export default function BoardImport() {
   function submit(intent: 'preview' | 'import', page = 1) {
     setPreviewPage(page)
     fetcher.submit(
-      { intent, source, industry, searchTerm, category, limit, previewPage: String(page) },
+      { intent, industry, searchTerm, category, limit, previewPage: String(page) },
       { method: 'post' }
     )
   }
@@ -110,12 +89,6 @@ export default function BoardImport() {
       {/* Filters */}
       <div className="rounded-[18px] border p-5 mb-5 space-y-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-[0.06em] mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>Source</label>
-            <select value={source} onChange={e => setSource(e.target.value)} className={INPUT} style={INPUT_STYLE}>
-              {SOURCES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
-          </div>
           <div>
             <label className="block text-xs font-bold uppercase tracking-[0.06em] mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>Limit</label>
             <select value={limit} onChange={e => setLimit(e.target.value)} className={INPUT} style={INPUT_STYLE}>

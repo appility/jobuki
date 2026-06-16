@@ -118,7 +118,6 @@ export const boards = pgTable('boards', {
 // ── Jobs ─────────────────────────────────────────────────────────────
 export const jobs = pgTable('jobs', {
   id:                  text('id').primaryKey().$defaultFn(() => createId()),
-  boardId:             text('board_id').notNull().references(() => boards.id, { onDelete: 'cascade' }),
   title:               text('title').notNull(),
   externalApplyUrl:    text('external_apply_url'),
   externalListingUrl:  text('external_listing_url'),
@@ -140,10 +139,24 @@ export const jobs = pgTable('jobs', {
   benefits:            text('benefits'),
   applicationDeadline: timestamp('application_deadline'),
   applicationTips:     jsonb('application_tips').$type<{ tips: string[]; generatedAt: string } | null>(),
-  status:              jobStatusEnum('status').notNull().default('draft'),
   createdAt:           timestamp('created_at').notNull().defaultNow(),
   updatedAt:           timestamp('updated_at').notNull().defaultNow(),
 })
+
+// ── Job Board Listings ────────────────────────────────────────────────
+export const jobBoardListings = pgTable('job_board_listings', {
+  id:       text('id').primaryKey().$defaultFn(() => createId()),
+  jobId:    text('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
+  boardId:  text('board_id').notNull().references(() => boards.id, { onDelete: 'cascade' }),
+  status:   jobStatusEnum('status').notNull().default('draft'),
+  imported: boolean('imported').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ({
+  uniq:     uniqueIndex('job_board_listings_job_board_idx').on(t.jobId, t.boardId),
+  boardIdx: index('job_board_listings_board_idx').on(t.boardId),
+  jobIdx:   index('job_board_listings_job_idx').on(t.jobId),
+}))
 
 // ── Saved Jobs ───────────────────────────────────────────────────────
 export const savedJobs = pgTable('saved_jobs', {
@@ -284,13 +297,18 @@ export const adminAuditLogsRelations = relations(adminAuditLogs, ({ one }) => ({
 
 export const boardsRelations = relations(boards, ({ one, many }) => ({
   workspace: one(workspaces, { fields: [boards.workspaceId], references: [workspaces.id] }),
-  jobs:      many(jobs),
+  jobListings: many(jobBoardListings),
   jobAlerts: many(jobAlerts),
 }))
 
-export const jobsRelations = relations(jobs, ({ one, many }) => ({
-  board:        one(boards, { fields: [jobs.boardId], references: [boards.id] }),
+export const jobsRelations = relations(jobs, ({ many }) => ({
+  listings: many(jobBoardListings),
   applications: many(applications),
+}))
+
+export const jobBoardListingsRelations = relations(jobBoardListings, ({ one, many }) => ({
+  job:   one(jobs, { fields: [jobBoardListings.jobId], references: [jobs.id] }),
+  board: one(boards, { fields: [jobBoardListings.boardId], references: [boards.id] }),
 }))
 
 export const applicationsRelations = relations(applications, ({ one, many }) => ({

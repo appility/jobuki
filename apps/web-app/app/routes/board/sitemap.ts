@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs } from 'react-router'
-import { getDb, boards, jobs } from '@jobuki/db'
+import { getDb, boards, jobs, jobBoardListings } from '@jobuki/db'
 import { and, desc, eq } from 'drizzle-orm'
 import { resolveJobBoardThemeConfig } from '@jobuki/types'
 import { deriveJobCategory, resolveBoardCategories } from '../../lib/board-categories'
@@ -51,18 +51,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
     })
   }
 
-  const publishedJobs = await db.query.jobs.findMany({
-    where: and(eq(jobs.boardId, board.id), eq(jobs.status, 'published')),
-    orderBy: [desc(jobs.updatedAt), desc(jobs.createdAt)],
-    columns: {
-      id: true,
-      title: true,
-      primaryCategory: true,
-      categoryTags: true,
-      updatedAt: true,
-      createdAt: true,
-    },
-  })
+  const publishedJobs = await db
+    .select({
+      id: jobs.id,
+      title: jobs.title,
+      primaryCategory: jobs.primaryCategory,
+      categoryTags: jobs.categoryTags,
+      updatedAt: jobs.updatedAt,
+      createdAt: jobs.createdAt,
+    })
+    .from(jobs)
+    .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+    .where(and(eq(jobBoardListings.boardId, board.id), eq(jobBoardListings.status, 'published')))
+    .orderBy(desc(jobs.updatedAt), desc(jobs.createdAt))
 
   const url = new URL(request.url)
   const base = `${url.protocol}//${url.host}`

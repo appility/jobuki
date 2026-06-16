@@ -1,6 +1,6 @@
 import { Form, Link, useLoaderData, useOutletContext } from 'react-router'
 import type { LoaderFunctionArgs, MetaFunction } from 'react-router'
-import { getDb, boards, jobs } from '@jobuki/db'
+import { getDb, boards, jobs, jobBoardListings } from '@jobuki/db'
 import { and, count, desc, eq, ilike, or, sql } from 'drizzle-orm'
 import { resolveJobBoardThemeConfig, type Board } from '@jobuki/types'
 import { deriveJobCategory, normalizeCategory, resolveBoardCategories, titleCaseCategory } from '../../lib/board-categories'
@@ -152,32 +152,38 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const pageParam = Number(url.searchParams.get('page') ?? '1')
   const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1
 
-  const baseWhere = and(eq(jobs.boardId, board.id), eq(jobs.status, 'published'))
+  const boardListingWhere = eq(jobBoardListings.boardId, board.id)
+  const publishedWhere = eq(jobBoardListings.status, 'published')
 
   // Build SQL filter conditions to avoid loading all rows into memory
   const filterConditions = []
   if (q) filterConditions.push(or(ilike(jobs.title, `%${q}%`), ilike(jobs.company, `%${q}%`), ilike(jobs.location, `%${q}%`)))
   if (location) filterConditions.push(ilike(jobs.location, `%${location}%`))
   if (category) filterConditions.push(or(eq(jobs.primaryCategory, category), sql`${jobs.categoryTags} @> ARRAY[${category}]::text[]`))
-  const filteredWhere = filterConditions.length > 0 ? and(baseWhere, ...filterConditions) : baseWhere
-
-  const EXCLUDED_COLS = { descriptionJson: false, description: false, requirements: false, benefits: false, applicationTips: false, externalApplyUrl: false, externalListingUrl: false } as const
 
   const [[{ totalJobs }], [{ totalFilteredJobs }], paginatedJobs, jobsMeta] = await Promise.all([
-    db.select({ totalJobs: count() }).from(jobs).where(baseWhere),
-    db.select({ totalFilteredJobs: count() }).from(jobs).where(filteredWhere),
-    db.query.jobs.findMany({
-      where: filteredWhere,
-      orderBy: [desc(jobs.createdAt)],
-      limit: PAGE_SIZE,
-      offset: Math.max(0, page - 1) * PAGE_SIZE,
-      columns: EXCLUDED_COLS,
-    }),
+    db.select({ totalJobs: count() }).from(jobs).innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId)).where(and(boardListingWhere, publishedWhere)),
+    db.select({ totalFilteredJobs: count() }).from(jobs).innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId)).where(and(boardListingWhere, publishedWhere, ...filterConditions)),
+    db.select({
+      id: jobs.id,
+      title: jobs.title,
+      company: jobs.company,
+      location: jobs.location,
+      remotePolicy: jobs.remotePolicy,
+      employmentType: jobs.employmentType,
+      salaryMin: jobs.salaryMin,
+      salaryMax: jobs.salaryMax,
+      salaryCurrency: jobs.salaryCurrency,
+      salaryPeriod: jobs.salaryPeriod,
+      primaryCategory: jobs.primaryCategory,
+      categoryTags: jobs.categoryTags,
+      companyLogoUrl: jobs.companyLogoUrl,
+      externalSource: jobs.externalSource,
+      createdAt: jobs.createdAt,
+      updatedAt: jobs.updatedAt,
+    }).from(jobs).innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId)).where(and(boardListingWhere, publishedWhere, ...filterConditions)).orderBy(desc(jobs.createdAt)).limit(PAGE_SIZE).offset(Math.max(0, page - 1) * PAGE_SIZE),
     // Minimal meta query for building filter option lists (categories + locations)
-    db.query.jobs.findMany({
-      where: baseWhere,
-      columns: { primaryCategory: true, categoryTags: true, location: true, title: true, employmentType: true },
-    }),
+    db.select({ primaryCategory: jobs.primaryCategory, categoryTags: jobs.categoryTags, location: jobs.location, title: jobs.title, employmentType: jobs.employmentType }).from(jobs).innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId)).where(and(boardListingWhere, publishedWhere)),
   ])
 
   const totalPages = Math.max(1, Math.ceil(totalFilteredJobs / PAGE_SIZE))

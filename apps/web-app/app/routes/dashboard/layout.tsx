@@ -28,12 +28,12 @@ function getBoardIdFromPath(pathname: string): string | null {
 function boardNavItems(id: string) {
   return [
     { to: `/dashboard/boards/${id}`,             label: 'Overview',    icon: '▦', end: true },
-    { to: `/dashboard/jobs?boardId=${id}`,       label: 'Jobs',        icon: '✦', end: false },
+    { to: `/dashboard/boards/${id}/jobs`,        label: 'Jobs',        icon: '✦', end: false },
     { to: `/dashboard/boards/${id}/content`,     label: 'Content',     icon: '✎', end: false },
-    { to: `/dashboard/boards/${id}/import`,      label: 'Import jobs', icon: '↓', end: false },
     { to: `/dashboard/boards/${id}/appearance`,  label: 'Appearance',  icon: '◑', end: false },
-    { to: `/dashboard/boards/${id}/domain`,      label: 'Domain',      icon: '◉', end: false },
     { to: `/dashboard/boards/${id}/integrations`,label: 'Integrations',icon: '⬡', end: false },
+    { to: `/dashboard/boards/${id}/domain`,      label: 'Domain',      icon: '◉', end: false },
+    { to: `/dashboard/boards/${id}/import`,      label: 'Import jobs', icon: '↓', end: false },
     { to: `/dashboard/boards/${id}/settings`,    label: 'Settings',    icon: '⚙', end: false },
   ]
 }

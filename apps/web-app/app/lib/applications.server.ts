@@ -1,4 +1,4 @@
-import { getDb, applications, jobs, boards, applicationStatusHistory } from '@jobuki/db'
+import { getDb, applications, jobs, boards, jobBoardListings, applicationStatusHistory } from '@jobuki/db'
 import { eq, and, inArray } from 'drizzle-orm'
 
 export type ApplicationStatus = 'new' | 'reviewing' | 'shortlisted' | 'rejected' | 'hired'
@@ -10,7 +10,8 @@ export async function getApplicationsForBoardAdmin(boardId: string, jobIdFilter?
   const boardJobs = await db
     .select({ id: jobs.id, title: jobs.title })
     .from(jobs)
-    .where(eq(jobs.boardId, boardId))
+    .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+    .where(eq(jobBoardListings.boardId, boardId))
 
   if (boardJobs.length === 0) {
     return { jobs: [], applications: [], jobStats: new Map(), selectedJobId: null }
@@ -51,14 +52,15 @@ export async function getApplicationsForPublisher(publisherId: string, boardId?:
 
   // Get jobs posted by this publisher
   let jobQuery = db
-    .select({ id: jobs.id, title: jobs.title, boardId: jobs.boardId })
+    .select({ id: jobs.id, title: jobs.title, boardId: jobBoardListings.boardId })
     .from(jobs)
-    .innerJoin(boards, eq(jobs.boardId, boards.id))
+    .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+    .innerJoin(boards, eq(jobBoardListings.boardId, boards.id))
     .where(eq(boards.workspaceId, publisherId))
 
   // If boardId specified, filter to that board
   if (boardId) {
-    jobQuery = jobQuery.where(eq(jobs.boardId, boardId)) as any
+    jobQuery = jobQuery.where(eq(jobBoardListings.boardId, boardId)) as any
   }
 
   const publisherJobs = await jobQuery
