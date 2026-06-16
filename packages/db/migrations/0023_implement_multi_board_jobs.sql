@@ -23,6 +23,7 @@ CREATE INDEX IF NOT EXISTS job_board_listings_job_idx ON job_board_listings(job_
 
 -- Step 3: For existing jobs, create listings that preserve current 1-to-1 relationship
 -- Each existing job gets a listing on its current board
+-- MUST do this BEFORE dropping the columns from jobs table
 INSERT INTO job_board_listings (id, job_id, board_id, status, imported, created_at, updated_at)
 SELECT
   gen_random_uuid()::text,
@@ -33,10 +34,11 @@ SELECT
   jobs.created_at,
   jobs.updated_at
 FROM jobs
-WHERE jobs.board_id IS NOT NULL
-ON CONFLICT (job_id, board_id) DO NOTHING;
+WHERE jobs.board_id IS NOT NULL AND NOT EXISTS (
+  SELECT 1 FROM job_board_listings jbl WHERE jbl.job_id = jobs.id AND jbl.board_id = jobs.board_id
+);
 
--- Step 4: Drop boardId and status columns from jobs table
+-- Step 4: Drop boardId and status columns from jobs table (only after migration above)
 ALTER TABLE jobs DROP CONSTRAINT IF EXISTS jobs_board_id_fk;
 ALTER TABLE jobs DROP COLUMN IF EXISTS board_id;
 ALTER TABLE jobs DROP COLUMN IF EXISTS status;
