@@ -118,7 +118,6 @@ export const boards = pgTable('boards', {
 // ── Jobs ─────────────────────────────────────────────────────────────
 export const jobs = pgTable('jobs', {
   id:                  text('id').primaryKey().$defaultFn(() => createId()),
-  boardId:             text('board_id').notNull().references(() => boards.id, { onDelete: 'cascade' }),
   title:               text('title').notNull(),
   externalApplyUrl:    text('external_apply_url'),
   externalListingUrl:  text('external_listing_url'),
@@ -140,7 +139,6 @@ export const jobs = pgTable('jobs', {
   benefits:            text('benefits'),
   applicationDeadline: timestamp('application_deadline'),
   applicationTips:     jsonb('application_tips').$type<{ tips: string[]; generatedAt: string } | null>(),
-  status:              jobStatusEnum('status').notNull().default('draft'),
   createdAt:           timestamp('created_at').notNull().defaultNow(),
   updatedAt:           timestamp('updated_at').notNull().defaultNow(),
 })
@@ -299,12 +297,12 @@ export const adminAuditLogsRelations = relations(adminAuditLogs, ({ one }) => ({
 
 export const boardsRelations = relations(boards, ({ one, many }) => ({
   workspace: one(workspaces, { fields: [boards.workspaceId], references: [workspaces.id] }),
+  jobs:      many(jobs),
   jobListings: many(jobBoardListings),
   jobAlerts: many(jobAlerts),
 }))
 
-export const jobsRelations = relations(jobs, ({ one, many }) => ({
-  board:        one(boards, { fields: [jobs.boardId], references: [boards.id] }),
+export const jobsRelations = relations(jobs, ({ many }) => ({
   listings: many(jobBoardListings),
   applications: many(applications),
 }))
