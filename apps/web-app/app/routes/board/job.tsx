@@ -34,9 +34,9 @@ export async function loader(args: LoaderFunctionArgs) {
 
   const listing = jobWithListing.listings[0]
   const board = await db.query.boards.findFirst({ where: eq(boards.id, listing.boardId) })
+  const job = jobWithListing
   if (!board) throw new Response('Not found', { status: 404 })
 
-  const job = jobWithListing
   const url = new URL(request.url)
   const isPreviewMode = url.searchParams.get('preview') === '1'
   const boardConfig = resolveJobBoardThemeConfig(board.boardConfig, {
@@ -80,6 +80,7 @@ export async function loader(args: LoaderFunctionArgs) {
       eq(jobBoardListings.status, 'published'),
       ne(jobs.id, job.id),
     ))
+    .then(rows => rows.map(r => r.jobs))
     .orderBy(desc(jobs.createdAt))
     .limit(3)
 

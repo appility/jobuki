@@ -1,8 +1,8 @@
 import { useLoaderData, useActionData, Form, useNavigation, Link } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess, requireBoardInWorkspace } from '../../../lib/auth.server'
-import { getDb, jobs } from '@jobuki/db'
-import { eq } from 'drizzle-orm'
+import { getDb, jobs, boards, jobBoardListings } from '@jobuki/db'
+import { eq, and } from 'drizzle-orm'
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import {
@@ -16,10 +16,11 @@ export async function loader(args: LoaderFunctionArgs) {
   const board = await requireBoardInWorkspace(args.params.id!, workspace.id)
   const db = getDb()
 
-  const boardJobs = await db.query.jobs.findMany({
-    where: eq(jobs.boardId, board.id),
-    orderBy: (j) => [j.createdAt],
-  })
+  const boardJobs = await db
+    .select({ id: jobs.id, title: jobs.title, company: jobs.company, location: jobs.location, remotePolicy: jobs.remotePolicy, employmentType: jobs.employmentType, createdAt: jobs.createdAt, status: jobBoardListings.status })
+    .from(jobs)
+    .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+    .where(eq(jobBoardListings.boardId, board.id))
 
   return { board, jobs: boardJobs }
 }
@@ -34,12 +35,15 @@ export async function action(args: ActionFunctionArgs) {
   const jobId = form.get('jobId') as string
 
   if (intent === 'delete_job') {
-    const job = await db.query.jobs.findFirst({ where: eq(jobs.id, jobId) })
-    if (!job || job.boardId !== board.id) {
-      return { ok: false, error: 'Job not found or does not belong to this board.' }
+    const listing = await db.query.jobBoardListings.findFirst({
+      where: and(eq(jobBoardListings.jobId, jobId), eq(jobBoardListings.boardId, board.id))
+    })
+    if (!listing) {
+      return { ok: false, error: 'Job not found on this board.' }
     }
-    await db.delete(jobs).where(eq(jobs.id, jobId))
-    return { ok: true, message: `Deleted "${job.title}"` }
+    const job = await db.query.jobs.findFirst({ where: eq(jobs.id, jobId) })
+    await db.delete(jobBoardListings).where(and(eq(jobBoardListings.jobId, jobId), eq(jobBoardListings.boardId, board.id)))
+    return { ok: true, message: `Deleted "${job?.title || 'Job'}"` }
   }
 
   return { ok: false }
