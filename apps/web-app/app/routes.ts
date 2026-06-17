@@ -58,6 +58,7 @@ export default [
     route('dashboard/boards/:id/appearance', 'routes/dashboard/appearance.tsx'),
     route('dashboard/boards/:id/content',       'routes/dashboard/boards/content.tsx'),
     route('dashboard/boards/:id/import',        'routes/dashboard/boards/import.tsx'),
+    route('dashboard/boards/:id/jobs',          'routes/dashboard/boards/jobs.tsx'),
     route('dashboard/boards/:id/domain',        'routes/dashboard/boards/domain.tsx'),
     route('dashboard/boards/:id/integrations',  'routes/dashboard/boards/integrations.tsx'),
     route('dashboard/boards/:id/settings',      'routes/dashboard/boards/settings.tsx'),
