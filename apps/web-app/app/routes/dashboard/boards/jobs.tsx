@@ -1,8 +1,8 @@
-import { useLoaderData, useActionData, Form, useNavigation, Link } from 'react-router'
+import { useLoaderData, useActionData, Form, useNavigation, Link, useSearchParams } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess, requireBoardInWorkspace } from '../../../lib/auth.server'
 import { getDb, jobs, boards, jobBoardListings } from '@jobuki/db'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, desc, count } from 'drizzle-orm'
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import {
@@ -11,18 +11,37 @@ import {
   AlertDialogFooter, AlertDialogTitle, AlertDialogTrigger,
 } from '../../../components/ui/alert-dialog'
 
+const PAGE_SIZE = 50
+
 export async function loader(args: LoaderFunctionArgs) {
   const { workspace } = await requireWorkspaceAccess(args)
   const board = await requireBoardInWorkspace(args.params.id!, workspace.id)
   const db = getDb()
 
+  const url = new URL(args.request.url)
+  const pageParam = Number(url.searchParams.get('page') ?? '1')
+  const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1
+
+  // Get total count
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(jobs)
+    .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+    .where(eq(jobBoardListings.boardId, board.id))
+
+  // Get paginated jobs
   const boardJobs = await db
     .select({ id: jobs.id, title: jobs.title, company: jobs.company, location: jobs.location, remotePolicy: jobs.remotePolicy, employmentType: jobs.employmentType, createdAt: jobs.createdAt, status: jobBoardListings.status })
     .from(jobs)
     .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
     .where(eq(jobBoardListings.boardId, board.id))
+    .orderBy(desc(jobs.createdAt))
+    .limit(PAGE_SIZE)
+    .offset((page - 1) * PAGE_SIZE)
 
-  return { board, jobs: boardJobs }
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  return { board, jobs: boardJobs, page, totalPages, total }
 }
 
 export async function action(args: ActionFunctionArgs) {
@@ -53,9 +72,10 @@ const REMOTE_LABEL: Record<string, string> = { remote: 'Remote', hybrid: 'Hybrid
 const TYPE_LABEL: Record<string, string> = { 'full-time': 'Full-time', 'part-time': 'Part-time', contract: 'Contract', freelance: 'Freelance', internship: 'Internship' }
 
 export default function BoardJobs() {
-  const { board, jobs: boardJobs } = useLoaderData<typeof loader>()
+  const { board, jobs: boardJobs, page, totalPages, total } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
+  const [searchParams] = useSearchParams()
   const [toasts, setToasts] = useState<Array<{ id: number; type: 'success' | 'error'; message: string }>>([])
   const submitting = navigation.state === 'submitting'
 
@@ -83,7 +103,7 @@ export default function BoardJobs() {
             Jobs
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-            {boardJobs.length} {boardJobs.length === 1 ? 'job' : 'jobs'} on this board
+            {total} total — page {page} of {totalPages}
           </p>
         </div>
         <Link to={`/dashboard/boards/${board.id}/import`} className="btn-primary text-sm">
@@ -154,6 +174,70 @@ export default function BoardJobs() {
               </AlertDialog>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4 pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+          </span>
+          <div className="flex gap-1">
+            <Link
+              to={page > 1 ? `?page=${page - 1}` : '#'}
+              onClick={(e) => page === 1 && e.preventDefault()}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors"
+              style={{
+                pointerEvents: page === 1 ? 'none' : 'auto',
+                opacity: page === 1 ? 0.4 : 1,
+                borderColor: 'var(--color-border)',
+                backgroundColor: 'var(--color-surface)',
+                color: 'var(--color-text-secondary)',
+              }}
+            >
+              ← Prev
+            </Link>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => Math.abs(p - page) <= 2 || p === 1 || p === totalPages)
+              .reduce<(number | '…')[]>((acc, p, i, arr) => {
+                if (i > 0 && (arr[i - 1] as number) < p - 1) acc.push('…')
+                acc.push(p)
+                return acc
+              }, [])
+              .map((p, i) =>
+                p === '…' ? (
+                  <span key={`ellipsis-${i}`} className="px-2 py-1.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>…</span>
+                ) : (
+                  <Link
+                    key={p}
+                    to={`?page=${p}`}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors"
+                    style={{
+                      borderColor: page === p ? 'var(--color-primary)' : 'var(--color-border)',
+                      backgroundColor: page === p ? 'var(--color-primary)' : 'var(--color-surface)',
+                      color: page === p ? 'var(--color-primary-fg)' : 'var(--color-text-secondary)',
+                    }}
+                  >
+                    {p}
+                  </Link>
+                )
+              )}
+            <Link
+              to={page < totalPages ? `?page=${page + 1}` : '#'}
+              onClick={(e) => page === totalPages && e.preventDefault()}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors"
+              style={{
+                pointerEvents: page === totalPages ? 'none' : 'auto',
+                opacity: page === totalPages ? 0.4 : 1,
+                borderColor: 'var(--color-border)',
+                backgroundColor: 'var(--color-surface)',
+                color: 'var(--color-text-secondary)',
+              }}
+            >
+              Next →
+            </Link>
+          </div>
         </div>
       )}
 
