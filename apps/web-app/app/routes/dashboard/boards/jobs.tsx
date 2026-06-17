@@ -5,6 +5,7 @@ import { getDb, jobs, boards, jobBoardListings } from '@jobuki/db'
 import { eq, and, desc, count } from 'drizzle-orm'
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
+import { Pagination } from '../../../components/pagination'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription,
@@ -177,69 +178,7 @@ export default function BoardJobs() {
         </div>
       )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4 pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
-          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
-          </span>
-          <div className="flex gap-1">
-            <Link
-              to={page > 1 ? `?page=${page - 1}` : '#'}
-              onClick={(e) => page === 1 && e.preventDefault()}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors"
-              style={{
-                pointerEvents: page === 1 ? 'none' : 'auto',
-                opacity: page === 1 ? 0.4 : 1,
-                borderColor: 'var(--color-border)',
-                backgroundColor: 'var(--color-surface)',
-                color: 'var(--color-text-secondary)',
-              }}
-            >
-              ← Prev
-            </Link>
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter(p => Math.abs(p - page) <= 2 || p === 1 || p === totalPages)
-              .reduce<(number | '…')[]>((acc, p, i, arr) => {
-                if (i > 0 && (arr[i - 1] as number) < p - 1) acc.push('…')
-                acc.push(p)
-                return acc
-              }, [])
-              .map((p, i) =>
-                p === '…' ? (
-                  <span key={`ellipsis-${i}`} className="px-2 py-1.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>…</span>
-                ) : (
-                  <Link
-                    key={p}
-                    to={`?page=${p}`}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors"
-                    style={{
-                      borderColor: page === p ? 'var(--color-primary)' : 'var(--color-border)',
-                      backgroundColor: page === p ? 'var(--color-primary)' : 'var(--color-surface)',
-                      color: page === p ? 'var(--color-primary-fg)' : 'var(--color-text-secondary)',
-                    }}
-                  >
-                    {p}
-                  </Link>
-                )
-              )}
-            <Link
-              to={page < totalPages ? `?page=${page + 1}` : '#'}
-              onClick={(e) => page === totalPages && e.preventDefault()}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors"
-              style={{
-                pointerEvents: page === totalPages ? 'none' : 'auto',
-                opacity: page === totalPages ? 0.4 : 1,
-                borderColor: 'var(--color-border)',
-                backgroundColor: 'var(--color-surface)',
-                color: 'var(--color-text-secondary)',
-              }}
-            >
-              Next →
-            </Link>
-          </div>
-        </div>
-      )}
+      <Pagination page={page} totalPages={totalPages} totalItems={total} pageSize={PAGE_SIZE} />
 
       {/* Toasts */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 w-72 pointer-events-none">
