@@ -86,13 +86,25 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     const [filtered, meta] = await Promise.all([
       db
-        .select()
+        .select({
+          id: jobs.id, title: jobs.title, company: jobs.company, location: jobs.location,
+          remotePolicy: jobs.remotePolicy, employmentType: jobs.employmentType,
+          primaryCategory: jobs.primaryCategory, categoryTags: jobs.categoryTags,
+          companyLogoUrl: jobs.companyLogoUrl, externalSource: jobs.externalSource,
+          createdAt: jobs.createdAt, updatedAt: jobs.updatedAt,
+        })
         .from(jobs)
         .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
         .where(filteredWhere)
         .orderBy(desc(jobs.createdAt)),
       db
-        .select()
+        .select({
+          id: jobs.id, title: jobs.title, company: jobs.company, location: jobs.location,
+          remotePolicy: jobs.remotePolicy, employmentType: jobs.employmentType,
+          primaryCategory: jobs.primaryCategory, categoryTags: jobs.categoryTags,
+          companyLogoUrl: jobs.companyLogoUrl, externalSource: jobs.externalSource,
+          createdAt: jobs.createdAt, updatedAt: jobs.updatedAt,
+        })
         .from(jobs)
         .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
         .where(baseWhere),
@@ -104,7 +116,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     let cached = cacheGet<typeof jobs.$inferSelect[]>(cacheKey)
     if (!cached) {
       const rows = await db
-        .select()
+        .select({
+          id: jobs.id, title: jobs.title, company: jobs.company, location: jobs.location,
+          remotePolicy: jobs.remotePolicy, employmentType: jobs.employmentType,
+          primaryCategory: jobs.primaryCategory, categoryTags: jobs.categoryTags,
+          companyLogoUrl: jobs.companyLogoUrl, externalSource: jobs.externalSource,
+          createdAt: jobs.createdAt, updatedAt: jobs.updatedAt,
+        })
         .from(jobs)
         .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
         .where(baseWhere)

@@ -21,7 +21,11 @@ export async function getApplicationsForBoardAdmin(boardId: string, jobIdFilter?
 
   // Get applications for these jobs
   const allApps = await db
-    .select()
+    .select({
+      id: applications.id,
+      jobId: applications.jobId,
+      status: applications.status,
+    })
     .from(applications)
     .where(inArray(applications.jobId, jobIds))
 
@@ -73,7 +77,11 @@ export async function getApplicationsForPublisher(publisherId: string, boardId?:
 
   // Get applications for these jobs
   const allApps = await db
-    .select()
+    .select({
+      id: applications.id,
+      jobId: applications.jobId,
+      status: applications.status,
+    })
     .from(applications)
     .where(inArray(applications.jobId, jobIds))
 
