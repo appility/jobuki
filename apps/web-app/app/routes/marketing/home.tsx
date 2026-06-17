@@ -90,28 +90,26 @@ export async function loader({ request }: LoaderFunctionArgs) {
         .from(jobs)
         .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
         .where(filteredWhere)
-        .orderBy(desc(jobs.createdAt))
-        .then(rows => rows.map(r => r.jobs)),
+        .orderBy(desc(jobs.createdAt)),
       db
         .select()
         .from(jobs)
         .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
-        .where(baseWhere)
-        .then(rows => rows.map(r => r.jobs)),
+        .where(baseWhere),
     ])
-    filteredJobs = filtered
-    publishedJobs = meta
+    filteredJobs = filtered.map(r => r.jobs)
+    publishedJobs = meta.map(r => r.jobs)
   } else {
     const cacheKey = `board:${board.id}:publishedJobs`
     let cached = cacheGet<typeof jobs.$inferSelect[]>(cacheKey)
     if (!cached) {
-      cached = await db
+      const rows = await db
         .select()
         .from(jobs)
         .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
         .where(baseWhere)
         .orderBy(desc(jobs.createdAt))
-        .then(rows => rows.map(r => r.jobs))
+      cached = rows.map(r => r.jobs)
       cacheSet(cacheKey, cached)
     }
     filteredJobs = rankJobs(cached, vRegion, regions)

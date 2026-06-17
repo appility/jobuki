@@ -80,7 +80,6 @@ export async function loader(args: LoaderFunctionArgs) {
       eq(jobBoardListings.status, 'published'),
       ne(jobs.id, job.id),
     ))
-    .then(rows => rows.map(r => r.jobs))
     .orderBy(desc(jobs.createdAt))
     .limit(3)
 
