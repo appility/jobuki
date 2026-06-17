@@ -6,8 +6,20 @@ const TTL_SECONDS = 5 * 60 // 5 minutes
 
 function getClient() {
   if (!redis) {
+    let url = process.env.REDIS_URL
+
+    // If REDIS_PRIVATE_URL is set (Railway private endpoint), construct full URL
+    if (process.env.REDIS_PRIVATE_URL) {
+      const host = process.env.REDIS_PRIVATE_URL
+      const port = process.env.REDIS_PORT || '6379'
+      const password = process.env.REDIS_PASSWORD || ''
+      url = password
+        ? `redis://:${password}@${host}:${port}`
+        : `redis://${host}:${port}`
+    }
+
     redis = createClient({
-      url: process.env.REDIS_PRIVATE_URL || process.env.REDIS_URL,
+      url,
     })
     redis.on('error', (err) => console.error('Redis error:', err))
   }
