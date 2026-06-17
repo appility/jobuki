@@ -1,81 +1,87 @@
 import { createClient } from 'redis'
 
 let redis: ReturnType<typeof createClient> | null = null
+let cacheEnabled = false
 
 const TTL_SECONDS = 5 * 60 // 5 minutes
 
-function getClient() {
-  if (!redis) {
-    let url = process.env.REDIS_URL
+function initCache() {
+  // Only enable caching if we have a valid Redis URL
+  const redisUrl = process.env.REDIS_URL
+  if (!redisUrl) {
+    cacheEnabled = false
+    return
+  }
 
-    // If REDIS_PRIVATE_URL is set (Railway private endpoint), construct full URL
-    if (process.env.REDIS_PRIVATE_URL) {
-      const host = process.env.REDIS_PRIVATE_URL
-      const port = process.env.REDIS_PORT || '6379'
-      const password = process.env.REDIS_PASSWORD
-
-      if (password) {
-        url = `redis://:${password}@${host}:${port}`
-      } else {
-        url = `redis://${host}:${port}`
-      }
-    }
-
-    redis = createClient({
-      url,
-      // Ensure password is passed even if not in URL
-      ...(process.env.REDIS_PASSWORD && { password: process.env.REDIS_PASSWORD }),
+  try {
+    redis = createClient({ url: redisUrl })
+    redis.on('error', (err) => {
+      console.error('Redis error:', err)
+      cacheEnabled = false
     })
-    redis.on('error', (err) => console.error('Redis error:', err))
+    cacheEnabled = true
+  } catch (err) {
+    console.error('Failed to initialize Redis:', err)
+    cacheEnabled = false
+  }
+}
+
+function getClient() {
+  if (!cacheEnabled || !redis) {
+    initCache()
   }
   return redis
 }
 
 export async function cacheGet<T>(key: string): Promise<T | undefined> {
-  if (!process.env.REDIS_PRIVATE_URL && !process.env.REDIS_URL) return undefined
+  if (!cacheEnabled) return undefined
   try {
     const client = getClient()
-    if (!client.isOpen) await client.connect()
-    const value = await client.get(key)
+    if (!client || !client.isOpen) await client?.connect()
+    const value = await client?.get(key)
     return value ? JSON.parse(value) as T : undefined
   } catch (err) {
     console.error('Cache get error:', err)
+    cacheEnabled = false
     return undefined
   }
 }
 
 export async function cacheSet<T>(key: string, value: T, ttlSeconds = TTL_SECONDS): Promise<void> {
-  if (!process.env.REDIS_PRIVATE_URL && !process.env.REDIS_URL) return
+  if (!cacheEnabled) return
   try {
     const client = getClient()
-    if (!client.isOpen) await client.connect()
-    await client.setEx(key, ttlSeconds, JSON.stringify(value))
+    if (!client || !client.isOpen) await client?.connect()
+    await client?.setEx(key, ttlSeconds, JSON.stringify(value))
   } catch (err) {
     console.error('Cache set error:', err)
+    cacheEnabled = false
   }
 }
 
 export async function cacheInvalidate(prefix: string): Promise<void> {
-  if (!process.env.REDIS_PRIVATE_URL && !process.env.REDIS_URL) return
+  if (!cacheEnabled) return
   try {
     const client = getClient()
-    if (!client.isOpen) await client.connect()
-    const keys = await client.keys(`${prefix}*`)
-    if (keys.length > 0) {
-      await client.del(keys)
+    if (!client || !client.isOpen) await client?.connect()
+    const keys = await client?.keys(`${prefix}*`)
+    if (keys && keys.length > 0) {
+      await client?.del(keys)
     }
   } catch (err) {
     console.error('Cache invalidate error:', err)
+    cacheEnabled = false
   }
 }
 
 export async function cacheClear(): Promise<void> {
-  if (!process.env.REDIS_PRIVATE_URL && !process.env.REDIS_URL) return
+  if (!cacheEnabled) return
   try {
     const client = getClient()
-    if (!client.isOpen) await client.connect()
-    await client.flushDb()
+    if (!client || !client.isOpen) await client?.connect()
+    await client?.flushDb()
   } catch (err) {
     console.error('Cache clear error:', err)
+    cacheEnabled = false
   }
 }
