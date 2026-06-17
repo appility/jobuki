@@ -1100,14 +1100,17 @@ export async function runIngest(body: IngestRequestBody) {
   )
 
   const rowsToInsert: Array<typeof jobs.$inferInsert> = []
+  const listingsToInsert: Map<string, { boardId: string; status: 'published' | 'draft' | 'closed'; imported: boolean }[]> = new Map()
   let skipped = 0
 
   for (const board of allBoards) {
     for (const job of filteredNormalized) {
       const key = `${board.id}::${job.title.toLowerCase()}::${(job.company ?? '').toLowerCase()}`
       if (existingKeys.has(key)) { skipped++; continue }
-      rowsToInsert.push({
-        boardId: board.id,
+
+      // Create unique job object (deduplicated by title+company globally)
+      const jobKey = `${job.title.toLowerCase()}::${(job.company ?? '').toLowerCase()}`
+      const jobData = {
         title: job.title,
         externalApplyUrl: job.externalApplyUrl,
         externalListingUrl: job.externalListingUrl,
@@ -1123,7 +1126,18 @@ export async function runIngest(body: IngestRequestBody) {
         salaryMax: job.salaryMax,
         salaryCurrency: job.salaryCurrency,
         description: job.description,
-        status: 'published',
+      }
+
+      // Track which boards this job should be listed on
+      if (!listingsToInsert.has(jobKey)) {
+        rowsToInsert.push(jobData)
+        listingsToInsert.set(jobKey, [])
+      }
+
+      listingsToInsert.get(jobKey)!.push({
+        boardId: board.id,
+        status: 'published' as const,
+        imported: true,
       })
     }
   }
@@ -1158,12 +1172,30 @@ export async function runIngest(body: IngestRequestBody) {
 
   let inserted = 0
   const batchSize = 200
+
+  // Insert jobs first (without board/status info)
   for (let i = 0; i < rowsToInsert.length; i += batchSize) {
     const batch = rowsToInsert.slice(i, i + batchSize)
     if (batch.length === 0) continue
-    await db.insert(jobs).values(batch)
+    const insertedJobs = await db.insert(jobs).values(batch).returning({ id: jobs.id })
     inserted += batch.length
-    batch.forEach(r => cacheInvalidate(`board:${r.boardId}:`))
+
+    // Now create listings for each inserted job
+    for (let j = 0; j < batch.length; j++) {
+      const jobId = insertedJobs[j].id
+      const jobKey = `${batch[j].title.toLowerCase()}::${(batch[j].company ?? '').toLowerCase()}`
+      const boardListings = listingsToInsert.get(jobKey) || []
+
+      for (const listing of boardListings) {
+        await db.insert(jobBoardListings).values({
+          jobId,
+          boardId: listing.boardId,
+          status: listing.status,
+          imported: listing.imported,
+        }).catch(() => {}) // Ignore duplicates
+        cacheInvalidate(`board:${listing.boardId}:`)
+      }
+    }
   }
 
   return { ...base, boards: allBoards.length, inserted, skipped }
