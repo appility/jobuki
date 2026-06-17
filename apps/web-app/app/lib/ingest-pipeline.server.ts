@@ -1,6 +1,6 @@
 import { getDb, boards, jobs, jobBoardListings } from '@jobuki/db'
 import { eq, inArray, and } from 'drizzle-orm'
-import { cacheInvalidate } from './board-cache.server'
+import { cacheInvalidate } from './redis-cache.server'
 import { INGEST_CATEGORY_RULES, SOURCE_PRIOR_RULES, resolveCategoryAlias, resolveSourceCategoryHint } from './category-config'
 
 
@@ -1193,7 +1193,7 @@ export async function runIngest(body: IngestRequestBody) {
           status: listing.status,
           imported: listing.imported,
         }).catch(() => {}) // Ignore duplicates
-        cacheInvalidate(`board:${listing.boardId}:`)
+        await cacheInvalidate(`board:${listing.boardId}:`)
       }
     }
   }

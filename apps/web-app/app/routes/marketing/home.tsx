@@ -8,7 +8,7 @@ import { resolveTheme, themeToCSS } from '../../lib/theme'
 import { deriveJobCategory, normalizeCategory, resolveBoardCategories, titleCaseCategory } from '../../lib/board-categories'
 import { normalizeLocation, normalizeLocations } from '../../lib/normalize-location'
 import { getGeoRegions, visitorRegion, rankJobs } from '../../lib/geo-ranking.server'
-import { cacheGet, cacheSet } from '../../lib/board-cache.server'
+import { cacheGet, cacheSet, cacheInvalidate } from '../../lib/redis-cache.server'
 import { publicJobPath } from '../../lib/public-job-path'
 import { getOptionalUser } from '../../lib/auth.server'
 import { PublicBoardHome } from '../../components/public-board-home'
@@ -113,7 +113,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     publishedJobs = meta.map(r => r.jobs)
   } else {
     const cacheKey = `board:${board.id}:publishedJobs`
-    let cached = cacheGet<typeof jobs.$inferSelect[]>(cacheKey)
+    let cached = await cacheGet<any[]>(cacheKey)
     if (!cached) {
       const rows = await db
         .select({
@@ -128,7 +128,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         .where(baseWhere)
         .orderBy(desc(jobs.createdAt))
       cached = rows.map(r => r.jobs)
-      cacheSet(cacheKey, cached)
+      await cacheSet(cacheKey, cached)
     }
     filteredJobs = rankJobs(cached, vRegion, regions)
     publishedJobs = cached
