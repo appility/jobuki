@@ -12,14 +12,19 @@ function getClient() {
     if (process.env.REDIS_PRIVATE_URL) {
       const host = process.env.REDIS_PRIVATE_URL
       const port = process.env.REDIS_PORT || '6379'
-      const password = process.env.REDIS_PASSWORD || ''
-      url = password
-        ? `redis://:${password}@${host}:${port}`
-        : `redis://${host}:${port}`
+      const password = process.env.REDIS_PASSWORD
+
+      if (password) {
+        url = `redis://:${password}@${host}:${port}`
+      } else {
+        url = `redis://${host}:${port}`
+      }
     }
 
     redis = createClient({
       url,
+      // Ensure password is passed even if not in URL
+      ...(process.env.REDIS_PASSWORD && { password: process.env.REDIS_PASSWORD }),
     })
     redis.on('error', (err) => console.error('Redis error:', err))
   }

@@ -109,8 +109,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
         .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
         .where(baseWhere),
     ])
-    filteredJobs = filtered.map(r => r.jobs)
-    publishedJobs = meta.map(r => r.jobs)
+    filteredJobs = filtered
+    publishedJobs = meta
   } else {
     const cacheKey = `board:${board.id}:publishedJobs`
     let cached = await cacheGet<any[]>(cacheKey)
@@ -127,7 +127,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
         .where(baseWhere)
         .orderBy(desc(jobs.createdAt))
-      cached = rows.map(r => r.jobs)
+      cached = rows
       await cacheSet(cacheKey, cached)
     }
     filteredJobs = rankJobs(cached, vRegion, regions)
