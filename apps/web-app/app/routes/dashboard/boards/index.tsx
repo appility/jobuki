@@ -1,7 +1,7 @@
 import { useLoaderData, Link } from 'react-router'
 import type { LoaderFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess } from '../../../lib/auth.server'
-import { getDb, boards, jobs } from '@jobuki/db'
+import { getDb, boards, jobs, jobBoardListings } from '@jobuki/db'
 import { eq, count } from 'drizzle-orm'
 import { boardUrl } from '../../../lib/board-url'
 
@@ -12,7 +12,8 @@ export async function loader(args: LoaderFunctionArgs) {
   const rows = await db
     .select({ board: boards, jobCount: count(jobs.id) })
     .from(boards)
-    .leftJoin(jobs, eq(jobs.boardId, boards.id))
+    .leftJoin(jobBoardListings, eq(jobBoardListings.boardId, boards.id))
+    .leftJoin(jobs, eq(jobs.id, jobBoardListings.jobId))
     .where(eq(boards.workspaceId, workspace.id))
     .groupBy(boards.id)
 

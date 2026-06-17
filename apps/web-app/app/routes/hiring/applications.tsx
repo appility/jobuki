@@ -1,7 +1,7 @@
 import { useLoaderData, Link, Outlet, useLocation } from 'react-router'
 import type { LoaderFunctionArgs } from 'react-router'
 import { requirePosterAccess } from '../../lib/auth.server'
-import { getDb, jobs, boards } from '@jobuki/db'
+import { getDb, jobs, boards, jobBoardListings } from '@jobuki/db'
 import { eq } from 'drizzle-orm'
 
 export async function loader(args: LoaderFunctionArgs) {
@@ -10,9 +10,10 @@ export async function loader(args: LoaderFunctionArgs) {
 
   // Find all jobs posted by this user (across all boards)
   const userJobs = await db
-    .select({ id: jobs.id, title: jobs.title, boardId: jobs.boardId })
+    .select({ id: jobs.id, title: jobs.title, boardId: jobBoardListings.boardId })
     .from(jobs)
-    .innerJoin(boards, eq(jobs.boardId, boards.id))
+    .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+    .innerJoin(boards, eq(jobBoardListings.boardId, boards.id))
     .where(eq(boards.workspaceId, user.id))
 
   return { jobs: userJobs }

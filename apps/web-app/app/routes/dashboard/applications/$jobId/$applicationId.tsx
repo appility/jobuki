@@ -2,7 +2,7 @@ import { useLoaderData, Form, Link, useNavigation } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
 import { useState } from 'react'
 import { requireWorkspaceAccess } from '../../../../lib/auth.server'
-import { getDb, applications, jobs, boards, applicationStatusHistory, applicationNotes } from '@jobuki/db'
+import { getDb, applications, jobs, boards, jobBoardListings, applicationStatusHistory, applicationNotes } from '@jobuki/db'
 import { eq, and, desc } from 'drizzle-orm'
 import { CvPreviewModal } from '../../../../components/cv-preview-modal'
 import { publicJobPath } from '../../../../lib/public-job-path'
@@ -34,7 +34,8 @@ export async function loader(args: LoaderFunctionArgs) {
       })
       .from(applications)
       .innerJoin(jobs, eq(applications.jobId, jobs.id))
-      .innerJoin(boards, eq(jobs.boardId, boards.id))
+      .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+      .innerJoin(boards, eq(jobBoardListings.boardId, boards.id))
       .where(
         and(
           eq(applications.id, applicationId!),
@@ -98,7 +99,8 @@ export async function action(args: ActionFunctionArgs) {
       .select()
       .from(applications)
       .innerJoin(jobs, eq(applications.jobId, jobs.id))
-      .innerJoin(boards, eq(jobs.boardId, boards.id))
+      .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+      .innerJoin(boards, eq(jobBoardListings.boardId, boards.id))
       .where(
         and(
           eq(applications.id, applicationId!),

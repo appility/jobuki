@@ -2,7 +2,7 @@ import { useLoaderData, Link } from 'react-router'
 import { useState, useMemo, useEffect } from 'react'
 import type { LoaderFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess } from '../../../lib/auth.server'
-import { getDb, jobs, boards } from '@jobuki/db'
+import { getDb, jobs, boards, jobBoardListings } from '@jobuki/db'
 import { desc, eq } from 'drizzle-orm'
 
 export async function loader(args: LoaderFunctionArgs) {
@@ -14,7 +14,7 @@ export async function loader(args: LoaderFunctionArgs) {
       job: {
         id: jobs.id,
         title: jobs.title,
-        status: jobs.status,
+        status: jobBoardListings.status,
         externalSource: jobs.externalSource,
         company: jobs.company,
         location: jobs.location,
@@ -25,7 +25,8 @@ export async function loader(args: LoaderFunctionArgs) {
       boardId: boards.id,
     })
     .from(jobs)
-    .innerJoin(boards, eq(jobs.boardId, boards.id))
+    .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+    .innerJoin(boards, eq(jobBoardListings.boardId, boards.id))
     .where(eq(boards.workspaceId, workspace.id))
     .orderBy(desc(jobs.createdAt))
 

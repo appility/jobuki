@@ -1,7 +1,7 @@
 import { useLoaderData, Form, useSearchParams, Link } from 'react-router'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess } from '../../../lib/auth.server'
-import { getDb, applications, jobs, boards, applicationStatusHistory } from '@jobuki/db'
+import { getDb, applications, jobs, boards, jobBoardListings, applicationStatusHistory } from '@jobuki/db'
 import { eq, and } from 'drizzle-orm'
 
 type ApplicationStatus = 'new' | 'reviewing' | 'shortlisted' | 'rejected' | 'hired'
@@ -27,7 +27,8 @@ export async function loader(args: LoaderFunctionArgs) {
   const [job] = await db
     .select()
     .from(jobs)
-    .innerJoin(boards, eq(jobs.boardId, boards.id))
+    .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+    .innerJoin(boards, eq(jobBoardListings.boardId, boards.id))
     .where(and(eq(jobs.id, jobId!), eq(boards.workspaceId, workspace.id)))
 
   if (!job) {
@@ -70,7 +71,8 @@ export async function action(args: ActionFunctionArgs) {
     .select({ application: applications })
     .from(applications)
     .innerJoin(jobs, eq(applications.jobId, jobs.id))
-    .innerJoin(boards, eq(jobs.boardId, boards.id))
+    .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+    .innerJoin(boards, eq(jobBoardListings.boardId, boards.id))
     .where(
       and(
         eq(applications.id, applicationId),

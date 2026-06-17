@@ -1,4 +1,4 @@
-import { getDb, boards, jobs } from '@jobuki/db'
+import { getDb, boards, jobs, jobBoardListings } from '@jobuki/db'
 import { eq, inArray, and } from 'drizzle-orm'
 import { cacheInvalidate } from './board-cache.server'
 import { INGEST_CATEGORY_RULES, SOURCE_PRIOR_RULES, resolveCategoryAlias, resolveSourceCategoryHint } from './category-config'
@@ -1089,9 +1089,10 @@ export async function runIngest(body: IngestRequestBody) {
 
   const existingRows = titles.length
     ? await db
-        .select({ boardId: jobs.boardId, title: jobs.title, company: jobs.company })
+        .select({ boardId: jobBoardListings.boardId, title: jobs.title, company: jobs.company })
         .from(jobs)
-        .where(and(inArray(jobs.boardId, boardIds), inArray(jobs.title, titles)))
+        .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+        .where(and(inArray(jobBoardListings.boardId, boardIds), inArray(jobs.title, titles)))
     : []
 
   const existingKeys = new Set(
