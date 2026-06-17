@@ -1,14 +1,53 @@
-import { useLoaderData, Link } from 'react-router'
-import { useState, useMemo, useEffect } from 'react'
+import { useLoaderData, Link, useNavigate } from 'react-router'
+import { useState } from 'react'
 import type { LoaderFunctionArgs } from 'react-router'
 import { requireWorkspaceAccess } from '../../../lib/auth.server'
 import { getDb, jobs, boards, jobBoardListings } from '@jobuki/db'
-import { desc, eq } from 'drizzle-orm'
+import { desc, eq, count, and, ilike, or, isNull } from 'drizzle-orm'
+import { Pagination } from '../../../components/pagination'
+
+const PAGE_SIZE = 50
 
 export async function loader(args: LoaderFunctionArgs) {
   const { workspace } = await requireWorkspaceAccess(args)
   const db = getDb()
 
+  const url = new URL(args.request.url)
+  const pageParam = Number(url.searchParams.get('page') ?? '1')
+  const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1
+  const searchParam = (url.searchParams.get('q') ?? '').trim().toLowerCase()
+  const originParam = (url.searchParams.get('origin') ?? 'all') as 'all' | 'posted' | 'imported'
+  const statusParam = (url.searchParams.get('status') ?? 'all') as 'all' | 'published' | 'draft' | 'closed'
+
+  // Build filter conditions
+  const conditions = [eq(boards.workspaceId, workspace.id)]
+
+  if (searchParam) {
+    conditions.push(or(
+      ilike(jobs.title, `%${searchParam}%`),
+      ilike(jobs.company, `%${searchParam}%`)
+    )!)
+  }
+
+  if (originParam === 'posted') {
+    conditions.push(isNull(jobs.externalSource))
+  } else if (originParam === 'imported') {
+    conditions.push(jobs.externalSource.isNotNull())
+  }
+
+  if (statusParam !== 'all') {
+    conditions.push(eq(jobBoardListings.status, statusParam as any))
+  }
+
+  // Get total count
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(jobs)
+    .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
+    .innerJoin(boards, eq(jobBoardListings.boardId, boards.id))
+    .where(and(...conditions))
+
+  // Get paginated results
   const rows = await db
     .select({
       job: {
@@ -27,10 +66,22 @@ export async function loader(args: LoaderFunctionArgs) {
     .from(jobs)
     .innerJoin(jobBoardListings, eq(jobs.id, jobBoardListings.jobId))
     .innerJoin(boards, eq(jobBoardListings.boardId, boards.id))
-    .where(eq(boards.workspaceId, workspace.id))
+    .where(and(...conditions))
     .orderBy(desc(jobs.createdAt))
+    .limit(PAGE_SIZE)
+    .offset((page - 1) * PAGE_SIZE)
 
-  return { jobs: rows }
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  return {
+    jobs: rows,
+    page,
+    totalPages,
+    total,
+    search: searchParam,
+    origin: originParam,
+    status: statusParam,
+  }
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -39,36 +90,44 @@ const STATUS_COLOR: Record<string, string> = {
   closed:    'var(--color-danger)',
 }
 
-const PAGE_SIZE = 50
-
 type OriginFilter = 'all' | 'posted' | 'imported'
 type StatusFilter = 'all' | 'published' | 'draft' | 'closed'
 
 export default function JobsIndex() {
-  const { jobs: rows } = useLoaderData<typeof loader>()
-  const [search, setSearch] = useState('')
-  const [origin, setOrigin] = useState<OriginFilter>('all')
-  const [status, setStatus] = useState<StatusFilter>('all')
-  const [page, setPage] = useState(1)
+  const { jobs: rows, page, totalPages, total, search: initialSearch, origin: initialOrigin, status: initialStatus } = useLoaderData<typeof loader>()
+  const navigate = useNavigate()
+  const [search, setSearch] = useState(initialSearch)
+  const [origin, setOrigin] = useState<OriginFilter>(initialOrigin)
+  const [status, setStatus] = useState<StatusFilter>(initialStatus)
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim()
-    return rows.filter(({ job }) => {
-      if (origin === 'posted' && job.externalSource) return false
-      if (origin === 'imported' && !job.externalSource) return false
-      if (status !== 'all' && job.status !== status) return false
-      if (q && !job.title.toLowerCase().includes(q) && !(job.company ?? '').toLowerCase().includes(q)) return false
-      return true
-    })
-  }, [rows, search, origin, status])
+  const buildQuery = (newSearch?: string, newOrigin?: OriginFilter, newStatus?: StatusFilter) => {
+    const params = new URLSearchParams()
+    const s = newSearch ?? search
+    const o = newOrigin ?? origin
+    const st = newStatus ?? status
 
-  useEffect(() => { setPage(1) }, [search, origin, status])
+    if (s) params.set('q', s)
+    if (o !== 'all') params.set('origin', o)
+    if (st !== 'all') params.set('status', st)
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+    return `?${params.toString()}`
+  }
 
-  const postedCount   = rows.filter(r => !r.job.externalSource).length
-  const importedCount = rows.filter(r =>  r.job.externalSource).length
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newSearch = e.target.value
+    setSearch(newSearch)
+    navigate(buildQuery(newSearch, origin, status))
+  }
+
+  const handleOriginChange = (o: OriginFilter) => {
+    setOrigin(o)
+    navigate(buildQuery(search, o, status))
+  }
+
+  const handleStatusChange = (s: StatusFilter) => {
+    setStatus(s)
+    navigate(buildQuery(search, origin, s))
+  }
 
   return (
     <div className="w-full p-8 max-w-7xl">
@@ -76,7 +135,7 @@ export default function JobsIndex() {
         <div>
           <h1 className="text-2xl font-extrabold" style={{ color: 'var(--color-text-primary)' }}>Jobs</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-            {rows.length} total — {postedCount} posted · {importedCount} imported
+            {total} total jobs
           </p>
         </div>
         <Link to="/dashboard/jobs/new" className="btn-primary">+ Post a job</Link>
@@ -90,14 +149,14 @@ export default function JobsIndex() {
             <button
               key={o}
               type="button"
-              onClick={() => setOrigin(o)}
+              onClick={() => handleOriginChange(o)}
               className="px-3 py-1.5 text-xs font-semibold capitalize transition-colors"
               style={{
                 backgroundColor: origin === o ? 'var(--color-primary)' : 'var(--color-surface)',
                 color: origin === o ? 'var(--color-primary-fg)' : 'var(--color-text-secondary)',
               }}
             >
-              {o === 'all' ? `All (${rows.length})` : o === 'posted' ? `Posted (${postedCount})` : `Imported (${importedCount})`}
+              {o}
             </button>
           ))}
         </div>
@@ -108,7 +167,7 @@ export default function JobsIndex() {
             <button
               key={s}
               type="button"
-              onClick={() => setStatus(s)}
+              onClick={() => handleStatusChange(s)}
               className="px-3 py-1.5 text-xs font-semibold capitalize transition-colors"
               style={{
                 backgroundColor: status === s ? 'var(--color-text-primary)' : 'var(--color-surface)',
@@ -123,20 +182,14 @@ export default function JobsIndex() {
         {/* Search */}
         <input
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={handleSearch}
           placeholder="Search title or company…"
           className="input"
           style={{ width: 220 }}
         />
-
-        {filtered.length !== rows.length && (
-          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {filtered.length} result{filtered.length !== 1 ? 's' : ''}
-          </span>
-        )}
       </div>
 
-      {filtered.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="card p-12 text-center">
           <p className="font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>No jobs match</p>
           <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
@@ -146,7 +199,7 @@ export default function JobsIndex() {
       ) : (
         <>
           <div className="flex flex-col gap-2">
-            {paginated.map(({ job, boardName }) => (
+            {rows.map(({ job, boardName }) => (
               <div key={job.id} className="card p-4 flex items-center justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
@@ -175,59 +228,13 @@ export default function JobsIndex() {
             ))}
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
-              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
-              </span>
-              <div className="flex gap-1">
-                <button
-                  type="button"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-40"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', color: 'var(--color-text-secondary)' }}
-                >
-                  ← Prev
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter(p => Math.abs(p - page) <= 2 || p === 1 || p === totalPages)
-                  .reduce<(number | '…')[]>((acc, p, i, arr) => {
-                    if (i > 0 && (arr[i - 1] as number) < p - 1) acc.push('…')
-                    acc.push(p)
-                    return acc
-                  }, [])
-                  .map((p, i) =>
-                    p === '…' ? (
-                      <span key={`ellipsis-${i}`} className="px-2 py-1.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>…</span>
-                    ) : (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setPage(p as number)}
-                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors"
-                        style={{
-                          borderColor: page === p ? 'var(--color-primary)' : 'var(--color-border)',
-                          backgroundColor: page === p ? 'var(--color-primary)' : 'var(--color-surface)',
-                          color: page === p ? 'var(--color-primary-fg)' : 'var(--color-text-secondary)',
-                        }}
-                      >
-                        {p}
-                      </button>
-                    )
-                  )}
-                <button
-                  type="button"
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-40"
-                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)', color: 'var(--color-text-secondary)' }}
-                >
-                  Next →
-                </button>
-              </div>
-            </div>
-          )}
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={total}
+            pageSize={PAGE_SIZE}
+            baseUrl={buildQuery()}
+          />
         </>
       )}
     </div>
